@@ -44,6 +44,11 @@ async function handleClaimOrder(req, res, cors) {
         body: JSON.stringify({ chat_id: cls[0].telegram_chat_id, text: `✅ Ваш заказ принят в работу!\n\n📋 Диспетчер: ${dispName}\n\nСкоро мы подберём для вас рабочих.`, parse_mode: 'HTML' })
       });
       sendPushNotification({ userId: clientId, userRole: 'client', eventType: 'order_accepted', priority: 'high', title: '✅ Заказ принят', body: `Диспетчер: ${dispName}. Подбираем рабочих.`, deepLink: '/client.html' });
+      // MAX notification to client
+      const clientContact = (await (await sbFetch('clients', `id=eq.${clientId}&select=contact&limit=1`)).json())[0];
+      if (clientContact) {
+        maxNotify('clients', clientContact.contact, `✅ Ваш заказ принят в работу!\n\n📋 Диспетчер: ${dispName}\n\nСкоро мы подберём для вас рабочих.`);
+      }
     }
   }
 
@@ -111,6 +116,7 @@ async function handlePostProcess(table, method, data, body, query, req) {
           body: JSON.stringify({ chat_id: d.telegram_chat_id, text: orderText, parse_mode: 'HTML' })
         });
         sendPushNotification({ userId: d.id, userRole: 'dispatcher', eventType: 'new_shift', priority: 'high', title: '🆕 Новый заказ', body: `${cl.name || '—'} | ${orderDate} | ${svc.name || ''}`, deepLink: '/' });
+        maxNotify('users', d.phone, orderText);
       }
       syncToGoogleSheets('syncShift', {
         shift_id: first.id, shift_date: first.date, shift_client: cl.name || '',
@@ -154,6 +160,29 @@ async function handlePostProcess(table, method, data, body, query, req) {
               }
             }
           } catch (e) { console.error('[AutoSalary] Error:', e.message); }
+
+          // Notify client and dispatcher about shift completion
+          try {
+            const shiftDate = sh.date ? sh.date.split('-').reverse().join('.') : '—';
+            const clName = sh.clients?.name || '—';
+            const svcName = sh.service_types?.name || '';
+            // Notify client
+            if (sh.client_id) {
+              const clientData = (await (await sbFetch('clients', `id=eq.${sh.client_id}&select=contact,telegram_chat_id&limit=1`)).json())[0];
+              if (clientData) {
+                tgNotify('clients', clientData.contact, `✅ Смена завершена\n\n📅 ${shiftDate}\n📋 ${svcName}\n\nСмена выполнена. Спасибо!`);
+                maxNotify('clients', clientData.contact, `✅ Смена завершена\n\n📅 ${shiftDate}\n📋 ${svcName}\n\nСмена выполнена. Спасибо!`);
+              }
+            }
+            // Notify dispatcher who created the shift
+            if (sh.created_by) {
+              const dispatcher = (await (await sbFetch('users', `id=eq.${sh.created_by}&select=phone,full_name,telegram_chat_id&limit=1`)).json())[0];
+              if (dispatcher) {
+                maxNotify('users', dispatcher.phone, `✅ Смена завершена\n\n🏢 ${clName}\n📅 ${shiftDate}\n📋 ${svcName}`);
+                tgNotify('users', dispatcher.phone, `✅ Смена завершена\n\n🏢 ${clName}\n📅 ${shiftDate}\n📋 ${svcName}`);
+              }
+            }
+          } catch (e) { console.error('[ShiftComplete] Notification error:', e.message); }
         }
       }
     }
@@ -201,6 +230,8 @@ async function handlePostProcess(table, method, data, body, query, req) {
       });
       if (method === 'POST' && a.worker_id) {
         tgNotify('workers', workerPhone,
+          `📋 Новый заказ\n\n📅 Проверьте расписание в системе\n\n👉 https://xn----gtbdan3bddhceo9d.xn--p1ai/worker.html`);
+        maxNotify('workers', workerPhone,
           `📋 Новый заказ\n\n📅 Проверьте расписание в системе\n\n👉 https://xn----gtbdan3bddhceo9d.xn--p1ai/worker.html`);
         sendPushNotification({ userId: a.worker_id, userRole: 'worker', eventType: 'shift_assigned', priority: 'high', title: '📋 Вас назначили на смену', body: 'Проверьте расписание в системе', deepLink: '/worker.html' });
       }

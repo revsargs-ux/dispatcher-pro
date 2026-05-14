@@ -430,8 +430,8 @@ async function render(){
           ${endTime?`<div><strong>🕐 Окончание:</strong> ${endTime}</div>`:''}
           ${a.actual_start_time?`<div><strong>▶️ Фактическое начало:</strong> ${formatTime(a.actual_start_time)}</div>`:''}
           ${a.actual_end_time?`<div><strong>⏹ Фактическое окончание:</strong> ${formatTime(a.actual_end_time)}</div>`:''}
-          ${address?`<div><strong>📍 Адрес:</strong> ${address}</div>`:''}
-          ${comment?`<div style="color:var(--text-light);margin-top:4px;">💬 ${comment}</div>`:''}
+          ${address?`<div><strong>📍 Адрес:</strong> ${esc(address)}</div>`:''}
+          ${comment?`<div style="color:var(--text-light);margin-top:4px;">💬 ${esc(comment)}</div>`:''}
         </div>`;
       }
 
@@ -485,8 +485,8 @@ async function render(){
 
       return `<div class="card" id="card-${a.id}">
         <div class="date">📅 ${dateStr}</div>
-        <div class="title">${clientName}</div>
-        <div class="detail">${serviceName}</div>
+        <div class="title">${esc(clientName)</div>
+        <div class="detail">${esc(serviceName)</div>
         ${amountHtml}
         ${statusHtml}
         ${timeBlock}

@@ -14,22 +14,21 @@ const config = {
   // Telegram
   tgBotToken: process.env.TG_BOT_TOKEN || '',
   get tgApi() { return 'https://api.telegram.org/bot' + this.tgBotToken; },
-  maxBotToken: process.env.MAX_BOT_TOKEN || 'f9LHodD0cOLgiq-JgG1JB-vYPJv79mc3jdJNL0xWm9DiMZk4g5gvHjIAzeOwEw_L1K6-BsX92qknFhQVeUTH',
+  maxBotToken: process.env.MAX_BOT_TOKEN || '',
   get maxApi() { return 'https://platform-api.max.ru'; },
   
   // Google Sheets
   gasUrl: process.env.GAS_URL || '',
-  gasWebhookSecret: process.env.GAS_WEBHOOK_SECRET || 'dp_gas_sync_2026',
+  gasWebhookSecret: process.env.GAS_WEBHOOK_SECRET || '',
   
   // Gemini / ZAI
-  geminiKey: process.env.GEMINI_API_KEY || 'e3f35d3da0ff430ea723fac65fcfc2bf.weqojee5xK0xpyEx',
+  geminiKey: process.env.GEMINI_API_KEY || '',
 
   // CORS
   allowedOrigins: [
     'https://xn----gtbdan3bddhceo9d.xn--p1ai',
     'https://bot.plus-rabochie.ru',
-    'http://localhost:8080',
-    'http://localhost:3000'
+// localhost removed — production only
   ],
   
   // Paths

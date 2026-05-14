@@ -6,7 +6,7 @@
 const { config } = require('../modules/config');
 
 const EDGE_FUNCTION_URL = `https://YOUR-PROJECT.supabase.co/functions/v1/send-notification`;
-const WEBHOOK_SECRET = 'dp_notify_secret_2026';
+const WEBHOOK_SECRET = process.env.PUSH_SECRET || '';
 
 /**
  * Отправляет push-уведомление через Edge Function
