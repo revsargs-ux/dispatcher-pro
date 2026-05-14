@@ -99,13 +99,6 @@ canvas.chart{width:100%;height:200px;background:#fff;border-radius:10px;box-shad
   <input type="password" id="auth-pass" placeholder="Пароль">
   <button onclick="doLogin()">Войти</button>
   <div class="auth-error" id="auth-error"></div>
-  <!-- 2FA Modal -->
-  <div id="twofa-modal" style="display:none;text-align:center;margin-top:16px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--bg);">
-    <p style="margin:0 0 12px;font-weight:600;">🔐 Код подтверждения отправлен в Telegram</p>
-    <input type="text" id="twofa-code" placeholder="6-значный код" maxlength="6" style="text-align:center;font-size:20px;letter-spacing:4px;width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;">
-    <button onclick="doVerify2FA()" style="margin-top:10px;width:100%;">Подтвердить</button>
-    <div id="twofa-error" style="color:red;margin-top:8px;font-size:13px;"></div>
-  </div>
 </div></div>
 
 <div id="app" style="display:none;">
@@ -281,29 +274,7 @@ async function doLogin(){
   const authRes=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',phone,pass,role:'owner'})});
   const u=await authRes.json();
   if(!u.ok){showErr(u.error||'Ошибка');return;}
-  if(u.require2FA){
-    document.getElementById('auth-error').style.display='none';
-    document.getElementById('twofa-modal').style.display='block';
-    window._2faUserId=u.userId;
-    document.getElementById('twofa-code').value='';
-    document.getElementById('twofa-code').focus();
-    return;
-  }
-  completeOwnerLogin(u);
-}
-async function doVerify2FA(){
-  const code=document.getElementById('twofa-code').value.trim();
-  if(!code||code.length!==6){document.getElementById('twofa-error').textContent='Введите 6-значный код';return;}
-  try{
-    const res=await fetch('/auth/verify-2fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:window._2faUserId,code})});
-    const data=await res.json();
-    if(!data.ok){document.getElementById('twofa-error').textContent=data.error||'Неверный код';return;}
-    document.getElementById('twofa-modal').style.display='none';
-    completeOwnerLogin(data);
-  }catch(e){document.getElementById('twofa-error').textContent='Ошибка подключения';}
-}
-function completeOwnerLogin(u){
-  currentUser=u.user;localStorage.setItem('dp_rop',u.user.phone);if(u.token)localStorage.setItem('dp_token',u.token);
+  currentUser=u.user;localStorage.setItem('dp_rop',phone);if(u.token)localStorage.setItem('dp_token',u.token);
   document.getElementById('auth-screen').style.display='none';document.getElementById('app').style.display='block';
   document.getElementById('user-name').textContent=u.user.full_name;
   updateMonthLabels();loadCache();loadOverview();

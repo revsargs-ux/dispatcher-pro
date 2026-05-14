@@ -219,13 +219,6 @@ th.sort-desc::after{content:" ↓";opacity:1;}
     </div>
   </div>
   <div class="auth-error" id="auth-error"></div>
-  <!-- 2FA Modal -->
-  <div id="twofa-modal" style="display:none;text-align:center;margin-top:16px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--bg);">
-    <p style="margin:0 0 12px;font-weight:600;">🔐 Код подтверждения отправлен в Telegram</p>
-    <input type="text" id="twofa-code" placeholder="6-значный код" maxlength="6" style="text-align:center;font-size:20px;letter-spacing:4px;width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;">
-    <button onclick="doVerify2FA()" style="margin-top:10px;width:100%;">Подтвердить</button>
-    <div id="twofa-error" style="color:red;margin-top:8px;font-size:13px;"></div>
-  </div>
 </div>
 </div>
 
@@ -599,42 +592,19 @@ async function doLogin(){
     const authRes=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',phone,pass})});
     const user=await authRes.json();
     if(!user.ok){showAuthError(user.error||'Ошибка');return;}
-    // 2FA required?
-    if(user.require2FA){
-      document.getElementById('auth-error').style.display='none';
-      document.getElementById('twofa-modal').style.display='block';
-      window._2faUserId=user.userId;
-      window._2faRole=user.role;
-      document.getElementById('twofa-code').value='';
-      document.getElementById('twofa-code').focus();
-      return;
-    }
     if(!['owner','dispatcher'].includes(user.user.role)){showAuthError('Нет доступа');return;}
-    completeLogin(user);
-  }catch(e){showAuthError('Ошибка подключения');}
-}
-async function doVerify2FA(){
-  const code=document.getElementById('twofa-code').value.trim();
-  if(!code||code.length!==6){document.getElementById('twofa-error').textContent='Введите 6-значный код';return;}
-  try{
-    const res=await fetch('/auth/verify-2fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:window._2faUserId,code})});
-    const data=await res.json();
-    if(!data.ok){document.getElementById('twofa-error').textContent=data.error||'Неверный код';return;}
-    document.getElementById('twofa-modal').style.display='none';
-    completeLogin(data);
-  }catch(e){document.getElementById('twofa-error').textContent='Ошибка подключения';}
-}
-function completeLogin(user){
-    if(!user.user||!['owner','dispatcher'].includes(user.user.role)){showAuthError('Нет доступа');return;}
+    if(!user.is_active&&user.is_active!==undefined){showAuthError('Аккаунт деактивирован');return;}
     currentUser=user.user;
     localStorage.setItem('dp_auth',JSON.stringify({phone:user.user.phone,id:user.user.id,full_name:user.user.full_name,role:user.user.role,rate_per_hour:user.user.rate_per_hour,monthly_target_hours:user.user.monthly_target_hours}));
     if(user.token)localStorage.setItem('dp_token',user.token);
     document.getElementById('auth-screen').style.display='none';
     document.getElementById('app').style.display='block';
-    document.getElementById('user-name').textContent=user.user.full_name;
-    document.getElementById('user-role').textContent=user.user.role==='owner'?'Владелец':'Диспетчер';
-    if(user.user.role==='owner')document.getElementById('tab-dispatchers').style.display='';
-    if(user.user.role==='owner'){
+    document.getElementById('user-name').textContent=user.full_name;
+    document.getElementById('user-role').textContent=user.role==='owner'?'Владелец':'Диспетчер';
+    // Show dispatchers tab only for owner
+    if(user.role==='owner')document.getElementById('tab-dispatchers').style.display='';
+    // Settings: only owner can edit
+    if(user.role==='owner'){
       document.getElementById('settings-rate').removeAttribute('readonly');
       document.getElementById('settings-rate').style.background='';
       document.getElementById('settings-target').removeAttribute('readonly');
@@ -642,15 +612,18 @@ function completeLogin(user){
       document.getElementById('settings-save-btn').style.display='';
       document.getElementById('settings-readonly-notice').style.display='none';
     }
-    if(user.user.role==='dispatcher'){
-      document.getElementById('settings-rate').value=user.user.rate_per_hour||7.5;
-      document.getElementById('settings-target').value=user.user.monthly_target_hours||8000;
+    // Show settings rate for dispatcher
+    if(user.role==='dispatcher'){
+      document.getElementById('settings-rate').value=user.rate_per_hour||7.5;
+      document.getElementById('settings-target').value=user.monthly_target_hours||8000;
     }
-    if(user.user.role==='owner'&&user.user.rate_per_hour){
-      document.getElementById('settings-rate').value=user.user.rate_per_hour;
-      document.getElementById('settings-target').value=user.user.monthly_target_hours||8000;
+    // Also set initial values for owner
+    if(user.role==='owner'&&user.rate_per_hour){
+      document.getElementById('settings-rate').value=user.rate_per_hour;
+      document.getElementById('settings-target').value=user.monthly_target_hours||8000;
     }
     init();
+  }catch(e){showAuthError('Ошибка подключения');}
 }
 function showAuthError(msg){const el=document.getElementById('auth-error');el.textContent=msg;el.style.display='block';}
 function showRegForm(){document.getElementById('auth-login').style.display='none';document.getElementById('auth-reg').style.display='block';document.getElementById('auth-error').style.display='none';}
@@ -879,7 +852,6 @@ async function closeShift(id){
   if(!confirm('Закрыть смену?'))return;
   await api('shift_assignments','PATCH',{invite_status:'declined'},'?shift_id=eq.'+id+'&invite_status=eq.invited');
   await api('shifts','PATCH',{status:'completed'},'?id=eq.'+id);
-  toast('✅ Смена завершена. Уведомления отправлены.');
   loadShifts();loadDashboard();
 }
 

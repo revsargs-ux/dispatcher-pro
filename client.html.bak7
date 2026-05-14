@@ -371,17 +371,10 @@ async function showMain(){
   setInterval(()=>render(),30000);
 }
 
-let _prevClientShiftStatus={};
 async function render(){
   if(!client){return;}
   try{
     const shifts=await api('shifts','GET',null,`?client_id=eq.${client.id}&select=id,date,start_time,planned_end_time,comment,status,service_types(name)&order=date.desc&limit=100`);
-    // Detect status changes
-    (shifts||[]).forEach(s=>{
-      const prev=_prevClientShiftStatus[s.id];
-      if(prev && prev!=='completed' && s.status==='completed'){toast('✅ Смена завершена!');}
-      _prevClientShiftStatus[s.id]=s.status;
-    });
     const shiftIds=(shifts||[]).map(s=>s.id);
     if(!shiftIds.length){document.getElementById('client-stats').textContent='Нет смен';document.getElementById('tab-shifts').innerHTML='<div class="empty"><div style="font-size:48px">📭</div><p>Смен пока нет</p></div>';return;}
     const idList=shiftIds.map(id=>`"${id}"`).join(',');
@@ -441,8 +434,6 @@ function renderShifts(shiftMap,wMap){
     const hasDone=as.some(a=>a.actual_end_time&&!a.client_confirmed);
     const allConfirmed=as.every(a=>a.client_confirmed);
     const confirmBtn=hasDone&&!allConfirmed?`<button class="btn btn-green" onclick="confirmShift('${shift.id}')">✅ Подтвердить данные</button>`:'';
-    const safeName=(shift.service_types?.name||'Смена').replace(/'/g,"\\'");
-    const calBtn=`<button class="btn btn-sm" style="margin-left:4px;font-size:12px;" onclick="exportIcal('${shift.id}','${safeName}','${shift.date||''}','${shift.start_time||''}','${shift.planned_end_time||''}',this)">📅 Календарь</button>`;
     const lockNotice=allConfirmed?'<div style="text-align:center;font-size:12px;color:var(--accent);margin-top:6px;">🔒 Подтверждено</div>':'';
 
     return`<div class="card">
@@ -458,9 +449,7 @@ function renderShifts(shiftMap,wMap){
         <span style="font-size:13px;color:var(--text-light);">${confirmedCount} подтверждено${done>0?' · '+done+' завершено':''}${working?' · '+working+' на смене':''}</span>
       </div>
       ${shiftCost>0?`<div class="amount ${shiftDebt<=0?'paid':'unpaid'}">💰 ${shiftCost.toLocaleString('ru')}₽${shiftDebt>0?' (долг: '+shiftDebt.toLocaleString('ru')+'₽)':' ✅ Оплачено'}</div>`:''}
-      ${workersHtml}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">${confirmBtn}${calBtn}</div>${lockNotice}
-      <button class="btn btn-sm" style="margin-top:6px;font-size:12px;" onclick="loadShiftPhotos('${shift.id}',this)">📸 Фото с объекта</button>
-      <div id="photos-${shift.id}" style="display:none;margin-top:6px;"></div>
+      ${workersHtml}${confirmBtn}${lockNotice}
     </div>`;
   }).join('')||'<div class="empty">📭 Нет смен</div>';
 }
@@ -559,32 +548,6 @@ function renderAnalytics(shifts,assignments,totalH,totalAmount,totalPaid,totalDe
     </div>
     <div class="card"><h3 style="font-size:14px;color:var(--primary);margin-bottom:10px;">По типам услуг</h3>${serviceHtml||'<p style="color:var(--text-light);font-size:13px;">Нет данных</p>'}</div>
   `;
-}
-
-function exportIcal(shiftId,svcName,date,startTime,endTime,btn){
-  // Parse date and times
-  const dtStart=date.replace(/-/g,'')+('T'+(startTime||'0900')).replace(/:/g,'').padEnd(9,'0').slice(0,9)+'00';
-  const dtEnd=date.replace(/-/g,'')+('T'+(endTime||'1700')).replace(/:/g,'').padEnd(9,'0').slice(0,9)+'00';
-  const ics=`BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Dispatcher.PRO\nBEGIN:VEVENT\nDTSTART:${dtStart}\nDTEND:${dtEnd}\nSUMMARY:Смена - ${svcName}\nEND:VEVENT\nEND:VCALENDAR`;
-  const blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='shift-'+shiftId+'.ics';a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function loadShiftPhotos(shiftId,btn){
-  const container=document.getElementById('photos-'+shiftId);
-  if(container.style.display!=='none'){container.style.display='none';btn.textContent='📸 Фото с объекта';return;}
-  btn.textContent='⏳ Загрузка...';
-  try{
-    const r=await fetch('/api/shift-photos?shift_id='+shiftId,{headers:{'Authorization':'Bearer '+localStorage.getItem('dp_token')}});
-    if(!r.ok){container.innerHTML='<div style="font-size:12px;color:var(--danger);">Ошибка загрузки</div>';container.style.display='block';btn.textContent='📸 Фото с объекта';return;}
-    const photos=await r.json();
-    if(!photos.length){container.innerHTML='<div style="font-size:12px;color:var(--text-light);">Фото пока нет</div>';container.style.display='block';btn.textContent='📸 Фото с объекта';return;}
-    container.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;">'+photos.map(p=>`<img src="/shift-photos/${p.filename}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="window.open('/shift-photos/${p.filename}','_blank')">`).join('')+'</div>';
-    container.style.display='block';
-    btn.textContent='📸 Скрыть фото';
-  }catch(e){container.innerHTML='<div style="font-size:12px;color:var(--danger);">Ошибка</div>';container.style.display='block';btn.textContent='📸 Фото с объекта';}
 }
 
 async function confirmShift(shiftId){

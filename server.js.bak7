@@ -45,10 +45,6 @@ setInterval(() => {
   } catch (e) { console.error('[Receipts] Cleanup error:', e.message); }
 }, 24 * 60 * 60 * 1000);
 
-// Ensure shift-photos directory exists
-const shiftPhotosDir = path.join(__dirname, 'data', 'shift-photos');
-if (!fs.existsSync(shiftPhotosDir)) fs.mkdirSync(shiftPhotosDir, { recursive: true });
-
 const router = createRouter();
 const server = http.createServer(async (req, res) => {
   const startMs = Date.now();
@@ -58,46 +54,6 @@ const server = http.createServer(async (req, res) => {
     return origEnd.apply(res, args);
   };
   try {
-    // Shift photo upload endpoint
-    const urlPath = req.url.split('?')[0];
-    if (urlPath === '/api/upload-shift-photo' && req.method === 'POST') {
-      const auth = req.headers['authorization'];
-      if (!auth) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Auth required' })); }
-      const body = await new Promise((resolve, reject) => { let d = ''; req.on('data', c => d += c); req.on('end', () => resolve(d)); req.on('error', reject); });
-      try {
-        const { filename, data: b64, shift_id } = JSON.parse(body);
-        if (!filename || !b64 || !shift_id) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Missing fields' })); }
-        const buf = Buffer.from(b64, 'base64');
-        if (buf.length > 5 * 1024 * 1024) { res.writeHead(413, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'File too large' })); }
-        const fname = shift_id + '_' + Date.now() + '_' + String(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
-        fs.writeFileSync(path.join(shiftPhotosDir, fname), buf);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, filename: fname }));
-      } catch (e) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Upload error' })); }
-      return;
-    }
-    // Shift photo list endpoint
-    if (urlPath === '/api/shift-photos' && req.method === 'GET') {
-      const params = new URL(req.url, 'http://localhost').searchParams;
-      const shiftId = params.get('shift_id');
-      if (!shiftId) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'shift_id required' })); }
-      try {
-        const files = fs.readdirSync(shiftPhotosDir).filter(f => f.startsWith(shiftId + '_'));
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(files.map(f => ({ filename: f, url: '/shift-photos/' + f }))));
-      } catch (e) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify([])); }
-      return;
-    }
-    // Shift photo serve endpoint
-    if (urlPath.startsWith('/shift-photos/')) {
-      const photoFile = path.join(shiftPhotosDir, urlPath.replace('/shift-photos/', ''));
-      if (!photoFile.startsWith(shiftPhotosDir) || !fs.existsSync(photoFile)) { res.writeHead(404); return res.end('Not found'); }
-      const ext = path.extname(photoFile).toLowerCase();
-      const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp' }[ext] || 'application/octet-stream';
-      res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'no-cache' });
-      fs.createReadStream(photoFile).pipe(res);
-      return;
-    }
     // Push subscription endpoint (изолированный модуль уведомлений)
     if (req.url === '/api/push-subscription') {
       return handlePushSubscription(req, res);
