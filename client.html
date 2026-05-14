@@ -565,13 +565,13 @@ function renderPayments(assignments,payments,wMap){
     if(debt>0)_allPayShifts.push({shiftId:sid,asgnIds:shiftAsgnIds,debt:debt,date:dateStr,svc:svc,count:data.count,selected:false});
     html+=`<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div><strong>${dateStr} · ${svc}</strong><div class="date">${data.count} чел · ${data.cost.toLocaleString('ru')}₽</div></div>
+        <div><strong>${esc(dateStr)} · ${esc(svc)}</strong><div class="date">${data.count} чел · ${data.cost.toLocaleString('ru')}₽</div></div>
         <span class="badge ${isPaid?'badge-green':'badge-yellow'}">${isPaid?'Оплачено':'Ждёт оплаты'}</span>
       </div>
       ${debt>0?`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;"><span style="color:var(--warning);font-weight:600;">Долг: ${debt.toLocaleString('ru')}₽</span><button class="btn btn-primary" onclick="openPaySingle('${sid}',${debt},${JSON.stringify(shiftAsgnIds)})">💳 Оплатить</button></div>`:''}
       ${shiftPayments.length?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
         <div style="font-size:12px;color:var(--text-light);margin-bottom:4px;">История платежей:</div>
-        ${shiftPayments.map(p=>{const mth=p.method==='transfer'?'Перевод':p.method==='invoice'?'Безналичный':p.method==='cash'?'Наличные':p.method||'—';const receipt=p.note&&p.note.startsWith('receipt:')?`<a href="${p.note.replace('receipt:','')}" target="_blank" style="color:var(--primary);font-size:12px;">📎 Чек</a>`:'';const pending=p.status==='pending_confirmation';const statusBadge=pending?'<span style="color:var(--warning);font-size:11px;margin-left:4px;">⏳ Ожидает подтверждения</span>':'<span style="color:var(--accent);font-size:11px;margin-left:4px;">✅ Подтверждён</span>';return`<div class="payment-row"><div><div>${(parseFloat(p.amount)||0).toLocaleString('ru')}₽${statusBadge}</div><div class="date">${fmtDate(p.created_at?.split('T')[0])} · ${mth} ${receipt}</div></div></div>`;}).join('')}
+        ${shiftPayments.map(p=>{const mth=p.method==='transfer'?'Перевод':p.method==='invoice'?'Безналичный':p.method==='cash'?'Наличные':esc(p.method||'—');const receipt=p.note&&p.note.startsWith('receipt:')?`<a href="${esc(p.note.replace('receipt:',''))}" target="_blank" style="color:var(--primary);font-size:12px;">📎 Чек</a>`:'';const pending=p.status==='pending_confirmation';const statusBadge=pending?'<span style="color:var(--warning);font-size:11px;margin-left:4px;">⏳ Ожидает подтверждения</span>':'<span style="color:var(--accent);font-size:11px;margin-left:4px;">✅ Подтверждён</span>';return`<div class="payment-row"><div><div>${(parseFloat(p.amount)||0).toLocaleString('ru')}₽${statusBadge}</div><div class="date">${fmtDate(p.created_at?.split('T')[0])} · ${mth} ${receipt}</div></div></div>`;}).join('')}
       </div>`:''}
     </div>`;
   });
@@ -602,7 +602,7 @@ function renderAnalytics(shifts,assignments,totalH,totalAmount,totalPaid,totalDe
   const maxRev=Math.max(...Object.values(byService).map(s=>s.revenue),1);
 
   let serviceHtml=Object.entries(byService).sort((a,b)=>b[1].revenue-a[1].revenue).map(([name,d])=>
-    `<div class="bar-row"><div class="bar-label">${name}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(d.revenue/maxRev*100)}%"></div></div><div class="bar-val">${d.revenue.toLocaleString('ru')}₽</div></div>`
+    `<div class="bar-row"><div class="bar-label">${esc(name)}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(d.revenue/maxRev*100)}%"></div></div><div class="bar-val">${d.revenue.toLocaleString('ru')}₽</div></div>`
   ).join('');
 
   document.getElementById('tab-analytics').innerHTML=`
@@ -641,7 +641,7 @@ async function loadShiftPhotos(shiftId,btn){
     if(!r.ok){container.innerHTML='<div style="font-size:12px;color:var(--danger);">Ошибка загрузки</div>';container.style.display='block';btn.textContent='📸 Фото с объекта';return;}
     const photos=await r.json();
     if(!photos.length){container.innerHTML='<div style="font-size:12px;color:var(--text-light);">Фото пока нет</div>';container.style.display='block';btn.textContent='📸 Фото с объекта';return;}
-    container.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;">'+photos.map(p=>`<img src="/shift-photos/${p.filename}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="window.open('/shift-photos/${p.filename}','_blank')">`).join('')+'</div>';
+    container.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;">'+photos.map(p=>{const fn=esc(p.filename);return `<img src="/shift-photos/${fn}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="window.open('/shift-photos/${fn}','_blank')">`}).join('')+'</div>';
     container.style.display='block';
     btn.textContent='📸 Скрыть фото';
   }catch(e){container.innerHTML='<div style="font-size:12px;color:var(--danger);">Ошибка</div>';container.style.display='block';btn.textContent='📸 Фото с объекта';}

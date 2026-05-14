@@ -91,8 +91,22 @@ async function handleApiProxy(req, res, cors, urlPath) {
       if (action) audit(action, `${table} ${req.method}`, session?.userId, session?.role, req.headers['x-forwarded-for'] || req.socket.remoteAddress);
     }
 
+    // Strip passwords from sensitive tables
+    let responseData = data;
+    const sensitiveTables = ['workers', 'clients', 'users'];
+    if (sensitiveTables.includes(table) && req.method === 'GET') {
+      try {
+        let parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) {
+          parsed = parsed.map(row => { const {password, ...rest} = row; return rest; });
+        } else if (parsed && typeof parsed === 'object') {
+          const {password, ...rest} = parsed; parsed = rest;
+        }
+        responseData = JSON.stringify(parsed);
+      } catch(e) {}
+    }
     res.writeHead(sbRes.status, { 'Content-Type': 'application/json', ...cors });
-    res.end(data);
+    res.end(responseData);
   } catch (e) {
     console.error('Proxy error:', e.message);
     json(res, { error: 'Proxy error' }, 502, cors);
@@ -210,7 +224,7 @@ function createRouter() {
     if (urlPath === '/api/telegram-status' && req.method === 'GET') { if (!auth()) return; return await userRoutes.handleTelegramStatus(req, res, cors); }
 
     // Chat routes
-    if (urlPath.startsWith('/api/chat/') && urlPath.split('/').length === 5) {
+    if (urlPath.startsWith('/api/chat/') && urlPath.split('/').length === 4) {
       if (!auth()) return;
       if (req.method === 'GET') return await chatRoutes.handleChatGet(req, res, cors, urlPath);
       if (req.method === 'POST') return await chatRoutes.handleChatPost(req, res, cors, urlPath);

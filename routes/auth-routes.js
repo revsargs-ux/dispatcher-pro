@@ -45,12 +45,12 @@ async function handleLogin(req, res, cors) {
     const phoneCol = table === 'clients' ? 'contact' : 'phone';
     const isActiveFilter = table === 'clients' ? '' : '&is_active=eq.true';
     const users = await (await sbFetch(table, `${phoneCol}=ilike.%25${cleanPhone.slice(-10)}%25${isActiveFilter}&limit=1`)).json();
-    if (!users.length) { audit('login_failure', `not found: ${cleanPhone} (${table})`, null, null, ip); return json(res, { ok: false, error: 'Пользователь не найден' }); }
+    if (!users.length) { audit('login_failure', `not found: ${cleanPhone} (${table})`, null, null, ip); return json(res, { ok: false, error: 'Пользователь не найден' }, 401, cors); }
     const u = users[0];
 
-    if (!checkPassword(pass, u.password)) { audit('login_failure', `wrong pass: ${u.full_name || u.name} (${table})`, u.id, u.role, ip); return json(res, { ok: false, error: 'Неверный пароль' }); }
-    if (role && u.role !== role) return json(res, { ok: false, error: 'Нет доступа' });
-    if (u.is_active === false) return json(res, { ok: false, error: 'Аккаунт отключён' });
+    if (!checkPassword(pass, u.password)) { audit('login_failure', `wrong pass: ${u.full_name || u.name} (${table})`, u.id, u.role, ip); return json(res, { ok: false, error: 'Неверный пароль' }, 401, cors); }
+    if (role && u.role !== role) return json(res, { ok: false, error: 'Нет доступа' }, 403, cors);
+    if (u.is_active === false) return json(res, { ok: false, error: 'Аккаунт отключён' }, 403, cors);
 
     // Upgrade plaintext or SHA-256 to bcrypt
     if (needsUpgrade(u.password)) {
