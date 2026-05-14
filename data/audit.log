@@ -12,3 +12,6 @@
 {"timestamp":"2026-05-14T17:39:40.440Z","action":"login_failure","details":"not found: 79999999999 (users)","userId":"anonymous","role":"unknown","ip":"172.18.0.1"}
 {"timestamp":"2026-05-14T17:39:40.544Z","action":"login_failure","details":"not found: 79999999999 (users)","userId":"anonymous","role":"unknown","ip":"172.18.0.1"}
 {"timestamp":"2026-05-14T17:39:40.646Z","action":"login_failure","details":"not found: 79999999999 (users)","userId":"anonymous","role":"unknown","ip":"172.18.0.1"}
+{"timestamp":"2026-05-14T21:42:32.720Z","action":"login_failure","details":"not found: 79999999999 (workers)","userId":"anonymous","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-14T21:42:33.207Z","action":"register","details":"Audit Test v3 (workers)","userId":"858f35aa-2547-4c4d-a415-43cccdfa2cce","role":"workers","ip":"93.189.230.107"}
+{"timestamp":"2026-05-14T21:44:12.912Z","action":"login_success","details":"Audit Test v3 (workers)","userId":"858f35aa-2547-4c4d-a415-43cccdfa2cce","role":"unknown","ip":"93.189.230.107"}

@@ -127,6 +127,21 @@ setInterval(() => {
   if (changed) saveBlacklist()
 }, 600000)
 
+// Cleanup expired token families every hour
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of tokenFamilies) {
+    // Families with no active tokens can be cleaned
+    // Check if all tokens in the family are expired/blacklisted
+    let allExpired = true;
+    for (const t of val.tokens) {
+      const exp = tokenBlacklist.get(t);
+      if (!exp || exp > now) { allExpired = false; break; }
+    }
+    if (allExpired) tokenFamilies.delete(key);
+  }
+}, 3600000);
+
 loadBlacklist()
 
 function requireAuth(req) {
