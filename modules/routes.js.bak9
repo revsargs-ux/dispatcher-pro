@@ -184,14 +184,6 @@ function createRouter() {
     if (urlPath === '/api/pending-orders' && req.method === 'GET') { if (!auth()) return; return await shiftRoutes.handlePendingOrders(req, res, cors); }
     if (urlPath === '/api/claim-order' && req.method === 'POST') { if (!auth()) return; return await shiftRoutes.handleClaimOrder(req, res, cors); }
 
-    // Reviews
-    if (urlPath === '/api/reviews' && req.method === 'POST') { if (!auth()) return; return await shiftRoutes.handleSubmitReview(req, res, cors); }
-    if (urlPath.match(/^\/api\/reviews\/worker\/[0-9a-f-]{36}$/) && req.method === 'GET') {
-      if (!auth()) return;
-      const wId = urlPath.split('/').pop();
-      return await shiftRoutes.handleGetWorkerReviews(req, res, cors, wId);
-    }
-
     // Recurring orders
     if (urlPath === '/api/recurring' && req.method === 'GET') { if (!auth()) return; return await shiftRoutes.handleRecurringList(req, res, cors); }
     if (urlPath === '/api/recurring' && req.method === 'POST') { if (!auth()) return; return await shiftRoutes.handleRecurringCreate(req, res, cors); }
