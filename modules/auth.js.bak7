@@ -68,50 +68,12 @@ function isBlacklisted(token) {
   return true
 }
 
-// --- Refresh Token Rotation with family tracking ---
-// Each refresh creates a familyId. If an already-used refresh token is reused,
-// we detect theft and blacklist the entire family.
-const tokenFamilies = new Map() // familyId -> { tokens: Set<token>, userId }
-const tokenToFamily = new Map() // token -> familyId
-
 function refreshToken(oldToken) {
   try {
     const payload = jwt.verify(oldToken, JWT_SECRET)
-    if (isBlacklisted(oldToken)) {
-      // Already used token reused — possible theft. Blacklist entire family.
-      const familyId = tokenToFamily.get(oldToken)
-      if (familyId) {
-        const family = tokenFamilies.get(familyId)
-        if (family) {
-          for (const t of family.tokens) {
-            blacklistToken(t, 7 * 24 * 60 * 60 * 1000)
-          }
-          tokenFamilies.delete(familyId)
-          console.warn(`[Auth] Token reuse detected! Family ${familyId} blacklisted for user ${family.userId}`)
-        }
-      }
-      return null
-    }
-
-    // Mark old token as used (blacklist it)
+    if (isBlacklisted(oldToken)) return null
     blacklistToken(oldToken, 7 * 24 * 60 * 60 * 1000)
-
-    // Create new token with same payload
-    const newToken = createToken(payload.userId, payload.role, payload.table)
-
-    // Track in family
-    const familyId = tokenToFamily.get(oldToken) || `fam_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-    if (!tokenFamilies.has(familyId)) {
-      tokenFamilies.set(familyId, { tokens: new Set(), userId: payload.userId })
-    }
-    const family = tokenFamilies.get(familyId)
-    family.tokens.add(oldToken)
-    family.tokens.add(newToken)
-    tokenToFamily.set(newToken, familyId)
-    // Keep old mapping too so reuse detection works
-    tokenToFamily.set(oldToken, familyId)
-
-    return newToken
+    return createToken(payload.userId, payload.role, payload.table)
   } catch(e) {
     return null
   }

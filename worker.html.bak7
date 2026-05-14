@@ -308,19 +308,10 @@ async function showMain(){
   await render();setInterval(render,30000);
 }
 
-let _prevShiftStatus={};
 async function render(){
   try{
     const assignments=await api('shift_assignments','GET',null,
-      `?worker_id=eq.${worker.id}&select=*,shifts(date,start_time,planned_end_time,comment,clients(name),service_types(name),status)&order=created_at.desc`);
-    
-    // Detect status changes
-    (assignments||[]).forEach(a=>{
-      const s=a.shifts?.status||'';
-      const prev=_prevShiftStatus[a.shift_id];
-      if(prev && prev!=='completed' && s==='completed'){toast('✅ Смена завершена!');}
-      _prevShiftStatus[a.shift_id]=s;
-    });
+      `?worker_id=eq.${worker.id}&select=*,shifts(date,start_time,planned_end_time,comment,clients(name),service_types(name))&order=created_at.desc`);
     
     let allH=0,allUnpaid=0,allPaid=0;
     (assignments||[]).forEach(a=>{
@@ -329,16 +320,6 @@ async function render(){
       else allUnpaid+=h*(parseFloat(a.rate_per_hour)||400);
     });
     document.getElementById('worker-stats').innerHTML=`<span style="color:var(--accent);font-weight:bold;">${allUnpaid.toLocaleString('ru')}₽ к выплате</span> · ${allH}ч · ${allPaid.toLocaleString('ru')}₽ получено`;
-
-    // Preload shift photos
-    let _shiftPhotos={};
-    try{
-      const shiftIds=[...new Set(assignments.map(a=>a.shift_id))];
-      for(const sid of shiftIds){
-        const phRes=await fetch('/api/shift-photos?shift_id='+sid,{headers:{'Authorization':'Bearer '+localStorage.getItem('dp_token')}});
-        if(phRes.ok){const phData=await phRes.json();if(phData.length)_shiftPhotos[sid]=phData;}
-      }
-    }catch(e){}
 
     const list=document.getElementById('shifts-list');
     if(!assignments||!assignments.length){list.innerHTML='<div class="empty"><div style="font-size:48px">📭</div><p>Смен пока нет</p></div>';return;}
@@ -407,12 +388,10 @@ async function render(){
         if(canStart){actionsHtml=`<button class="btn btn-work" onclick="startWork('${a.id}')">▶️ Начать работу</button>${cancelBtn}`;}
         else{actionsHtml=`<button class="btn btn-work" disabled>⏳ ${disableReason}</button>${cancelBtn}`;}
       }else if(status==='confirmed'&&a.actual_start_time&&!a.actual_end_time&&!clientConfirmed){
-        actionsHtml=`<button class="btn btn-work" style="background:var(--danger);" onclick="endWork('${a.id}')">⏹ Завершить работу</button> <button class="btn btn-work" style="background:var(--primary);" onclick="pickShiftPhoto('${a.shift_id}','${a.id}')">📸 Фото</button>`;
+        actionsHtml=`<button class="btn btn-work" style="background:var(--danger);" onclick="endWork('${a.id}')">⏹ Завершить работу</button>`;
       }
 
-      const photosHtml=_shiftPhotos[a.shift_id]?'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">'+_shiftPhotos[a.shift_id].map(p=>`<img src="/shift-photos/${p.filename}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="window.open('/shift-photos/${p.filename}','_blank')">`).join('')+'</div>':'';
-
-      return `<div class="card" id="card-${a.id}">
+      return `<div class="card">
         <div class="date">📅 ${dateStr}</div>
         <div class="title">${clientName}</div>
         <div class="detail">${serviceName}</div>
@@ -420,7 +399,6 @@ async function render(){
         ${statusHtml}
         ${timeBlock}
         ${actionsHtml}
-        <div id="photos-${a.shift_id}">${photosHtml}</div>
       </div>`;
     }).join('');
   }catch(e){toast('Ошибка загрузки');}
@@ -848,29 +826,6 @@ setInterval(() => {
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
 initPhoneMasks();
-
-// --- Shift photo upload ---
-let _photoInput=null;
-function pickShiftPhoto(shiftId,asgnId){
-  if(!_photoInput){_photoInput=document.createElement('input');_photoInput.type='file';_photoInput.accept='image/*';_photoInput.style.display='none';document.body.appendChild(_photoInput);}
-  _photoInput.onchange=()=>uploadShiftPhoto(shiftId,_photoInput);
-  _photoInput.click();
-}
-async function uploadShiftPhoto(shiftId,input){
-  const file=input.files[0];if(!file)return;
-  if(file.size>5*1024*1024){toast('Фото слишком большое (макс 5МБ)');return;}
-  toast('📸 Загрузка фото...');
-  try{
-    const reader=new FileReader();
-    const b64=await new Promise((res,rej)=>{reader.onload=()=>res(reader.result.split(',')[1]);reader.onerror=rej;reader.readAsDataURL(file);});
-    const r=await fetch('/api/upload-shift-photo',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({filename:file.name,data:b64,shift_id:shiftId})});
-    if(!r.ok){toast('Ошибка загрузки фото');return;}
-    const d=await r.json();
-    toast('✅ Фото добавлено');
-    render();
-  }catch(e){toast('Ошибка: '+e.message);}
-  input.value='';
-}
 </script>
 <script src="/push-client.js"></script>
 </body>
