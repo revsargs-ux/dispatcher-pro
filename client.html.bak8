@@ -73,22 +73,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .modal-content{margin:10px;width:95%;max-height:90vh;overflow-y:auto;}
   .card{padding:12px;}
 }
-/* Chat */
-.chat-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;align-items:flex-end;justify-content:center}
-.chat-box{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:480px;height:70vh;display:flex;flex-direction:column}
-.chat-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:16px}
-.chat-head button{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-light)}
-.chat-body{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:6px}
-.chat-msg{max-width:80%;padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.4;word-break:break-word}
-.chat-msg.me{align-self:flex-end;background:var(--primary);color:#fff;border-bottom-right-radius:4px}
-.chat-msg.other{align-self:flex-start;background:#f0f0f0;color:var(--text);border-bottom-left-radius:4px}
-.chat-msg .chat-sender{font-size:11px;opacity:.7;margin-bottom:2px}
-.chat-msg .chat-time{font-size:10px;opacity:.6;margin-top:2px;text-align:right}
-.chat-foot{padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px}
-.chat-foot input{flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px}
-.chat-foot input:focus{outline:none;border-color:var(--primary)}
-.chat-foot button{padding:10px 18px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer}
-.chat-empty{text-align:center;color:var(--text-light);padding:40px 16px;font-size:14px}
 </style>
 <style>
 .pw-wrap{position:relative;display:flex;align-items:center;margin-bottom:12px}
@@ -163,7 +147,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="tab-btn" data-tab="tab-payments">💰 Платежи</div>
     <div class="tab-btn" data-tab="tab-analytics">📊 Аналитика</div>
     <div class="tab-btn" data-tab="tab-help">❓ Помощь</div>
-    <div class="tab-btn" data-tab="tab-subscriptions">🔄 Подписки</div>
   </div>
 
   <div class="tab-content" id="tab-help">
@@ -196,16 +179,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div id="tab-shifts"></div>
   <div id="tab-payments" style="display:none;"></div>
   <div id="tab-analytics" style="display:none;"></div>
-  <div id="tab-subscriptions" style="display:none;"></div>
 </div></div>
 
-<div id="chat-modal" class="chat-modal" style="display:none">
-  <div class="chat-box">
-    <div class="chat-head"><span>💬 Чат по смене</span><button onclick="closeChat()">✕</button></div>
-    <div class="chat-body" id="chat-messages"><div class="chat-empty">Сообщений пока нет</div></div>
-    <div class="chat-foot"><input id="chat-input" placeholder="Введите сообщение..." onkeydown="if(event.key==='Enter')sendChatMsg()"><button onclick="sendChatMsg()">➤</button></div>
-  </div>
-</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -382,7 +357,6 @@ document.getElementById('tab-bar').addEventListener('click',e=>{
   document.querySelectorAll('[id^="tab-"]').forEach(x=>{if(x.id!=='tab-bar')x.style.display='none';});
   t.classList.add('active');
   document.getElementById(t.dataset.tab).style.display='block';
-  if(t.dataset.tab==='tab-subscriptions')loadClientSubscriptions();
 });
 
 async function showMain(){
@@ -486,7 +460,6 @@ function renderShifts(shiftMap,wMap){
       ${shiftCost>0?`<div class="amount ${shiftDebt<=0?'paid':'unpaid'}">💰 ${shiftCost.toLocaleString('ru')}₽${shiftDebt>0?' (долг: '+shiftDebt.toLocaleString('ru')+'₽)':' ✅ Оплачено'}</div>`:''}
       ${workersHtml}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">${confirmBtn}${calBtn}</div>${lockNotice}
       <button class="btn btn-sm" style="margin-top:6px;font-size:12px;" onclick="loadShiftPhotos('${shift.id}',this)">📸 Фото с объекта</button>
-      <button class="btn btn-sm" style="margin-top:4px;font-size:12px;" onclick="openChat('${shift.id}')">💬 Чат</button>
       <div id="photos-${shift.id}" style="display:none;margin-top:6px;"></div>
     </div>`;
   }).join('')||'<div class="empty">📭 Нет смен</div>';
@@ -934,66 +907,6 @@ async function submitNewOrder(){
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
 initPhoneMasks();
-
-// --- Chat ---
-let _chatShiftId=null,_chatPoll=null,_chatMyId=null;
-function openChat(shiftId){
-  _chatShiftId=shiftId;_chatMyId=client?.id;
-  document.getElementById('chat-modal').style.display='flex';
-  loadChatMessages();
-  _chatPoll=setInterval(loadChatMessages,5000);
-}
-function closeChat(){
-  document.getElementById('chat-modal').style.display='none';
-  if(_chatPoll)clearInterval(_chatPoll);_chatPoll=null;_chatShiftId=null;
-}
-async function loadChatMessages(){
-  if(!_chatShiftId)return;
-  try{
-    const r=await fetch('/api/chat/'+_chatShiftId,{headers:{'Authorization':'Bearer '+localStorage.getItem('dp_token')}});
-    const msgs=await r.json();
-    if(!Array.isArray(msgs))return;
-    const box=document.getElementById('chat-messages');
-    const wasBottom=box.scrollTop+box.clientHeight>=box.scrollHeight-50;
-    if(!msgs.length){box.innerHTML='<div class="chat-empty">Сообщений пока нет</div>';return;}
-    box.innerHTML=msgs.map(m=>{
-      const mine=m.sender_id===_chatMyId;
-      const t=m.created_at?new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}):'';
-      return `<div class="chat-msg ${mine?'me':'other'}"><div class="chat-sender">${mine?'Вы':esc(m.sender_name||'')}</div>${esc(m.message)}<div class="chat-time">${t}</div></div>`;
-    }).join('');
-    if(wasBottom)box.scrollTop=box.scrollHeight;
-  }catch(e){console.error('chat load',e);}
-}
-async function sendChatMsg(){
-  if(!_chatShiftId)return;
-  const inp=document.getElementById('chat-input');
-  const msg=inp.value.trim();if(!msg)return;
-  inp.value='';
-  try{
-    await fetch('/api/chat/'+_chatShiftId,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({message:msg})});
-    loadChatMessages();
-  }catch(e){toast('Ошибка отправки');}
-}
-function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-
-// ===== Client subscriptions =====
-const DAY_NAMES_RU = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
-async function loadClientSubscriptions(){
-  const el = document.getElementById('tab-subscriptions');
-  if(!el) return;
-  const recs = await api('recurring','GET',null,'?select=*,service_types(id,name)&client_id=eq.'+client.id+'&is_active=eq.true');
-  if(!Array.isArray(recs)||!recs.length){
-    el.innerHTML='<div class="empty">У вас нет активных подписок</div>';
-    return;
-  }
-  el.innerHTML = recs.map(r=>`<div class="card">
-    <div class="title">${DAY_NAMES_RU[r.day_of_week]||'?'} · ${r.time_start||'—'} · ${r.hours||4}ч</div>
-    <div class="detail">Услуга: ${r.service_types?.name||'—'}</div>
-    ${r.object_address?'<div class="detail">📍 '+esc(r.object_address)+'</div>':''}
-    ${r.notes?'<div class="detail">📝 '+esc(r.notes)+'</div>':''}
-    <div class="badge badge-green">Активна</div>
-  </div>`).join('');
-}
 </script>
 
 <div id="modal-new-order" class="modal"><div style="max-width:500px;position:fixed;bottom:0;left:0;right:0;top:auto;max-height:85vh;overflow-y:auto;border-radius:16px 16px 0 0;margin:0 auto;background:var(--card);box-shadow:0 -4px 20px rgba(0,0,0,.15);">

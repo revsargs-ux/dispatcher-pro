@@ -152,7 +152,7 @@ canvas.chart{width:100%;height:200px;background:#fff;border-radius:10px;box-shad
     <div class="stat-card green"><div class="num" id="kpi-margin-pct">—</div><div class="label">Маржинальность</div></div>
     <div class="stat-card orange"><div class="num" id="kpi-shifts-count">—</div><div class="label">Всего смен</div></div>
   </div>
-  <h3 style="color:var(--primary);margin:12px 0 8px;">📊 Выручка за последние 14 дней</h3>
+  <h3 style="color:var(--primary);margin:12px 0 8px;">📊 Выручка по дням</h3>
   <canvas id="chart-daily" class="chart" height="200"></canvas>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
     <div class="top-list"><h3>🏢 Топ клиентов</h3><div id="top-clients"></div></div>
@@ -424,8 +424,8 @@ async function loadAnalytics(){
   document.getElementById('kpi-margin-pct').textContent=a.marginPct+'%';
   document.getElementById('kpi-shifts-count').textContent=a.shiftCount;
 
-  // 14-day revenue chart
-  drawRevenueChart();
+  // Daily chart
+  drawDailyChart(a.byDay);
 
   // Top clients
   const wMap={};(cachedWorkers||[]).forEach(w=>wMap[w.id]=w.full_name);
@@ -447,89 +447,41 @@ async function loadAnalytics(){
   }).join('')||'<p style="color:var(--text-light);font-size:13px;">Нет данных</p>';
 }
 
-async function drawRevenueChart() {
-  const canvas = document.getElementById('chart-daily');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width * dpr;
-  canvas.height = 200 * dpr;
-  ctx.scale(dpr, dpr);
-  const W = rect.width, H = 200;
+function drawDailyChart(byDay){
+  const canvas=document.getElementById('chart-daily');
+  const ctx=canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const rect=canvas.getBoundingClientRect();
+  canvas.width=rect.width*dpr;canvas.height=200*dpr;
+  ctx.scale(dpr,dpr);
+  const W=rect.width,H=200;
+  ctx.clearRect(0,0,W,H);
 
-  // Fetch last 14 days of payments
-  const now = new Date();
-  const days = [];
-  const revByDay = {};
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date(now); d.setDate(d.getDate() - i);
-    const ds = d.toISOString().slice(0, 10);
-    days.push(ds);
-    revByDay[ds] = 0;
-  }
+  const days=Object.entries(byDay).sort((a,b)=>a[0].localeCompare(b[0]));
+  if(!days.length){ctx.fillStyle='#718096';ctx.font='14px sans-serif';ctx.fillText('Нет данных за этот месяц',W/2-80,H/2);return;}
 
-  const from = days[0];
-  const to = days[days.length - 1];
-  try {
-    const asgn = await api('shift_assignments', 'GET', null,
-      `?select=hours_worked,client_rate_per_hour,extra_amount,payment_status,shifts!inner(date)&shifts.date=gte.${from}&shifts.date=lte.${to}&limit=2000`);
-    (asgn || []).forEach(a => {
-      const day = a.shifts?.date;
-      if (day && revByDay[day] !== undefined) {
-        const h = parseFloat(a.hours_worked) || 0;
-        const cr = parseFloat(a.client_rate_per_hour) || 520;
-        const ex = parseFloat(a.extra_amount) || 0;
-        revByDay[day] += h * cr + ex;
-      }
-    });
-  } catch (e) {}
+  const maxRev=Math.max(...days.map(d=>d[1].revenue),1);
+  const barW=Math.min(30,(W-60)/days.length-2);
+  const chartH=H-40;
 
-  // Background
-  ctx.fillStyle = '#16213e';
-  ctx.fillRect(0, 0, W, H);
-
-  const values = days.map(d => revByDay[d]);
-  const maxVal = Math.max(...values, 1);
-  const padL = 55, padR = 10, padT = 15, padB = 30;
-  const chartW = W - padL - padR, chartH = H - padT - padB;
-  const barW = Math.min(24, (chartW / 14) - 4);
-  const gap = (chartW - barW * 14) / 15;
-
-  // Grid lines
-  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i++) {
-    const y = padT + chartH * (1 - i / 4);
-    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
-    ctx.fillText(Math.round(maxVal * i / 4).toLocaleString('ru') + '₽', padL - 5, y + 4);
+  // Grid
+  ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=20+chartH*(1-i/4);
+    ctx.beginPath();ctx.moveTo(40,y);ctx.lineTo(W-10,y);ctx.stroke();
+    ctx.fillStyle='#718096';ctx.font='10px sans-serif';ctx.textAlign='right';
+    ctx.fillText(Math.round(maxRev*i/4).toLocaleString('ru')+'₽',35,y+4);
   }
 
   // Bars
-  days.forEach((day, i) => {
-    const val = values[i];
-    const x = padL + gap + i * (barW + gap);
-    const h = Math.max(2, (val / maxVal) * chartH);
-    const y = padT + chartH - h;
-
-    ctx.fillStyle = '#4ecdc4';
-    ctx.beginPath();
-    ctx.roundRect(x, y, barW, h, [3, 3, 0, 0]);
-    ctx.fill();
-
-    // Value on top
-    if (val > 0) {
-      ctx.fillStyle = '#fff';
-      ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(Math.round(val / 1000) + 'k', x + barW / 2, y - 3);
-    }
-
-    // Date label
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(day.slice(8), x + barW / 2, H - 5);
+  days.forEach(([day,d],i)=>{
+    const x=45+i*(barW+2);
+    const h=Math.max(2,d.revenue/maxRev*chartH);
+    const y=20+chartH-h;
+    ctx.fillStyle='#38a169';ctx.fillRect(x,y,barW,h);
+    // Day label
+    ctx.fillStyle='#718096';ctx.font='9px sans-serif';ctx.textAlign='center';
+    ctx.fillText(day.slice(8),x+barW/2,H-5);
   });
 }
 
