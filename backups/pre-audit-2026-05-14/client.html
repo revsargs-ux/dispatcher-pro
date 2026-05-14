@@ -361,7 +361,6 @@ async function render(){
     if(!shiftIds.length){document.getElementById('client-stats').textContent='Нет смен';document.getElementById('tab-shifts').innerHTML='<div class="empty"><div style="font-size:48px">📭</div><p>Смен пока нет</p></div>';return;}
     const idList=shiftIds.map(id=>`"${id}"`).join(',');
     const assignments=await api('shift_assignments','GET',null,`?shift_id=in.(${idList})&select=*&order=created_at.desc&limit=500`);
-    _allAssignments=assignments;
 
     // Get payments for all assignments
     const asgnIds=assignments.map(a=>`"${a.id}"`).join(',');
@@ -541,7 +540,6 @@ async function confirmShift(shiftId){
 
 let _payShifts=[]; // [{shiftId, asgnIds, debt, date, svc}]
 let _allPayShifts=[]; // all unpaid shifts data
-let _allAssignments=[]; // cached assignments from render()
 
 function openModal(id){document.getElementById(id).style.display='flex';}
 function closeModal(id){document.getElementById(id).style.display='none';}
@@ -639,7 +637,7 @@ async function submitPayment(){
       if(shiftShare<=0)continue;
       remaining-=shiftShare;
       // Distribute across assignments in this shift
-      const shiftAsgns=_allAssignments.filter(a=>s.asgnIds.includes(a.id)&&parseFloat(a.hours_worked)>0);
+      const shiftAsgns=assignments.filter(a=>s.asgnIds.includes(a.id)&&parseFloat(a.hours_worked)>0);
       const shiftTotal=shiftAsgns.reduce((sum,a)=>{const h=parseFloat(a.hours_worked)||0,cr=parseFloat(a.client_rate_per_hour)||520,ex=parseFloat(a.extra_amount)||0;return sum+h*cr+ex;},0);
       let shiftRemaining=shiftShare;
       for(let j=0;j<shiftAsgns.length;j++){

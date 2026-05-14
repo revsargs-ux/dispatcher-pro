@@ -23,7 +23,6 @@ services:
       - ./push-client.js:/app/push-client.js:ro
       - ./notifications-module:/app/notifications-module:ro
       - ./bot-knowledge.md:/app/bot-knowledge.md:ro
-      - ./sql-setup.html:/app/sql-setup.html:ro
       - ./receipts:/app/receipts
       - ./data:/app/data
     networks:

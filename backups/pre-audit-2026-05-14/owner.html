@@ -627,7 +627,7 @@ function shareCred(){var el=document.getElementById('cred-text');if(navigator.sh
 document.addEventListener('click',function(e){var b=e.target.closest('.cpb');if(!b)return;var r=b.dataset.role,p=b.dataset.phone,n=b.dataset.name||'';var L={worker:'https://xn----gtbdan3bddhceo9d.xn--p1ai/worker.html',dispatcher:'https://xn----gtbdan3bddhceo9d.xn--p1ai',client:'https://xn----gtbdan3bddhceo9d.xn--p1ai/client.html'};var t=n+'\nТелефон: '+p+'\nСсылка: '+L[r];document.getElementById('cred-text').value=t;openModal('modal-credentials');setTimeout(function(){var el=document.getElementById('cred-text');el.focus();el.select();el.setSelectionRange(0,99999);},100);});
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
-setInterval(()=>{if(currentUser&&document.visibilityState==='visible'){loadOverview();}},30000);
+setInterval(()=>{if(currentUser){loadOverview();}},5000);
 </script>
 <div id="modal-credentials" class="modal"><div class="modal-content" style="max-width:420px;">
       <div class="modal-header"><h2>📋 Данные для входа</h2><button class="close-btn" onclick="closeModal('modal-credentials')">&times;</button></div>

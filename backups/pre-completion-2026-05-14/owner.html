@@ -213,19 +213,12 @@ canvas.chart{width:100%;height:200px;background:#fff;border-radius:10px;box-shad
 
 <script>
 
-async function tryRefreshToken(){
-  const tk=localStorage.getItem('dp_token');if(!tk)return false;
-  try{const r=await fetch('/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tk})});if(!r.ok)return false;const d=await r.json();if(d.ok&&d.token){localStorage.setItem('dp_token',d.token);return true;}}catch(e){}
-  return false;
-}
-setInterval(()=>tryRefreshToken(),6*60*60*1000);
-
-async function api(t,m='GET',b=null,q='',_retry=false){
+async function api(t,m='GET',b=null,q=''){
   const u='/api/'+t+(q?(q[0]==='?'?q:'?'+q):'');
   const o={method:m,headers:{'Content-Type':'application/json'}};
   const tk=localStorage.getItem('dp_token');if(tk)o.headers['Authorization']='Bearer '+tk;
   if(b)o.body=JSON.stringify(b);
-  try{const r=await fetch(u,o);if(r.status===401){if(!_retry){const ref=await tryRefreshToken();if(ref)return api(t,m,b,q,true);}localStorage.removeItem('dp_token');localStorage.removeItem('dp_rop');location.reload();}if(!r.ok)return m==='DELETE'?false:[];if(m==='DELETE')return true;return await r.json();}catch(e){return[];}
+  try{const r=await fetch(u,o);if(r.status===401){localStorage.removeItem('dp_token');localStorage.removeItem('dp_rop');location.reload();}if(!r.ok)return m==='DELETE'?false:[];if(m==='DELETE')return true;return await r.json();}catch(e){return[];}
 }
 function norm(p){return(p||'').replace(/[\+\-\(\)\s]/g,'').replace(/^8/,'7');}
 function fmtDate(d){if(!d)return'—';const p=d.split('-');return p.length===3?p[2]+'.'+p[1]+'.'+p[0]:d;}
@@ -260,7 +253,7 @@ async function doLogin(){
   updateMonthLabels();loadCache();loadOverview();
 }
 function showErr(m){const e=document.getElementById('auth-error');e.textContent=m;e.style.display='block';}
-function doLogout(){const tk=localStorage.getItem('dp_token');if(tk)fetch('/auth/logout',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk}}).catch(()=>{});localStorage.removeItem('dp_rop');localStorage.removeItem('dp_token');location.reload();}
+function doLogout(){localStorage.removeItem('dp_rop');localStorage.removeItem('dp_token');location.reload();}
 function openModal(id){document.getElementById(id).classList.add('show');}
 function closeModal(id){document.getElementById(id).classList.remove('show');}
 
@@ -626,8 +619,8 @@ function copyCred(){var el=document.getElementById('cred-text');if(!el)return;el
 function shareCred(){var el=document.getElementById('cred-text');if(navigator.share){navigator.share({title:'Данные для входа',text:el.value}).catch(function(){});}else{el.focus();el.select();el.setSelectionRange(0,99999);toast('Нажмите Ctrl+C');}}
 document.addEventListener('click',function(e){var b=e.target.closest('.cpb');if(!b)return;var r=b.dataset.role,p=b.dataset.phone,n=b.dataset.name||'';var L={worker:'https://xn----gtbdan3bddhceo9d.xn--p1ai/worker.html',dispatcher:'https://xn----gtbdan3bddhceo9d.xn--p1ai',client:'https://xn----gtbdan3bddhceo9d.xn--p1ai/client.html'};var t=n+'\nТелефон: '+p+'\nСсылка: '+L[r];document.getElementById('cred-text').value=t;openModal('modal-credentials');setTimeout(function(){var el=document.getElementById('cred-text');el.focus();el.select();el.setSelectionRange(0,99999);},100);});
 
-if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
-setInterval(()=>{if(currentUser&&document.visibilityState==='visible'){loadOverview();}},30000);
+if('serviceWorker' in navigator)// SW disabled
+setInterval(()=>{if(currentUser){loadOverview();}},5000);
 </script>
 <div id="modal-credentials" class="modal"><div class="modal-content" style="max-width:420px;">
       <div class="modal-header"><h2>📋 Данные для входа</h2><button class="close-btn" onclick="closeModal('modal-credentials')">&times;</button></div>
@@ -637,6 +630,5 @@ setInterval(()=>{if(currentUser&&document.visibilityState==='visible'){loadOverv
         <button class="btn btn-outline" style="flex:1;padding:12px;" onclick="shareCred()">📤 Поделиться</button>
       </div>
     </div></div>
-<script src="/push-client.js"></script>
 </body>
 </html>

@@ -452,6 +452,14 @@ let pollRetryCount = 0;
 
 async function startPolling() {
   if (pollingActive) return;
+  // Delete webhook to ensure polling works (fix HTTP 409 Conflict)
+  try {
+    const whRes = await fetch(`${config.tgApi}/deleteWebhook?drop_pending_updates=true`);
+    const whData = await whRes.json();
+    console.log('[TG] deleteWebhook:', JSON.stringify(whData));
+  } catch (e) {
+    console.error('[TG] deleteWebhook error:', e.message);
+  }
   pollingActive = true;
   console.log('[TG] Polling started');
   while (pollingActive) {

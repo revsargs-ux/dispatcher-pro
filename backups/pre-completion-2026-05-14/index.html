@@ -97,6 +97,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
 .modal.show{display:flex}
 .modal-content{background:var(--card);border-radius:12px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;padding:24px}
+.modal-content.wide{max-width:800px}
+.detail-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--border)}
+.detail-header h3{margin:0;font-size:18px;color:var(--primary)}
+.detail-header .meta{font-size:13px;color:var(--text-light);margin-top:4px}
+.detail-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;padding:12px;background:var(--bg);border-radius:8px}
+.detail-totals .t-item{text-align:center}
+.detail-totals .t-item .t-val{font-size:18px;font-weight:700;color:var(--primary)}
+.detail-totals .t-item .t-label{font-size:11px;color:var(--text-light)}
+.detail-pay-section{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.detail-pay-section input[type=number]{flex:1;min-width:120px;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:14px}
+.detail-pay-section select{padding:10px;border:2px solid var(--border);border-radius:8px;font-size:14px}
+.detail-table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+.detail-table th{text-align:left;padding:8px 6px;background:var(--bg);border-bottom:2px solid var(--border);font-weight:600;font-size:12px;color:var(--text-light)}
+.detail-table td{padding:6px;border-bottom:1px solid var(--border)}
+.detail-table tr.total-row{font-weight:700;background:var(--bg);border-top:2px solid var(--primary)}
+.detail-filters{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.detail-filters select,.detail-filters input{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px}
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .modal-header h2{font-size:18px;color:var(--primary)}
 .close-btn{background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-light)}
@@ -165,7 +182,7 @@ th.sort-desc::after{content:" ↓";opacity:1;}
   <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:12px;color:var(--text-light);">
     <div>Кабинеты:</div>
     <div style="margin-top:6px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-      <a href="https://xn----gtbdan3bddhceo9d.xn--p1ai:8081" style="color:var(--primary);font-weight:600;text-decoration:none;">👨‍💼 Диспетчер</a>
+      <a href="https://xn----gtbdan3bddhceo9d.xn--p1ai" style="color:var(--primary);font-weight:600;text-decoration:none;">👨‍💼 Диспетчер</a>
       <a href="https://xn----gtbdan3bddhceo9d.xn--p1ai/worker.html" style="color:var(--primary);font-weight:600;text-decoration:none;">👷 Исполнитель</a>
       <a href="https://xn----gtbdan3bddhceo9d.xn--p1ai/client.html" style="color:var(--primary);font-weight:600;text-decoration:none;">🏢 Клиент</a>
     </div>
@@ -297,6 +314,13 @@ th.sort-desc::after{content:" ↓";opacity:1;}
     <button class="btn btn-primary" id="settings-save-btn" onclick="saveSettings()" style="display:none;">Сохранить</button>
     <div id="settings-readonly-notice" style="font-size:12px;color:var(--text-light);margin-top:8px;">Значения устанавливаются владельцем</div>
   </div>
+  <div class="card" style="padding:16px;margin-top:12px;">
+    <h4 style="margin:0 0 12px;">💬 Мессенджеры</h4>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a href="https://t.me/DispetcherPro_bot" target="_blank" style="text-decoration:none;padding:10px 16px;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;border-radius:8px;font-size:13px;font-weight:500;">📱 Telegram бот</a>
+      <a href="https://max.ru/id4100044993_bot" target="_blank" style="text-decoration:none;padding:10px 16px;background:linear-gradient(135deg,#6b3fa0,#8b5cf6);color:#fff;border-radius:8px;font-size:13px;font-weight:500;">💬 МАКС бот</a>
+    </div>
+  </div>
 </div>
 </div>
 
@@ -351,6 +375,51 @@ th.sort-desc::after{content:" ↓";opacity:1;}
   <div id="payment-history" style="margin-top:12px;"></div>
 </div></div>
 
+<div id="modal-worker-detail" class="modal"><div class="modal-content wide">
+  <div class="modal-header"><h2>👷 Карточка рабочего</h2><button class="close-btn" onclick="closeModal('modal-worker-detail')">&times;</button></div>
+  <div id="wd-header" class="detail-header"></div>
+  <div class="detail-filters">
+    <select id="wd-filter" onchange="renderWorkerDetailShifts()"><option value="all">Все смены</option><option value="completed">Завершённые</option><option value="inwork">В работе</option><option value="paid">Оплаченные</option><option value="unpaid">Неоплаченные</option></select>
+    <input type="text" id="wd-search" placeholder="🔍 Поиск..." oninput="renderWorkerDetailShifts()">
+  </div>
+  <table class="detail-table"><thead><tr><th>Дата</th><th>Клиент</th><th>Услуга</th><th>Часы</th><th>Начислено</th><th>Оплачено</th><th>Долг</th></tr></thead>
+  <tbody id="wd-shifts"></tbody></table>
+  <div style="margin-top:12px;padding:12px;background:var(--bg);border-radius:8px;">
+    <h4 style="margin:0 0 8px;font-size:14px;">💳 Оплата</h4>
+    <div class="detail-pay-section">
+      <input type="number" id="wd-pay-amount" placeholder="Сумма оплаты ₽" min="1" step="1">
+      <select id="wd-pay-method"><option value="transfer">Перевод</option><option value="cash">Наличные</option><option value="card">Карта</option></select>
+      <label style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:13px;padding:8px;border:2px solid var(--border);border-radius:8px;"><input type="file" id="wd-receipt" accept="image/*,.pdf" style="display:none" onchange="this.parentElement.querySelector('span').textContent=this.files[0]?this.files[0].name:'📎 Чек'"> <span>📎 Чек</span></label>
+      <button class="btn btn-success" onclick="saveWorkerDetailPayment()">💰 Оплатить</button>
+    </div>
+  </div>
+  <div id="wd-totals" class="detail-totals"></div>
+  <div style="margin-top:12px;padding:12px;background:var(--bg);border-radius:8px;">
+    <div id="wd-pay-history"></div>
+  </div>
+</div></div>
+
+<div id="modal-client-detail" class="modal"><div class="modal-content wide">
+  <div class="modal-header"><h2>🏢 Карточка клиента</h2><button class="close-btn" onclick="closeModal('modal-client-detail')">&times;</button></div>
+  <div id="cd-header" class="detail-header"></div>
+  <div class="detail-filters">
+    <select id="cd-filter" onchange="renderClientDetailShifts()"><option value="all">Все смены</option><option value="paid">Оплаченные</option><option value="unpaid">Неоплаченные</option></select>
+    <input type="text" id="cd-search" placeholder="🔍 Поиск..." oninput="renderClientDetailShifts()">
+  </div>
+  <table class="detail-table"><thead><tr><th>Дата</th><th>Услуга</th><th>Рабочие</th><th>Часы</th><th>К оплате</th><th>Оплачено</th><th>Долг</th></tr></thead>
+  <tbody id="cd-shifts"></tbody></table>
+  <div id="cd-totals" class="detail-totals"></div>
+  <h4 style="margin:12px 0 6px;font-size:14px;">💳 История платежей</h4>
+  <table class="detail-table"><thead><tr><th>Дата</th><th>Сумма</th><th>Способ</th><th>Примечание</th></tr></thead>
+  <tbody id="cd-payments"></tbody></table>
+  <div class="detail-pay-section">
+    <input type="number" id="cd-pay-amount" placeholder="Сумма оплаты ₽" min="1" step="1">
+    <select id="cd-pay-method"><option value="transfer">Перевод</option><option value="cash">Наличные</option><option value="card">Карта</option></select>
+    <label style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:13px;"><input type="file" id="cd-receipt" accept="image/*,.pdf" style="display:none" onchange="this.parentElement.querySelector('span').textContent=this.files[0]?this.files[0].name:'Чек'">📎 <span>Чек</span></label>
+    <button class="btn btn-success" onclick="saveClientDetailPayment()">💰 Оплатить</button>
+  </div>
+</div></div>
+
 <div id="modal-worker" class="modal"><div class="modal-content">
   <div class="modal-header"><h2 id="worker-modal-title">Рабочий</h2><button class="close-btn" onclick="closeModal('modal-worker')">&times;</button></div>
   <input type="hidden" id="worker-edit-id">
@@ -402,7 +471,7 @@ async function api(table,method='GET',body=null,query=''){
   if(body)opts.body=JSON.stringify(body);
   try{
     const res=await fetch(url,opts);
-    if(!res.ok){const err=await res.json().catch(()=>({}));console.error('API:',res.status,err);return method==='DELETE'?false:[];}
+    if(!res.ok){const err=await res.json().catch(()=>({}));console.error('API:',res.status,err);if(res.status===401){localStorage.removeItem('dp_token');localStorage.removeItem('dp_auth');document.getElementById('auth-screen').style.display='';document.getElementById('app').style.display='none';currentUser=null;}return method==='DELETE'?false:[];}
     if(method==='DELETE')return true;
     return await res.json();
   }catch(e){console.error('Fetch error:',e);return[];}
@@ -429,7 +498,7 @@ async function doLogin(){
     if(!['owner','dispatcher'].includes(user.user.role)){showAuthError('Нет доступа');return;}
     if(!user.is_active&&user.is_active!==undefined){showAuthError('Аккаунт деактивирован');return;}
     currentUser=user.user;
-    localStorage.setItem('dp_auth',JSON.stringify({phone,id:user.id}));
+    localStorage.setItem('dp_auth',JSON.stringify({phone:user.user.phone,id:user.user.id,full_name:user.user.full_name,role:user.user.role,rate_per_hour:user.user.rate_per_hour,monthly_target_hours:user.user.monthly_target_hours}));
     if(user.token)localStorage.setItem('dp_token',user.token);
     document.getElementById('auth-screen').style.display='none';
     document.getElementById('app').style.display='block';
@@ -471,9 +540,8 @@ async function doRegister(){
   if(pass.length<4){showAuthError('Пароль минимум 4 символа');return;}
   try{
     if(role==='dispatcher'){
-      const existing=await api('users','GET',null,`?phone=eq.${phone}`);
-      if(existing.length){showAuthError('Этот телефон уже зарегистрирован');return;}
-      await api('users','POST',{full_name:name,phone,password:pass,role:'dispatcher',rate_per_hour:7.5,monthly_target_hours:8000,is_active:true});
+      const regRes=await fetch('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',data:{full_name:name,phone,password:pass,role:'dispatcher',rate_per_hour:7.5,monthly_target_hours:8000,is_active:true}})});
+      if(!regRes.ok){const err=await regRes.json().catch(()=>({}));showAuthError(err.error||'Ошибка регистрации');return;}
       toast('Зарегистрировано! Войдите');
       showLoginForm();
       document.getElementById('auth-phone').value=phone;
@@ -670,7 +738,7 @@ async function loadShifts(){
           </div>
         </div>
         <div class="card-body" id="card-body-${shift.id}">
-        ${confirmedWorkers.length?`<button class="btn btn-sm btn-outline" style="margin-bottom:8px;width:100%;" onclick="openMassHours('${shift.id}',[${confirmedWorkers.map(a=>`{id:'${a.id}',name:'${(wMap[a.worker_id]||'').replace(/'/g,"\\'")}',hours:${a.hours_worked||0}}`).join(',')}])">⏱ Ввести часы всем (${confirmedWorkers.length})</button>`:''}
+        ${confirmedWorkers.length?`<button class="btn btn-sm btn-outline" style="margin-bottom:8px;width:100%;" onclick="openMassHours('${shift.id}',[${confirmedWorkers.map(a=>`{id:'${a.id}',name:'${(wMap[a.worker_id]||'').replace(/'/g,"\\'")}',hours:${a.hours_worked||0}}`).join(',')}],'${shift.date||''}')">⏱ Ввести часы всем (${confirmedWorkers.length})</button>`:''}
         ${workersHtml}${summaryHtml}</div>
       </div>`;
     }).join('');
@@ -687,7 +755,7 @@ async function closeShift(id){
 // ===== Restart Search =====
 async function restartSearch(shiftId){
   try{
-    const shifts=await api('shifts','GET',null,'?id=eq.'+shiftId);
+    const shifts=await api('shifts','GET',null,'?id=eq.'+shiftId+'&select=*,clients(name)');
     if(!shifts||!shifts.length){alert('Смена не найдена');return;}
     const shift=shifts[0];
     const reqs=await api('shift_requirements','GET',null,'?shift_id=eq.'+shiftId);
@@ -1120,8 +1188,8 @@ async function loadWorkers(){
     const workers=await api('workers','GET',null,q);
     const asgn=await api('shift_assignments','GET',null,'?select=worker_id,hours_worked');
     const hMap={};asgn.forEach(a=>hMap[a.worker_id]=(hMap[a.worker_id]||0)+(parseFloat(a.hours_worked)||0));
-    document.getElementById('workers-table').innerHTML=(workers||[]).map(w=>`<tr><td>${esc(w.full_name)}</td><td>${esc(w.phone)||"\u2014"}</td><td>${hMap[w.id]||0}ч</td>
-      <td style="white-space:nowrap;"><button class="btn btn-sm btn-outline cpb" data-role="worker" data-name="${esc(w.full_name)||""}" data-phone="${esc(w.phone)||""}">📋</button> <button class="btn btn-sm btn-outline" onclick="editWorker('${w.id}')">✏️</button></td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
+    document.getElementById('workers-table').innerHTML=(workers||[]).map(w=>`<tr style="cursor:pointer" onclick="openWorkerDetail('${w.id}')"><td>${esc(w.full_name)}</td><td>${esc(w.phone)||"\u2014"}</td><td>${hMap[w.id]||0}ч</td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()"><button class="btn btn-sm btn-outline cpb" data-role="worker" data-name="${esc(w.full_name)||""}" data-phone="${esc(w.phone)||""}">📋</button> <button class="btn btn-sm btn-outline" onclick="editWorker('${w.id}')">✏️</button></td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
   }finally{hideLoading('workers-loading');}
 }
 function openAddWorker(){
@@ -1165,8 +1233,8 @@ async function loadClients(){
     let q='?archived=eq.false&order=name&limit=200';
     if(search)q+=`&name=ilike.*${encodeURIComponent(search)}*`;
     const clients=await api('clients','GET',null,q);
-    document.getElementById('clients-table').innerHTML=(clients||[]).map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.contact)||"\u2014"}</td><td>${c.default_client_rate||520}/${c.default_worker_rate||400}₽</td>
-      <td style="white-space:nowrap;"><button class="btn btn-sm btn-outline cpb" data-role="client" data-name="${esc(c.name)||""}" data-phone="${esc(c.contact)||""}">📋</button> <button class="btn btn-sm btn-outline" onclick="editClient('${c.id}')">✏️</button></td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
+    document.getElementById('clients-table').innerHTML=(clients||[]).map(c=>`<tr style="cursor:pointer" onclick="openClientDetail('${c.id}')"><td>${esc(c.name)}</td><td>${esc(c.contact)||"\u2014"}</td><td>${c.default_client_rate||520}/${c.default_worker_rate||400}₽</td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()"><button class="btn btn-sm btn-outline cpb" data-role="client" data-name="${esc(c.name)||""}" data-phone="${esc(c.contact)||""}">📋</button> <button class="btn btn-sm btn-outline" onclick="editClient('${c.id}')">✏️</button></td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
   }finally{hideLoading('clients-loading');}
 }
 function openAddClient(){
@@ -1463,8 +1531,12 @@ async function confirmPay(){
 }
 
 let _massHoursShiftId=null;
-function openMassHours(shiftId,workers){
+function openMassHours(shiftId,workers,shiftDate){
   _massHoursShiftId=shiftId;
+  const startEl=document.getElementById('mass-start-time');
+  const endEl=document.getElementById('mass-end-time');
+  if(shiftDate){startEl.value=shiftDate+'T09:00';endEl.value='';}
+  else{startEl.value='';endEl.value='';}
   const list=document.getElementById('mass-hours-list');
   list.innerHTML=workers.map(w=>`
     <div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border);">
@@ -1475,17 +1547,27 @@ function openMassHours(shiftId,workers){
   `).join('');
   openModal('modal-mass-hours');
 }
+function calcAllMassHours(){
+  const s=document.getElementById('mass-start-time').value;
+  const e=document.getElementById('mass-end-time').value;
+  if(!s||!e)return;
+  const h=Math.round(((new Date(e)-new Date(s))/3600000)*10)/10;
+  if(h<=0)return;
+  document.querySelectorAll('[id^="mh-"]').forEach(inp=>{inp.value=h;});
+}
 async function saveMassHours(){
   if(!_massHoursShiftId)return;
   const asgns=await api('shift_assignments','GET',null,`?shift_id=eq.${_massHoursShiftId}&invite_status=eq.confirmed&select=id,worker_id,hours_worked`);
-  const wMap={};(cachedWorkers||[]).forEach(w=>wMap[w.id]=w.full_name);
+  const s=document.getElementById('mass-start-time').value||null;
+  const e=document.getElementById('mass-end-time').value||null;
   for(const a of asgns){
     const inp=document.getElementById('mh-'+a.id);
     if(!inp)continue;
     const h=parseFloat(inp.value)||0;
-    if(h!==parseFloat(a.hours_worked||0)){
-      await api('shift_assignments','PATCH',{hours_worked:h},'?id=eq.'+a.id);
-    }
+    const patch={hours_worked:h};
+    if(s)patch.actual_start_time=new Date(s).toISOString();
+    if(e)patch.actual_end_time=new Date(e).toISOString();
+    await api('shift_assignments','PATCH',patch,'?id=eq.'+a.id);
   }
   closeModal('modal-mass-hours');loadShifts();loadDashboard();toast('Часы сохранены');
 }
@@ -1557,15 +1639,251 @@ function copyInviteLink(){
   const url=location.origin+'/worker.html?invite=1';
   navigator.clipboard.writeText(url).then(()=>toast('Ссылка скопирована: '+url));
 }
-// ===== Auto-login =====
+// ===== Worker Detail Card =====
+let _wdWorkerId=null,_wdShifts=[];
+async function openWorkerDetail(workerId){
+  _wdWorkerId=workerId;
+  const w=(await api('workers','GET',null,'?id=eq.'+workerId))[0];if(!w)return;
+  document.getElementById('wd-header').innerHTML=`<div><h3>${esc(w.full_name)}</h3><div class="meta">📱 ${esc(w.phone)||'—'}</div></div><button class="btn btn-sm btn-outline" onclick=\"editWorker('${workerId}')\">✏️</button>`;
+  // Load all assignments for this worker
+  const asgn=await api('shift_assignments','GET',null,`?select=hours_worked,rate_per_hour,client_rate_per_hour,extra_amount,payment_status,paid_amount,shifts!inner(date,client_id,clients(name),service_types(name))&worker_id=eq.${workerId}&limit=2000`);
+  _wdShifts=(asgn||[]).filter(a=>parseFloat(a.hours_worked)>0);
+  // Load all payments for this worker's assignments
+  const asgnIds=_wdShifts.map(a=>a.id);
+  if(asgnIds.length){
+    const pays=await api('payments','GET',null,`?assignment_id=in.(${asgnIds.map(id=>'"'+id+'"').join(',')})&order=created_at.desc`);
+    window._wdPayMap={};(pays||[]).forEach(p=>{if(!_wdPayMap[p.assignment_id])_wdPayMap[p.assignment_id]=[];_wdPayMap[p.assignment_id].push(p);});
+  }else{window._wdPayMap={};}
+  document.getElementById('wd-filter').value='all';
+  document.getElementById('wd-search').value='';
+  document.getElementById('wd-pay-amount').value='';
+  renderWorkerDetailShifts();
+  renderWorkerPaymentHistory();
+  openModal('modal-worker-detail');
+}
+function renderWorkerDetailShifts(){
+  const filter=document.getElementById('wd-filter').value;
+  const search=(document.getElementById('wd-search')?.value||'').toLowerCase();
+  let data=_wdShifts;
+  if(search)data=data.filter(a=>(a.shifts?.clients?.name||'').toLowerCase().includes(search)||(a.shifts?.service_types?.name||'').toLowerCase().includes(search));
+  if(filter==='paid')data=data.filter(a=>a.payment_status==='paid');
+  if(filter==='unpaid')data=data.filter(a=>a.payment_status!=='paid'&&parseFloat(a.hours_worked)>0);
+  if(filter==='completed')data=data.filter(a=>parseFloat(a.hours_worked)>0);
+  if(filter==='inwork')data=data.filter(a=>parseFloat(a.hours_worked)===0);
+  let totalH=0,totalEarned=0,totalPaid=0;
+  const rows=data.map(a=>{
+    const h=parseFloat(a.hours_worked)||0,r=parseFloat(a.rate_per_hour)||400,ex=parseFloat(a.extra_amount)||0;
+    const earned=(h*r)+ex;
+    const paid=parseFloat(a.paid_amount)||0;
+    const debt=earned-paid;
+    totalH+=h;totalEarned+=earned;totalPaid+=paid;
+    return`<tr><td>${formatDate(a.shifts?.date)}</td><td>${esc(a.shifts?.clients?.name)||"\u2014"}</td><td>${esc(a.shifts?.service_types?.name)||"\u2014"}</td><td>${h}</td><td>${Math.round(earned).toLocaleString('ru')}\u20bd</td><td>${Math.round(paid).toLocaleString('ru')}\u20bd</td><td style="color:${debt>0?'var(--danger)':'var(--accent)'}">${Math.round(debt).toLocaleString('ru')}\u20bd</td></tr>`;
+  });
+  const totalDebt=totalEarned-totalPaid;
+  rows.push(`<tr class="total-row"><td colspan="3">ИТОГО</td><td>${totalH}</td><td>${Math.round(totalEarned).toLocaleString('ru')}\u20bd</td><td>${Math.round(totalPaid).toLocaleString('ru')}\u20bd</td><td style="color:${totalDebt>0?'var(--danger)':'var(--accent)'}">${Math.round(totalDebt).toLocaleString('ru')}\u20bd</td></tr>`);
+  document.getElementById('wd-shifts').innerHTML=rows.join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-light);">Нет смен</td></tr>';
+  document.getElementById('wd-totals').innerHTML=`<div class="t-item"><div class="t-val">${totalH}</div><div class="t-label">Всего часов</div></div><div class="t-item"><div class="t-val">${Math.round(totalEarned).toLocaleString('ru')}\u20bd</div><div class="t-label">Начислено</div></div><div class="t-item"><div class="t-val" style="color:var(--accent)">${Math.round(totalPaid).toLocaleString('ru')}\u20bd</div><div class="t-label">Оплачено</div></div><div class="t-item"><div class="t-val" style="color:${totalDebt>0?'var(--danger)':'var(--accent)'}">${Math.round(totalDebt).toLocaleString('ru')}\u20bd</div><div class="t-label">Долг</div></div>`;
+}
+async function renderWorkerPaymentHistory(){
+  const el=document.getElementById('wd-pay-history');
+  if(!_wdWorkerId){el.innerHTML='';return;}
+  // Load payments for ALL assignments of this worker
+  const asgnIds=_wdShifts.map(a=>a.id);
+  let allPayments=[];
+  if(asgnIds.length){
+    const pays=await api('payments','GET',null,`?order=created_at.desc&limit=100`);
+    // Filter payments that belong to this worker's assignments (or have null assignment but recent)
+    allPayments=(pays||[]).filter(p=>asgnIds.includes(p.assignment_id)||(!p.assignment_id));
+  }
+  if(!allPayments.length){el.innerHTML='<div style="color:var(--text-light);font-size:13px;padding:4px;">Нет истории выплат</div>';return;}
+  let html='<div style="font-size:13px;font-weight:600;margin-bottom:4px;">📋 История выплат</div><table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr style="color:var(--text-light);"><th>Дата</th><th>Сумма</th><th>Способ</th><th>Чек</th></tr></thead><tbody>';
+  for(const p of allPayments){
+    const dt=p.created_at?new Date(p.created_at).toLocaleString('ru'):'—';
+    const methodNames={transfer:'Перевод',cash:'Наличные',card:'Карта'};
+    const mLabel=methodNames[p.method]||p.method||'—';
+    const receipt=p.note&&p.note.startsWith('receipt:')?'<a href="'+p.note.replace('receipt:','')+'" target="_blank" style="color:var(--primary);">📄</a>':'—';
+    html+=`<tr style="border-bottom:1px solid var(--border);"><td>${dt}</td><td>${parseFloat(p.amount).toLocaleString('ru')}₽</td><td>${mLabel}</td><td>${receipt}</td></tr>`;
+  }
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
+async function saveWorkerDetailPayment(){
+  if(!_wdWorkerId)return;
+  const amount=parseFloat(document.getElementById('wd-pay-amount').value)||0;
+  if(amount<=0){alert('Введите сумму');return;}
+  const method=document.getElementById('wd-pay-method').value;
+  const fileInput=document.getElementById('wd-receipt');
+  const unpaid=_wdShifts.filter(a=>a.payment_status!=='paid').sort((a,b)=>(a.shifts?.date||'').localeCompare(b.shifts?.date||''));
+  if(!unpaid.length){alert('Нет неоплаченных смен');return;}
+  // Upload receipt first if provided
+  let receiptUrl='';
+  if(fileInput.files.length>0){
+    try{
+      const file=fileInput.files[0];
+      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
+      const upRes=await fetch('/upload-receipt',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({filename:file.name,data:b64})});
+      const upData=await upRes.json();
+      if(upData.url)receiptUrl=upData.url;
+    }catch(e){console.error('Receipt upload failed:',e);}
+  }
+  let remaining=amount;
+  for(const a of unpaid){
+    if(remaining<=0)break;
+    const h=parseFloat(a.hours_worked)||0,r=parseFloat(a.rate_per_hour)||400,ex=parseFloat(a.extra_amount)||0;
+    const total=(h*r)+ex;
+    const paid=parseFloat(a.paid_amount)||0;
+    const debt=Math.round(total-paid);
+    const pay=Math.min(remaining,debt);
+    if(pay<=0)continue;
+    const newPaid=paid+pay;
+    const status=newPaid>=total?'paid':'unpaid';
+    await api('shift_assignments','PATCH',{paid_amount:newPaid,payment_status:status},'?id=eq.'+a.id);
+    await api('payments','POST',{assignment_id:a.id,amount:pay,method,note:receiptUrl?'receipt:'+receiptUrl:null});
+    remaining-=pay;
+  }
+  toast('Оплата '+amount.toLocaleString('ru')+'₽ записана');
+  await openWorkerDetail(_wdWorkerId);
+  loadDashboard();
+}
+
+// ===== Client Detail Card =====
+let _cdClientId=null,_cdShifts=[],_cdPayments=[];
+async function openClientDetail(clientId){
+  _cdClientId=clientId;
+  const c=(await api('clients','GET',null,'?id=eq.'+clientId))[0];if(!c)return;
+  document.getElementById('cd-header').innerHTML=`<div><h3>${esc(c.name)}</h3><div class="meta">📱 ${esc(c.contact)||'—'} · Ставка: ${c.default_client_rate||520}/${c.default_worker_rate||400}\u20bd</div></div><button class="btn btn-sm btn-outline" onclick=\"editClient('${clientId}')\">✏️</button>`;
+  // Load all assignments for this client
+  const asgn=await api('shift_assignments','GET',null,`?select=hours_worked,rate_per_hour,client_rate_per_hour,extra_amount,payment_status,paid_amount,worker_id,shifts!inner(date,client_id,clients(name),service_types(name))&shifts.client_id=eq.${clientId}&limit=2000`);
+  _cdShifts=(asgn||[]).filter(a=>parseFloat(a.hours_worked)>0);
+  // Load payments history
+  const asgnIds=_cdShifts.map(a=>a.id);
+  if(asgnIds.length){
+    const pays=await api('payments','GET',null,`?assignment_id=in.(${asgnIds.map(id=>'"'+id+'"').join(',')})&order=created_at.desc`);
+    _cdPayments=pays||[];
+  }else{_cdPayments=[];}
+  document.getElementById('cd-filter').value='all';
+  document.getElementById('cd-search').value='';
+  document.getElementById('cd-pay-amount').value='';
+  renderClientDetailShifts();
+  renderClientDetailPayments();
+  openModal('modal-client-detail');
+}
+function renderClientDetailShifts(){
+  const filter=document.getElementById('cd-filter').value;
+  const search=(document.getElementById('cd-search')?.value||'').toLowerCase();
+  const wMap={};(cachedWorkers||[]).forEach(w=>wMap[w.id]=w.full_name);
+  let data=_cdShifts;
+  if(search)data=data.filter(a=>(wMap[a.worker_id]||'').toLowerCase().includes(search)||(a.shifts?.service_types?.name||'').toLowerCase().includes(search));
+  if(filter==='paid')data=data.filter(a=>a.payment_status==='paid');
+  if(filter==='unpaid')data=data.filter(a=>a.payment_status!=='paid');
+  // Group by shift date+service to avoid duplicates (multiple workers per shift)
+  const shiftMap={};
+  data.forEach(a=>{
+    const key=a.shifts?.date+'_'+(a.shifts?.service_type||'');
+    if(!shiftMap[key])shiftMap[key]={date:a.shifts?.date,service:a.shifts?.service_types?.name,workers:[],totalH:0,totalDue:0,totalPaid:0};
+    const h=parseFloat(a.hours_worked)||0,cr=parseFloat(a.client_rate_per_hour)||520,ex=parseFloat(a.extra_amount)||0;
+    const due=(h*cr)+ex;
+    const paid=parseFloat(a.paid_amount)||0;
+    shiftMap[key].workers.push(wMap[a.worker_id]||'—');
+    shiftMap[key].totalH+=h;
+    shiftMap[key].totalDue+=due;
+    shiftMap[key].totalPaid+=paid;
+  });
+  const groups=Object.values(shiftMap);
+  let totalServices=groups.length,totalAmount=0,totalPaid=0;
+  const rows=groups.map(g=>{
+    totalAmount+=g.totalDue;totalPaid+=g.totalPaid;
+    const debt=g.totalDue-g.totalPaid;
+    return`<tr><td>${formatDate(g.date)}</td><td>${esc(g.service)||"\u2014"}</td><td>${g.workers.join(', ')}</td><td>${g.totalH}</td><td>${Math.round(g.totalDue).toLocaleString('ru')}\u20bd</td><td>${Math.round(g.totalPaid).toLocaleString('ru')}\u20bd</td><td style="color:${debt>0?'var(--danger)':'var(--accent)'}">${Math.round(debt).toLocaleString('ru')}\u20bd</td></tr>`;
+  });
+  const totalDebt=totalAmount-totalPaid;
+  rows.push(`<tr class="total-row"><td colspan="3">ИТОГО (${totalServices} услуг)</td><td></td><td>${Math.round(totalAmount).toLocaleString('ru')}\u20bd</td><td>${Math.round(totalPaid).toLocaleString('ru')}\u20bd</td><td style="color:${totalDebt>0?'var(--danger)':'var(--accent)'}">${Math.round(totalDebt).toLocaleString('ru')}\u20bd</td></tr>`);
+  document.getElementById('cd-shifts').innerHTML=rows.join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-light);">Нет смен</td></tr>';
+  document.getElementById('cd-totals').innerHTML=`<div class="t-item"><div class="t-val">${totalServices}</div><div class="t-label">Услуг</div></div><div class="t-item"><div class="t-val">${Math.round(totalAmount).toLocaleString('ru')}\u20bd</div><div class="t-label">Сумма</div></div><div class="t-item"><div class="t-val" style="color:var(--accent)">${Math.round(totalPaid).toLocaleString('ru')}\u20bd</div><div class="t-label">Оплачено</div></div><div class="t-item"><div class="t-val" style="color:${totalDebt>0?'var(--danger)':'var(--accent)'}">${Math.round(totalDebt).toLocaleString('ru')}\u20bd</div><div class="t-label">Долг</div></div>`;
+}
+function renderClientDetailPayments(){
+  const rows=(_cdPayments||[]).map(p=>{
+    const noteText=p.note&&p.note.startsWith('receipt:')?'<a href="'+p.note.replace('receipt:','')+'" target="_blank">📎 Чек</a>':esc(p.note||'');
+    return`<tr><td>${formatDate((p.created_at||'').split('T')[0])}</td><td>${(parseFloat(p.amount)||0).toLocaleString('ru')}\u20bd</td><td>${p.method==='transfer'?'Перевод':p.method==='cash'?'Наличные':p.method==='card'?'Карта':p.method||'—'}</td><td>${noteText}</td></tr>`;
+  });
+  document.getElementById('cd-payments').innerHTML=rows.join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-light);">Нет платежей</td></tr>';
+}
+async function saveClientDetailPayment(){
+  if(!_cdClientId)return;
+  const amount=parseFloat(document.getElementById('cd-pay-amount').value)||0;
+  if(amount<=0){alert('Введите сумму');return;}
+  const method=document.getElementById('cd-pay-method').value;
+  const fileInput=document.getElementById('cd-receipt');
+  // Find unpaid assignments for this client, oldest first
+  const unpaid=_cdShifts.filter(a=>a.payment_status!=='paid').sort((a,b)=>(a.shifts?.date||'').localeCompare(b.shifts?.date||''));
+  if(!unpaid.length){alert('Нет неоплаченных смен');return;}
+  let remaining=amount;
+  for(const a of unpaid){
+    if(remaining<=0)break;
+    const h=parseFloat(a.hours_worked)||0,cr=parseFloat(a.client_rate_per_hour)||520,ex=parseFloat(a.extra_amount)||0;
+    const total=(h*cr)+ex;
+    const paid=parseFloat(a.paid_amount)||0;
+    const debt=Math.round(total-paid);
+    const pay=Math.min(remaining,debt);
+    if(pay<=0)continue;
+    const newPaid=paid+pay;
+    const status=newPaid>=total?'paid':'unpaid';
+    await api('shift_assignments','PATCH',{paid_amount:newPaid,payment_status:status},'?id=eq.'+a.id);
+    let note='';
+    if(fileInput.files.length>0){
+      const fd=new FormData();fd.append('receipt',fileInput.files[0]);
+      try{const upRes=await fetch('/upload-receipt',{method:'POST',body:fd});const upData=await upRes.json();if(upData.url)note='receipt:'+upData.url;}catch(e){console.error('Receipt upload failed:',e);}
+    }
+    await api('payments','POST',{assignment_id:a.id,amount:pay,method,note:note||null});
+    remaining-=pay;
+  }
+  toast('Оплата '+amount.toLocaleString('ru')+'\u20bd записана');
+  await openClientDetail(_cdClientId);
+  loadDashboard();
+}
+
+// ===== Auto-login via saved token =====
 (async()=>{
   try{
-    const saved=JSON.parse(localStorage.getItem('dp_auth')||'null');
-    if(saved&&saved.phone){
-      document.getElementById('auth-phone').value=saved.phone;
-      // Auto-fill phone, user still needs to enter password
+    const token=localStorage.getItem('dp_token');
+    if(token){
+      const r=await fetch('/auth/me',{headers:{'Authorization':'Bearer '+token}});
+      if(r.ok){
+        const d=await r.json();
+        if(d.ok&&d.user&&['owner','dispatcher'].includes(d.user.role)){
+          currentUser=d.user;
+          if(d.token)localStorage.setItem('dp_token',d.token);
+          localStorage.setItem('dp_auth',JSON.stringify({phone:d.user.phone,id:d.user.id,full_name:d.user.full_name,role:d.user.role,rate_per_hour:d.user.rate_per_hour,monthly_target_hours:d.user.monthly_target_hours}));
+          document.getElementById('auth-screen').style.display='none';
+          document.getElementById('app').style.display='block';
+          document.getElementById('user-name').textContent=d.user.full_name||d.user.phone;
+          document.getElementById('user-role').textContent=d.user.role==='owner'?'Владелец':'Диспетчер';
+          if(d.user.role==='owner')document.getElementById('tab-dispatchers').style.display='';
+          if(d.user.role==='owner'){
+            document.getElementById('settings-rate').value=d.user.rate_per_hour||7.5;
+            document.getElementById('settings-target').value=d.user.monthly_target_hours||8000;
+            document.getElementById('settings-rate').removeAttribute('readonly');
+            document.getElementById('settings-rate').style.background='';
+            document.getElementById('settings-target').removeAttribute('readonly');
+            document.getElementById('settings-target').style.background='';
+            document.getElementById('settings-save-btn').style.display='';
+            document.getElementById('settings-readonly-notice').style.display='none';
+          }
+          if(d.user.role==='dispatcher'){
+            document.getElementById('settings-rate').value=d.user.rate_per_hour||7.5;
+            document.getElementById('settings-target').value=d.user.monthly_target_hours||8000;
+          }
+          await init();
+          return;
+        }
+      }
+      localStorage.removeItem('dp_token');
+      localStorage.removeItem('dp_auth');
     }
-  }catch(e){}
+    const saved=JSON.parse(localStorage.getItem('dp_auth')||'null');
+    if(saved&&saved.phone){document.getElementById('auth-phone').value=saved.phone;}
+  }catch(e){console.error('Auto-login error:',e);}
 })();
 // PWA
 if('serviceWorker' in navigator)// SW disabled
@@ -1585,7 +1903,11 @@ setInterval(()=>{if(currentUser)loadDashboard();},5000);
 
 <div id="modal-mass-hours" class="modal"><div class="modal-content">
   <div class="modal-header"><h2>⏱ Ввести часы всем</h2><button class="close-btn" onclick="closeModal('modal-mass-hours')">&times;</button></div>
-  <div id="mass-hours-list" style="max-height:60vh;overflow-y:auto;"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;padding:12px;background:var(--card);border-radius:8px;">
+    <div class="form-group" style="margin:0"><label>Начало</label><input type="datetime-local" id="mass-start-time" onchange="calcAllMassHours()"></div>
+    <div class="form-group" style="margin:0"><label>Окончание</label><input type="datetime-local" id="mass-end-time" onchange="calcAllMassHours()"></div>
+  </div>
+  <div id="mass-hours-list" style="max-height:50vh;overflow-y:auto;"></div>
   <button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="saveMassHours()">Сохранить все</button>
 </div></div>
 
@@ -1610,5 +1932,6 @@ setInterval(()=>{if(currentUser)loadDashboard();},5000);
         <button class="btn btn-outline" style="flex:1;padding:12px;" onclick="shareCred()">📤 Поделиться</button>
       </div>
     </div></div>
+<script src="/push-client.js"></script>
 </body>
 </html>

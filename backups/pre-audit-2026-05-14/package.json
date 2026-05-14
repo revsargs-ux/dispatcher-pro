@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@supabase/supabase-js": "latest",
+    "bcryptjs": "^2.4.3",
+    "express": "latest",
+    "jsonwebtoken": "^9.0.3"
+  }
+}

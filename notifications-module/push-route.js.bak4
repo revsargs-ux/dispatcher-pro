@@ -29,7 +29,7 @@ function handlePushSubscription(req, res, cors) {
   req.on('data', (chunk) => { body += chunk; });
   req.on('end', async () => {
     try {
-      const { endpoint, keys, platform, user_role } = JSON.parse(body);
+      const { endpoint, keys, platform } = JSON.parse(body);
       if (!endpoint) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: 'Missing endpoint' }));
@@ -56,7 +56,7 @@ function handlePushSubscription(req, res, cors) {
       // Сохраняем/обновляем подписку в Supabase (upsert)
       const sbBody = {
         user_id: userId,
-        user_role: user_role || 'worker', // Из тела запроса или по умолчанию
+        user_role: 'worker', // Определяется из сессии
         platform: platform || 'web',
         push_endpoint: endpoint,
         push_keys: keys ? JSON.stringify(keys) : null,

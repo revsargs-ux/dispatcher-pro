@@ -1,99 +1,95 @@
 /**
- * Telegram bot — notifications, user linking, commands, AI answers
+ * МАКС бот — уведомления, привязка пользователей, команды, AI
+ * Аналог telegram.js для платформы МАКС (platform-api.max.ru)
  */
 const { config } = require('./config');
 const fs = require('fs');
 const path = require('path');
 
-// Загружаем базу знаний
+// Загружаем базу знаний (ту же что и для TG бота)
 let knowledgeBase = '';
 try {
   knowledgeBase = fs.readFileSync(path.join(__dirname, '..', 'bot-knowledge.md'), 'utf8');
-} catch (e) { console.error('[TG] Knowledge base not found'); }
+} catch (e) { console.error('[MAX] Knowledge base not found'); }
+
+const MAX_API = config.maxApi;
+const MAX_TOKEN = config.maxBotToken;
 
 // ============================================================
-// Отправка сообщений
+// Отправка сообщений в МАКС
 // ============================================================
-async function tgSendMessage(chatId, text, extra = {}) {
+async function maxSendMessage(userId, text, attachments) {
   try {
-    await fetch(`${config.tgApi}/sendMessage`, {
+    const body = { text: text.slice(0, 4000) };
+    if (attachments) body.attachments = attachments;
+    await fetch(`${MAX_API}/messages?user_id=${userId}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', ...extra })
+      headers: { 'Authorization': MAX_TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
     });
-  } catch (e) { console.error('[TG] Send error:', e.message); }
+  } catch (e) { console.error('[MAX] Send error:', e.message); }
 }
 
 // ============================================================
-// Уведомления (существующие — НЕ трогаем)
+// Уведомления через МАКС (аналог tgNotify)
 // ============================================================
-async function tgNotify(table, phone, text) {
+async function maxNotify(table, phone, text) {
   try {
     const cleanPhone = (phone || '').replace(/[-+()\s]/g, '').replace(/^8/, '7');
-    const res = await fetch(`${config.sbUrl}/rest/v1/${table}?phone=ilike.%25${cleanPhone.slice(-10)}%25&select=telegram_chat_id,full_name&limit=1`, {
+    const res = await fetch(`${config.sbUrl}/rest/v1/${table}?phone=ilike.%25${cleanPhone.slice(-10)}%25&select=max_chat_id,full_name&limit=1`, {
       headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
     });
     const rows = await res.json();
-    if (!rows.length || !rows[0].telegram_chat_id) return;
-    await tgSendMessage(rows[0].telegram_chat_id, text);
-    console.log('[TG] Sent to', rows[0].full_name);
-  } catch (e) { console.error('[TG] Notify error:', e.message); }
+    if (!rows.length || !rows[0].max_chat_id) return;
+    await maxSendMessage(rows[0].max_chat_id, text);
+    console.log('[MAX] Sent to', rows[0].full_name);
+  } catch (e) { console.error('[MAX] Notify error:', e.message); }
 }
 
-async function tgNotifyRole(role, text) {
+async function maxNotifyRole(role, text) {
   try {
-    const res = await fetch(`${config.sbUrl}/rest/v1/users?role=eq.${role}&select=telegram_chat_id,full_name`, {
+    const res = await fetch(`${config.sbUrl}/rest/v1/users?role=eq.${role}&select=max_chat_id,full_name`, {
       headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
     });
     const users = await res.json();
     for (const u of users) {
-      if (u.telegram_chat_id) await tgSendMessage(u.telegram_chat_id, text);
+      if (u.max_chat_id) await maxSendMessage(u.max_chat_id, text);
     }
-  } catch (e) { console.error('[TG] NotifyRole error:', e.message); }
+  } catch (e) { console.error('[MAX] NotifyRole error:', e.message); }
 }
 
 // ============================================================
-// Определение пользователя по chatId
+// Определение пользователя по max_chat_id
 // ============================================================
-async function identifyUser(chatId) {
-  // Ищем в workers (БЕЗ rate_per_hour — колонки нет!)
-  const wRes = await fetch(`${config.sbUrl}/rest/v1/workers?telegram_chat_id=eq.${chatId}&select=id,full_name,phone&limit=1`, {
-    headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
-  });
+async function identifyMaxUser(chatId) {
+  const headers = { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey };
+
+  // Workers
+  const wRes = await fetch(`${config.sbUrl}/rest/v1/workers?max_chat_id=eq.${chatId}&select=id,full_name,phone&limit=1`, { headers });
   const workers = await wRes.json();
-  if (workers.length && !workers.code) {
-    return { role: 'worker', ...workers[0] };
-  }
+  if (Array.isArray(workers) && workers.length) return { role: 'worker', ...workers[0] };
 
-  // Ищем в clients
-  const cRes = await fetch(`${config.sbUrl}/rest/v1/clients?telegram_chat_id=eq.${chatId}&select=id,name,contact&limit=1`, {
-    headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
-  });
+  // Clients
+  const cRes = await fetch(`${config.sbUrl}/rest/v1/clients?max_chat_id=eq.${chatId}&select=id,name,contact&limit=1`, { headers });
   const clients = await cRes.json();
-  if (clients.length && !clients.code) {
-    return { role: 'client', full_name: clients[0].name, ...clients[0] };
-  }
+  if (Array.isArray(clients) && clients.length) return { role: 'client', full_name: clients[0].name, ...clients[0] };
 
-  // Ищем в users
-  const uRes = await fetch(`${config.sbUrl}/rest/v1/users?telegram_chat_id=eq.${chatId}&select=id,full_name,role,phone&limit=1`, {
-    headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
-  });
+  // Users
+  const uRes = await fetch(`${config.sbUrl}/rest/v1/users?max_chat_id=eq.${chatId}&select=id,full_name,role,phone&limit=1`, { headers });
   const users = await uRes.json();
-  if (users.length && !users.code) {
-    return { ...users[0] };
-  }
+  if (Array.isArray(users) && users.length) return { ...users[0] };
 
   return null;
 }
 
 // ============================================================
-// Команды — напрямую из БД (без AI)
+// Команды (те же что в telegram.js)
 // ============================================================
 
 async function cmdHelp(chatId, user) {
   if (user.role === 'worker') {
-    await tgSendMessage(chatId,
-      '📋 <b>Команды для исполнителя:</b>\n\n' +
+    await maxSendMessage(chatId,
+      '📋 Команды для исполнителя:\n\n' +
       '/shifts — Мои ближайшие смены\n' +
       '/earnings — Мой заработок\n' +
       '/selfemployed — Как оформить самозанятость\n' +
@@ -101,64 +97,55 @@ async function cmdHelp(chatId, user) {
       '💡 Или задайте любой вопрос текстом — я отвечу!'
     );
   } else if (user.role === 'client') {
-    await tgSendMessage(chatId,
-      '📋 <b>Команды для клиента:</b>\n\n' +
+    await maxSendMessage(chatId,
+      '📋 Команды для клиента:\n\n' +
       '/orders — Мои заказы\n' +
       '/help — Эта справка\n\n' +
-      '💡 Или задайте любой вопрос текстом — я отвечу!'
+      '💡 Или задайте любой вопрос текстом!'
     );
   } else {
-    await tgSendMessage(chatId,
-      '📋 <b>Команды:</b>\n\n' +
-      '/help — Эта справка\n\n' +
-      '💡 Задайте любой вопрос текстом!'
+    await maxSendMessage(chatId,
+      '📋 Команды:\n\n/help — Эта справка\n\n💡 Задайте любой вопрос текстом!'
     );
   }
 }
 
 async function cmdShifts(chatId, user) {
   if (user.role !== 'worker') {
-    return tgSendMessage(chatId, 'Эта команда доступна только исполнителям.');
+    return maxSendMessage(chatId, 'Эта команда доступна только исполнителям.');
   }
-
   const now = new Date().toISOString().split('T')[0];
   const res = await fetch(
     `${config.sbUrl}/rest/v1/shift_assignments?worker_id=eq.${user.id}&select=id,shift_id,rate_per_hour,hours_worked,payment_status,shifts!inner(id,date,start_time,end_time,address,status,comment,clients(name),service_types(name))&shifts.date=gte.${now}&shifts.status=neq.completed&order=shifts.date.asc&limit=10`,
     { headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey } }
   );
   const assignments = await res.json();
-
-  if (!assignments.length || assignments.code) {
-    return tgSendMessage(chatId, '📋 У вас нет предстоящих смен.');
+  if (!Array.isArray(assignments) || !assignments.length) {
+    return maxSendMessage(chatId, '📋 У вас нет предстоящих смен.');
   }
-
-  let text = '📋 <b>Ваши предстоящие смены:</b>\n\n';
+  let text = '📋 Ваши предстоящие смены:\n\n';
   for (const a of assignments) {
     const s = a.shifts;
     const date = s.date ? s.date.split('-').reverse().join('.') : '—';
     const statusEmoji = { pending: '⏳', planned: '📋', in_progress: '🔧', completed: '✅' };
-    text += `${statusEmoji[s.status] || '📋'} <b>${date}</b> | ${s.start_time || '—'}\n`;
+    text += `${statusEmoji[s.status] || '📋'} ${date} | ${s.start_time || '—'}\n`;
     text += `📍 ${s.address || '—'}\n`;
     text += `🏢 ${s.clients?.name || '—'} | 📋 ${s.service_types?.name || '—'}\n`;
     text += `💰 ${a.rate_per_hour || '—'} ₽/час`;
     if (s.comment) text += `\n💬 ${s.comment}`;
     text += '\n\n';
   }
-  await tgSendMessage(chatId, text);
+  await maxSendMessage(chatId, text);
 }
 
 async function cmdEarnings(chatId, user) {
   if (user.role !== 'worker') {
-    return tgSendMessage(chatId, 'Эта команда доступна только исполнителям.');
+    return maxSendMessage(chatId, 'Эта команда доступна только исполнителям.');
   }
-
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const lastMonth = now.getMonth() === 0 ? `${now.getFullYear() - 1}-12` : `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}`;
-
-  // Proper next month for date range
-  const nextMonth = now.getMonth() === 11 ? `${now.getFullYear()+1}-01` : `${now.getFullYear()}-${String(now.getMonth()+2).padStart(2,'0')}`;
-  const prevNextMonth = now.getMonth() === 0 ? `${now.getFullYear()}-01` : now.getMonth() === 11 ? `${now.getFullYear()}-01` : `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const nextMonth = now.getMonth() === 11 ? `${now.getFullYear() + 1}-01` : `${now.getFullYear()}-${String(now.getMonth() + 2).padStart(2, '0')}`;
 
   const tmRes = await fetch(
     `${config.sbUrl}/rest/v1/shift_assignments?worker_id=eq.${user.id}&select=hours_worked,rate_per_hour,extra_amount,payment_status,shifts!inner(date)&shifts.date=gte.${thisMonth}-01&shifts.date=lt.${nextMonth}-01`,
@@ -188,16 +175,13 @@ async function cmdEarnings(chatId, user) {
 
   const tm = calcEarnings(tmData);
   const lm = calcEarnings(lmData);
-
   const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-  const thisMonthName = monthNames[now.getMonth()];
-  const lastMonthName = monthNames[now.getMonth() === 0 ? 11 : now.getMonth() - 1];
 
-  await tgSendMessage(chatId,
-    `💰 <b>Ваш заработок:</b>\n\n` +
-    `📅 ${thisMonthName}: ${tm.total} ₽ (${tm.hours} ч.)\n` +
+  await maxSendMessage(chatId,
+    `💰 Ваш заработок:\n\n` +
+    `📅 ${monthNames[now.getMonth()]}: ${tm.total} ₽ (${tm.hours} ч.)\n` +
     `   ✅ Оплачено: ${tm.paid} ₽\n\n` +
-    `📅 ${lastMonthName}: ${lm.total} ₽ (${lm.hours} ч.)\n` +
+    `📅 ${monthNames[now.getMonth() === 0 ? 11 : now.getMonth() - 1]}: ${lm.total} ₽ (${lm.hours} ч.)\n` +
     `   ✅ Оплачено: ${lm.paid} ₽\n\n` +
     `💳 Выплата — переводом на имя самозанятого`
   );
@@ -205,54 +189,49 @@ async function cmdEarnings(chatId, user) {
 
 async function cmdOrders(chatId, user) {
   if (user.role !== 'client') {
-    return tgSendMessage(chatId, 'Эта команда доступна только клиентам.');
+    return maxSendMessage(chatId, 'Эта команда доступна только клиентам.');
   }
-
   const res = await fetch(
     `${config.sbUrl}/rest/v1/shifts?client_id=eq.${user.id}&select=id,date,start_time,address,status,comment,service_types(name)&order=date.desc&limit=10`,
     { headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey } }
   );
   const shifts = await res.json();
-
-  if (!shifts.length || shifts.code) {
-    return tgSendMessage(chatId, '📋 У вас нет заказов.');
+  if (!Array.isArray(shifts) || !shifts.length) {
+    return maxSendMessage(chatId, '📋 У вас нет заказов.');
   }
-
-  let text = '📋 <b>Ваши заказы:</b>\n\n';
+  let text = '📋 Ваши заказы:\n\n';
   const statusEmoji = { pending: '⏳', planned: '📋', in_progress: '🔧', completed: '✅' };
   for (const s of shifts) {
     const date = s.date ? s.date.split('-').reverse().join('.') : '—';
-    text += `${statusEmoji[s.status] || '📋'} <b>${date}</b> | ${s.start_time || '—'}\n`;
+    text += `${statusEmoji[s.status] || '📋'} ${date} | ${s.start_time || '—'}\n`;
     text += `📍 ${s.address || '—'} | 📋 ${s.service_types?.name || '—'}\n\n`;
   }
-  await tgSendMessage(chatId, text);
+  await maxSendMessage(chatId, text);
 }
 
 async function cmdSelfEmployed(chatId) {
-  await tgSendMessage(chatId,
-    '🧾 <b>Самозанятость (НПД)</b>\n\n' +
-    '⚠️ <b>Обязательно</b> для получения оплаты!\n\n' +
-    '<b>Как оформить:</b>\n' +
+  await maxSendMessage(chatId,
+    '🧾 Самозанятость (НПД)\n\n' +
+    '⚠️ Обязательно для получения оплаты!\n\n' +
+    'Как оформить:\n' +
     '1. Скачайте приложение «Мой налог»\n' +
     '2. Зарегистрируйтесь через Госуслуги\n' +
     '3. Готово — 10 минут\n\n' +
-    '<b>Условия:</b>\n' +
+    'Условия:\n' +
     '• Налог: 4% (физлица) / 6% (юрлица)\n' +
     '• Лимит: 2,4 млн ₽/год\n' +
-    '• Бонус при регистрации: 10 000 ₽\n' +
-    '• Платить до 25 числа следующего месяца\n\n' +
-    '📱 https://npd.nalog.ru\n\n' +
-    'Если не оформили — свяжитесь с диспетчером.'
+    '• Бонус при регистрации: 10 000 ₽\n\n' +
+    '📱 https://npd.nalog.ru'
   );
 }
 
 // ============================================================
-// AI через ZAI (ZhipuAI / BigModel)
+// AI через ZAI (тот же что и в telegram.js)
 // ============================================================
 async function askAI(chatId, user, question) {
   const apiKey = config.geminiKey;
   if (!apiKey) {
-    return tgSendMessage(chatId, '🤖 Функция временно недоступна. Обратитесь к диспетчеру.');
+    return maxSendMessage(chatId, '🤖 Функция временно недоступна. Обратитесь к диспетчеру.');
   }
 
   const roleContext = user.role === 'worker'
@@ -266,10 +245,7 @@ async function askAI(chatId, user, question) {
       'https://open.bigmodel.cn/api/paas/v4/chat/completions',
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'glm-4-plus',
           messages: [{
@@ -297,32 +273,29 @@ ${knowledgeBase}
         })
       }
     );
-
     const data = await response.json();
     const answer = data?.choices?.[0]?.message?.content;
-
     if (answer) {
-      const truncated = answer.length > 4000 ? answer.slice(0, 4000) + '...' : answer;
-      await tgSendMessage(chatId, truncated);
+      await maxSendMessage(chatId, answer.slice(0, 4000));
     } else {
-      console.error('[TG] AI no answer:', JSON.stringify(data).slice(0, 200));
-      await tgSendMessage(chatId, '🤔 Не смог найти ответ. Обратитесь к диспетчеру.');
+      console.error('[MAX] AI no answer:', JSON.stringify(data).slice(0, 200));
+      await maxSendMessage(chatId, '🤔 Не смог найти ответ. Обратитесь к диспетчеру.');
     }
   } catch (e) {
-    console.error('[TG] AI error:', e.message);
-    await tgSendMessage(chatId, '🤖 Ошибка. Попробуйте позже.');
+    console.error('[MAX] AI error:', e.message);
+    await maxSendMessage(chatId, '🤖 Ошибка. Попробуйте позже.');
   }
 }
 
 // ============================================================
-// Привязка пользователя
+// Привязка пользователя по номеру телефона
 // ============================================================
-async function linkTgUser(chatId, phone, username) {
+async function linkMaxUser(chatId, phone) {
   try {
     const searchConfigs = [
-      { table: 'users', phoneCol: 'phone', select: 'id,full_name,role,telegram_chat_id' },
-      { table: 'workers', phoneCol: 'phone', select: 'id,full_name,telegram_chat_id' },
-      { table: 'clients', phoneCol: 'contact', select: 'id,name,telegram_chat_id' }
+      { table: 'users', phoneCol: 'phone', select: 'id,full_name,role,max_chat_id' },
+      { table: 'workers', phoneCol: 'phone', select: 'id,full_name,max_chat_id' },
+      { table: 'clients', phoneCol: 'contact', select: 'id,name,max_chat_id' }
     ];
     let found = null;
     for (const cfg of searchConfigs) {
@@ -330,152 +303,167 @@ async function linkTgUser(chatId, phone, username) {
         headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
       });
       const rows = await res.json();
-      if (rows.length && !rows.code) {
+      if (Array.isArray(rows) && rows.length) {
         const row = rows[0];
         found = { table: cfg.table, id: row.id, full_name: row.full_name || row.name, role: row.role || (cfg.table === 'workers' ? 'worker' : cfg.table === 'clients' ? 'client' : 'unknown') };
         break;
       }
     }
     if (!found) {
-      await tgSendMessage(chatId, '❌ Пользователь с номером +' + phone + ' не найден в Dispatcher.PRO.\nПроверьте номер или зарегистрируйтесь в системе.');
+      await maxSendMessage(chatId, `❌ Пользователь с номером +${phone} не найден в Dispatcher.PRO.\nПроверьте номер или зарегистрируйтесь в системе.`);
       return;
     }
     await fetch(`${config.sbUrl}/rest/v1/${found.table}?id=eq.${found.id}`, {
       method: 'PATCH',
       headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ telegram_chat_id: chatId })
+      body: JSON.stringify({ max_chat_id: chatId })
     });
     const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
-    await tgSendMessage(chatId, `✅ Привязка успешна!\n\n👤 ${found.full_name}\n🏷 ${roleNames[found.role] || found.role}\n\nТеперь вы будете получать уведомления от Dispatcher.PRO.\n\n📋 Введите /help чтобы увидеть доступные команды.`);
-    console.log('[TG] Linked', found.full_name, '->', chatId);
-  } catch (e) { console.error('[TG] Link error:', e.message); }
+    await maxSendMessage(chatId, `✅ Привязка успешна!\n\n👤 ${found.full_name}\n🏷 ${roleNames[found.role] || found.role}\n\nТеперь вы будете получать уведомления от Dispatcher.PRO.\n\n📋 Введите /help чтобы увидеть доступные команды.`);
+    console.log('[MAX] Linked', found.full_name, '->', chatId);
+  } catch (e) { console.error('[MAX] Link error:', e.message); }
 }
 
 // ============================================================
 // Обработка входящих сообщений
 // ============================================================
-async function handleTgMessage(body) {
-  const msg = body.message;
-  if (!msg) return;
-
-  // Контакт (номер телефона)
-  if (msg.contact && msg.contact.phone_number) {
-    const chatId = String(msg.chat.id);
-    const phone = msg.contact.phone_number.replace(/[-+()\s]/g, '').replace(/^8/, '7');
-    await linkTgUser(chatId, phone, msg.from?.username || '');
-    return;
-  }
-
-  if (!msg.text) return;
-
-  const chatId = String(msg.chat.id);
-  const text = msg.text.trim();
-
-  // /start — проверяем привязку
-  if (text === '/start' || text.startsWith('/start@')) {
-    const existingUser = await identifyUser(chatId);
+async function handleMaxMessage(update) {
+  // МАКС API: update_type, message.sender.user_id, message.body.text
+  console.log('[MAX] Update:', JSON.stringify(update).slice(0, 300));
+  const updateType = update.update_type;
+  
+  // bot_started — пользователь начал диалог (аналог /start)
+  if (updateType === 'bot_started') {
+    const chatId = update.user?.user_id;
+    if (!chatId) return;
+    const existingUser = await identifyMaxUser(chatId);
     if (existingUser) {
       const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
-      await tgSendMessage(chatId, `👋 С возвращением, ${existingUser.full_name}!\n\n🏷 ${roleNames[existingUser.role] || existingUser.role}\n\n📋 Введите /help чтобы увидеть команды.`);
+      await maxSendMessage(chatId, `👋 С возвращением, ${existingUser.full_name}!\n\n🏷 ${roleNames[existingUser.role] || existingUser.role}\n\n📋 Введите /help чтобы увидеть команды.`);
+    } else {
+      await maxSendMessage(chatId, '👋 Привет! Чтобы привязать МАКС к Dispatcher.PRO, отправь свой номер телефона:\n\nФормат: +7XXXXXXXXXX');
+    }
+    return;
+  }
+  
+  // message_created — текстовое сообщение
+  if (updateType !== 'message_created') return;
+  const msg = update.message;
+  if (!msg) return;
+  const text = (msg.body?.text || '').trim();
+  if (!text) return;
+
+  const chatId = msg.sender?.user_id;
+  if (!chatId) return;
+
+  // /start — проверяем привязку
+  if (text === '/start' || text.startsWith('/start')) {
+    const existingUser = await identifyMaxUser(chatId);
+    if (existingUser) {
+      const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
+      await maxSendMessage(chatId, `👋 С возвращением, ${existingUser.full_name}!\n\n🏷 ${roleNames[existingUser.role] || existingUser.role}\n\n📋 Введите /help чтобы увидеть команды.`);
       return;
     }
-    // Не привязан
-    const startPhone = text.split(' ')[1];
-    if (startPhone) {
-      const digits = startPhone.replace(/[-+()\s]/g, '').replace(/^8/, '7');
-      if (/^7?\d{10}$/.test(digits) || /^\d{10}$/.test(digits)) {
-        await linkTgUser(chatId, '7' + digits.replace(/^7/, ''), msg.from?.username || '');
-        return;
-      }
-    }
-    await tgSendMessage(chatId, '👋 Привет! Чтобы привязать Telegram к Dispatcher.PRO, отправь свой номер телефона:\n\n<code>+7XXXXXXXXXX</code>\n\nИли нажми кнопку ниже.', {
-      reply_markup: JSON.stringify({ keyboard: [[{ text: '📱 Отправить номер', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true })
-    });
+    // Не привязан — просим номер
+    await maxSendMessage(chatId, '👋 Привет! Чтобы привязать МАКС к Dispatcher.PRO, отправь свой номер телефона:\n\nФормат: +7XXXXXXXXXX', [
+      { type: 'inline_keyboard', payload: { buttons: [[{ type: 'request_contact', text: '📱 Отправить номер' }]] } }
+    ]);
     return;
   }
 
-  // Номер телефона — привязка
+  // Контакт (номер телефона через кнопку или текст)
+  if (msg.body?.contact) {
+    const phone = (msg.body.contact.phone || '').replace(/[-+()\s]/g, '').replace(/^8/, '7');
+    if (phone.length >= 10) {
+      await linkMaxUser(chatId, phone);
+      return;
+    }
+  }
+
+  // Номер телефона текстом — привязка
   const digits = text.replace(/[-+()\s]/g, '');
   if (/^7\d{10}$/.test(digits) || /^8\d{10}$/.test(digits)) {
     const phone = digits.replace(/^8/, '7');
-    await linkTgUser(chatId, phone, msg.from?.username || '');
+    await linkMaxUser(chatId, phone);
     return;
   }
 
   // Определяем пользователя
-  const user = await identifyUser(chatId);
+  const user = await identifyMaxUser(chatId);
   if (!user) {
-    return tgSendMessage(chatId, 'Вы не привязаны к системе. Отправьте номер телефона или нажмите /start');
+    return maxSendMessage(chatId, 'Вы не привязаны к системе. Отправьте номер телефона или нажмите /start');
   }
 
-  // === Команды (без AI) ===
+  // === Команды ===
   const cmd = text.toLowerCase().split('@')[0];
-
   if (cmd === '/help' || cmd === '/помощь') return await cmdHelp(chatId, user);
   if (cmd === '/shifts' || cmd === '/смены') return await cmdShifts(chatId, user);
   if (cmd === '/earnings' || cmd === '/заработок' || cmd === '/зарплата') return await cmdEarnings(chatId, user);
   if (cmd === '/orders' || cmd === '/заказы') return await cmdOrders(chatId, user);
   if (cmd === '/selfemployed' || cmd === '/самозанятость') return await cmdSelfEmployed(chatId);
 
-  // === Распознавание текста → маппинг на команды ===
+  // === Текст → маппинг ===
   const lowerText = text.toLowerCase();
-  // Клиентские ключевые слова
-  const clientKeywords = ['заказ', 'мои заказ', 'мои смены', 'статус заказа', 'открытые заказ', 'какие заказ', 'смены', 'мои объект', 'мои точки'];
-  // Исполнительские ключевые слова
-  const workerKeywords = ['смен', 'график', 'что на завтра', 'что на сегодня', 'расписание', 'куда идти', 'куда ехать', 'мои смены', 'мои заказ'];
-  // Общие
-  const earningsKeywords = ['заработал', 'зарплат', 'оплат', 'сколько получил', 'мой доход', 'деньги', 'выплат'];
-  const selfemployedKeywords = ['самозанят', 'налог', 'мой налог', 'нпд', 'чек', 'оформить'];
-  const helpKeywords = ['что ты умеешь', 'помощь', 'что умеешь', 'что можешь', 'команды', 'что мне доступн'];
-
-  if (helpKeywords.some(kw => lowerText.includes(kw))) return await cmdHelp(chatId, user);
-  if (selfemployedKeywords.some(kw => lowerText.includes(kw))) return await cmdSelfEmployed(chatId);
-  if (earningsKeywords.some(kw => lowerText.includes(kw))) return await cmdEarnings(chatId, user);
-
-  // Роль-зависимые: клиент → orders, исполнитель → shifts
-  if (user.role === 'client') {
-    if (clientKeywords.some(kw => lowerText.includes(kw))) return await cmdOrders(chatId, user);
-  } else {
-    if (workerKeywords.some(kw => lowerText.includes(kw))) return await cmdShifts(chatId, user);
+  const cmdKeywords = {
+    shifts: ['смен', 'заказ', 'график', 'что на завтра', 'что на сегодня', 'мои заказ', 'расписание', 'куда идти', 'куда ехать'],
+    earnings: ['заработал', 'зарплат', 'оплат', 'сколько получил', 'мой доход', 'деньги', 'выплат'],
+    selfemployed: ['самозанят', 'налог', 'мой налог', 'нпд', 'чек', 'оформить'],
+    help: ['что ты умеешь', 'помощь', 'что умеешь', 'что можешь', 'команды'],
+    orders: ['мои заказы', 'мои смены', 'статус заказа'],
+  };
+  for (const [command, keywords] of Object.entries(cmdKeywords)) {
+    if (keywords.some(kw => lowerText.includes(kw))) {
+      if (command === 'shifts') return await cmdShifts(chatId, user);
+      if (command === 'earnings') return await cmdEarnings(chatId, user);
+      if (command === 'selfemployed') return await cmdSelfEmployed(chatId);
+      if (command === 'help') return await cmdHelp(chatId, user);
+      if (command === 'orders') return await cmdOrders(chatId, user);
+    }
   }
 
-  // === Всё остальное — через AI ===
+  // === Всё остальное — AI ===
   await askAI(chatId, user, text);
 }
 
 // ============================================================
-// Long Polling
+// Long Polling МАКС
 // ============================================================
-let tgLastUpdateId = 0;
-let pollingActive = false;
-let pollRetryCount = 0;
+let maxMarker = null;
+let maxPollingActive = false;
+let maxRetryCount = 0;
 
-async function startPolling() {
-  if (pollingActive) return;
-  pollingActive = true;
-  console.log('[TG] Polling started');
-  while (pollingActive) {
+async function startMaxPolling() {
+  if (maxPollingActive) return;
+  maxPollingActive = true;
+  console.log('[MAX] Polling started');
+  while (maxPollingActive) {
     try {
-      const res = await fetch(`${config.tgApi}/getUpdates?offset=${tgLastUpdateId + 1}&timeout=30&allowed_updates=["message","callback_query"]`, {
-        signal: AbortSignal.timeout(config.pollTimeout)
+      const url = `${MAX_API}/updates?timeout=25&limit=100` + (maxMarker ? `&marker=${maxMarker}` : '');
+      const res = await fetch(url, {
+        headers: { 'Authorization': MAX_TOKEN },
+        signal: AbortSignal.timeout(35000)
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data.ok && data.result && data.result.length) {
-        for (const update of data.result) {
-          tgLastUpdateId = Math.max(tgLastUpdateId, update.update_id);
-          try { await handleTgMessage(update); } catch(e) { console.error('[TG] Handler error:', e.message); }
+      if (data.updates && data.updates.length) {
+        for (const update of data.updates) {
+          maxMarker = update.update_id || maxMarker;
+          try { await handleMaxMessage(update); } catch (e) { console.error('[MAX] Handler error:', e.message); }
         }
+        // Обновляем marker из ответа
+        if (data.marker) maxMarker = data.marker;
+      } else if (data.marker) {
+        maxMarker = data.marker;
       }
-      pollRetryCount = 0;
+      maxRetryCount = 0;
     } catch (e) {
-      pollRetryCount++;
-      const backoff = Math.min(5000 * pollRetryCount, 60000);
-      console.error(`[TG] Poll error (${pollRetryCount}/${config.pollMaxRetries}, retry in ${backoff/1000}s):`, e.message);
-      if (pollRetryCount >= config.pollMaxRetries) {
-        console.error('[TG] Max retries, cooling down for 5 minutes...');
+      maxRetryCount++;
+      const backoff = Math.min(5000 * maxRetryCount, 60000);
+      console.error(`[MAX] Poll error (${maxRetryCount}/10, retry in ${backoff / 1000}s):`, e.message);
+      if (maxRetryCount >= 10) {
+        console.error('[MAX] Max retries, cooling down for 5 minutes...');
         await new Promise(r => setTimeout(r, 300000));
-        pollRetryCount = 0;
+        maxRetryCount = 0;
       } else {
         await new Promise(r => setTimeout(r, backoff));
       }
@@ -483,4 +471,4 @@ async function startPolling() {
   }
 }
 
-module.exports = { tgNotify, tgNotifyRole, tgSendMessage, handleTgMessage, startPolling };
+module.exports = { maxSendMessage, maxNotify, maxNotifyRole, startMaxPolling, handleMaxMessage };

@@ -140,6 +140,37 @@ tr:hover{background:#f8fafc}
 /* Responsive */
 @media(max-width:600px){.stat-grid{grid-template-columns:1fr 1fr}.form-row{flex-direction:column}.header h1{font-size:15px}}
 
+/* Tracking panel */
+.tracking-panel{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--card);z-index:1100;flex-direction:column}
+.tracking-panel.show{display:flex}
+.tracking-header{background:var(--primary);color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0}
+.tracking-header h2{font-size:16px;margin:0;display:flex;align-items:center;gap:8px}
+.tracking-header .status-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.tracking-header .status-dot.active{background:#48bb78;animation:pulse-dot 1.5s infinite}
+.tracking-header .status-dot.inactive{background:#a0aec0}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+.tracking-controls{display:flex;gap:8px;flex-wrap:wrap;padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);align-items:center;flex-shrink:0;font-size:13px}
+.tracking-controls select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px}
+.tracking-timer{font-size:12px;color:var(--text-light);margin-left:auto;display:flex;align-items:center;gap:6px}
+.tracking-body{display:flex;flex:1;overflow:hidden}
+.tracking-map{flex:1;position:relative}
+#tracking-leaflet-map{width:100%;height:100%}
+.tracking-sidebar{width:280px;border-left:1px solid var(--border);overflow-y:auto;flex-shrink:0;background:var(--card)}
+.tracking-sidebar h3{font-size:13px;padding:10px 12px;margin:0;background:var(--bg);border-bottom:1px solid var(--border);color:var(--text-light);text-transform:uppercase;letter-spacing:.5px}
+.tracking-worker{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:.15s}
+.tracking-worker:hover{background:var(--bg)}
+.tracking-worker .tw-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.tracking-worker .tw-dot.online{background:#48bb78}
+.tracking-worker .tw-dot.stale{background:#d69e2e}
+.tracking-worker .tw-dot.offline{background:#a0aec0}
+.tracking-worker .tw-info{flex:1;min-width:0}
+.tracking-worker .tw-name{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tracking-worker .tw-meta{font-size:11px;color:var(--text-light)}
+.tracking-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-light);font-size:14px;flex-direction:column;gap:8px}
+.tracking-btn{position:relative;cursor:pointer}
+.tracking-btn .pulse-ring{position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:50%;background:#48bb78;animation:pulse-dot 1.5s infinite}
+@media(max-width:768px){.tracking-sidebar{display:none}.tracking-body{flex-direction:column}}
+
 th[data-sort]{cursor:pointer;user-select:none;white-space:nowrap;}
 th[data-sort]:hover{color:var(--accent);}
 th[data-sort]::after{content:" ↕";font-size:10px;opacity:0.5;}
@@ -199,6 +230,7 @@ th.sort-desc::after{content:" ↓";opacity:1;}
     <span id="user-name"></span>
     <span class="role-badge" id="user-role"></span>
     <span id="notif-count" style="display:none;background:var(--danger);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;text-align:center;line-height:20px;cursor:pointer;margin-right:4px;" onclick="showNotifications()">0</span>
+    <span class="tracking-btn" id="tracking-header-btn" onclick="openTrackingPanel()" style="cursor:pointer;display:flex;align-items:center;gap:4px;font-size:12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:5px 12px;border-radius:6px;transition:.2s;">📡 Трекинг</span>
     <button class="btn-logout" onclick="doLogout()">Выйти</button>
   </div>
 </div>
@@ -410,14 +442,8 @@ th.sort-desc::after{content:" ↓";opacity:1;}
   <tbody id="cd-shifts"></tbody></table>
   <div id="cd-totals" class="detail-totals"></div>
   <h4 style="margin:12px 0 6px;font-size:14px;">💳 История платежей</h4>
-  <table class="detail-table"><thead><tr><th>Дата</th><th>Сумма</th><th>Способ</th><th>Примечание</th></tr></thead>
+  <table class="detail-table"><thead><tr><th>Дата</th><th>Сумма</th><th>Способ</th><th>Статус</th><th>Примечание</th><th></th></tr></thead>
   <tbody id="cd-payments"></tbody></table>
-  <div class="detail-pay-section">
-    <input type="number" id="cd-pay-amount" placeholder="Сумма оплаты ₽" min="1" step="1">
-    <select id="cd-pay-method"><option value="transfer">Перевод</option><option value="cash">Наличные</option><option value="card">Карта</option></select>
-    <label style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:13px;"><input type="file" id="cd-receipt" accept="image/*,.pdf" style="display:none" onchange="this.parentElement.querySelector('span').textContent=this.files[0]?this.files[0].name:'Чек'">📎 <span>Чек</span></label>
-    <button class="btn btn-success" onclick="saveClientDetailPayment()">💰 Оплатить</button>
-  </div>
 </div></div>
 
 <div id="modal-worker" class="modal"><div class="modal-content">
@@ -458,20 +484,70 @@ th.sort-desc::after{content:" ↓";opacity:1;}
   <div id="dispatcher-access-info" style="display:none;margin-top:12px;padding:12px;background:#ebf8ff;border-radius:8px;font-size:14px;"></div>
 </div></div>
 
+<!-- Tracking Panel -->
+<div id="tracking-panel" class="tracking-panel">
+  <div class="tracking-header">
+    <h2><span class="status-dot" id="tracking-status-dot"></span> 📍 Трекинг исполнителей</h2>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span id="tracking-status-text" style="font-size:12px;opacity:.8;">Неактивен</span>
+      <button class="btn-logout" onclick="closeTrackingPanel()">✕ Закрыть</button>
+    </div>
+  </div>
+  <div class="tracking-controls">
+    <select id="tracking-worker-select" multiple style="min-width:200px;max-width:400px;height:28px;" onchange="onTrackingWorkerSelectChange()"></select>
+    <button class="btn btn-sm btn-outline" onclick="trackingSelectAll()" style="font-size:11px;">Все</button>
+    <button class="btn btn-sm btn-outline" onclick="trackingDeselectAll()" style="font-size:11px;">Снять</button>
+    <button class="btn btn-sm btn-success" id="btn-tracking-start" onclick="startTracking()">▶ Начать</button>
+    <button class="btn btn-sm btn-danger" id="btn-tracking-stop" onclick="stopTracking()" style="display:none;">⏹ Стоп</button>
+    <button class="btn btn-sm btn-outline" onclick="refreshMap()">🔄</button>
+    <button class="btn btn-sm btn-outline" onclick="fitAllMarkers()" title="Показать всех">🗺️ Все</button>
+    <div class="tracking-timer">
+      <span id="tracking-timer">00:00:00</span>
+      <span id="tracking-auto-refresh" style="font-size:11px;color:var(--accent);display:none;">🔄 30с</span>
+    </div>
+  </div>
+  <div class="tracking-body">
+    <div class="tracking-map">
+      <div id="tracking-leaflet-map"></div>
+      <div class="tracking-empty" id="tracking-map-empty">
+        <div style="font-size:40px;">🗺️</div>
+        <div>Выберите исполнителей и нажмите «Начать»</div>
+      </div>
+    </div>
+    <div class="tracking-sidebar">
+      <h3>👷 Исполнители</h3>
+      <div id="tracking-worker-list">
+        <div style="padding:20px;text-align:center;color:var(--text-light);font-size:13px;">Загрузка...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 // API goes through server proxy - no keys in HTML
 
 
-async function api(table,method='GET',body=null,query=''){
+async function tryRefreshToken(){
+  const tk=localStorage.getItem('dp_token');if(!tk)return false;
+  try{const r=await fetch('/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tk})});if(!r.ok)return false;const d=await r.json();if(d.ok&&d.token){localStorage.setItem('dp_token',d.token);return true;}}catch(e){}
+  return false;
+}
+setInterval(()=>tryRefreshToken(),6*60*60*1000);
+
+async function api(table,method='GET',body=null,query='',_retry=false){
   const url='/api/'+table+(query?(query[0]==='?'?query:'?'+query):'');
   const opts={method,headers:{'Content-Type':'application/json'}};
   const tk=localStorage.getItem('dp_token');if(tk)opts.headers['Authorization']='Bearer '+tk;
   if(body)opts.body=JSON.stringify(body);
   try{
     const res=await fetch(url,opts);
-    if(!res.ok){const err=await res.json().catch(()=>({}));console.error('API:',res.status,err);if(res.status===401){localStorage.removeItem('dp_token');localStorage.removeItem('dp_auth');document.getElementById('auth-screen').style.display='';document.getElementById('app').style.display='none';currentUser=null;}return method==='DELETE'?false:[];}
+    if(res.status===401){
+      if(!_retry){const refreshed=await tryRefreshToken();if(refreshed)return api(table,method,body,query,true);}
+      localStorage.removeItem('dp_token');localStorage.removeItem('dp_auth');document.getElementById('auth-screen').style.display='';document.getElementById('app').style.display='none';currentUser=null;return method==='DELETE'?false:[];
+    }
+    if(!res.ok){const err=await res.json().catch(()=>({}));console.error('API:',res.status,err);return method==='DELETE'?false:[];}
     if(method==='DELETE')return true;
     return await res.json();
   }catch(e){console.error('Fetch error:',e);return[];}
@@ -540,9 +616,8 @@ async function doRegister(){
   if(pass.length<4){showAuthError('Пароль минимум 4 символа');return;}
   try{
     if(role==='dispatcher'){
-      const existing=await api('users','GET',null,`?phone=eq.${phone}`);
-      if(existing.length){showAuthError('Этот телефон уже зарегистрирован');return;}
-      await api('users','POST',{full_name:name,phone,password:pass,role:'dispatcher',rate_per_hour:7.5,monthly_target_hours:8000,is_active:true});
+      const regRes=await fetch('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',data:{full_name:name,phone,password:pass,role:'dispatcher',rate_per_hour:7.5,monthly_target_hours:8000,is_active:true}})});
+      if(!regRes.ok){const err=await regRes.json().catch(()=>({}));showAuthError(err.error||'Ошибка регистрации');return;}
       toast('Зарегистрировано! Войдите');
       showLoginForm();
       document.getElementById('auth-phone').value=phone;
@@ -553,7 +628,7 @@ async function doRegister(){
     }
   }catch(e){showAuthError('Ошибка: '+e.message);}
 }
-function doLogout(){localStorage.removeItem('dp_auth');currentUser=null;location.reload();}
+function doLogout(){const tk=localStorage.getItem('dp_token');if(tk)fetch('/auth/logout',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk}}).catch(()=>{});localStorage.removeItem('dp_auth');localStorage.removeItem('dp_token');currentUser=null;location.reload();}
 
 // ===== Init =====
 async function init(){
@@ -740,6 +815,7 @@ async function loadShifts(){
         </div>
         <div class="card-body" id="card-body-${shift.id}">
         ${confirmedWorkers.length?`<button class="btn btn-sm btn-outline" style="margin-bottom:8px;width:100%;" onclick="openMassHours('${shift.id}',[${confirmedWorkers.map(a=>`{id:'${a.id}',name:'${(wMap[a.worker_id]||'').replace(/'/g,"\\'")}',hours:${a.hours_worked||0}}`).join(',')}],'${shift.date||''}')">⏱ Ввести часы всем (${confirmedWorkers.length})</button>`:''}
+        <button class="btn btn-sm btn-outline" style="margin-bottom:8px;width:100%;" onclick="openShiftMap('${shift.id}')">🗺️ Карта</button>
         ${workersHtml}${summaryHtml}</div>
       </div>`;
     }).join('');
@@ -1765,7 +1841,6 @@ async function openClientDetail(clientId){
   }else{_cdPayments=[];}
   document.getElementById('cd-filter').value='all';
   document.getElementById('cd-search').value='';
-  document.getElementById('cd-pay-amount').value='';
   renderClientDetailShifts();
   renderClientDetailPayments();
   openModal('modal-client-detail');
@@ -1805,41 +1880,24 @@ function renderClientDetailShifts(){
 }
 function renderClientDetailPayments(){
   const rows=(_cdPayments||[]).map(p=>{
-    const noteText=p.note&&p.note.startsWith('receipt:')?'<a href="'+p.note.replace('receipt:','')+'" target="_blank">📎 Чек</a>':esc(p.note||'');
-    return`<tr><td>${formatDate((p.created_at||'').split('T')[0])}</td><td>${(parseFloat(p.amount)||0).toLocaleString('ru')}\u20bd</td><td>${p.method==='transfer'?'Перевод':p.method==='cash'?'Наличные':p.method==='card'?'Карта':p.method||'—'}</td><td>${noteText}</td></tr>`;
+    const isPending=p.status==='pending_confirmation';
+    const noteHtml=p.note&&p.note.startsWith('receipt:')?'<a href="'+p.note.replace('receipt:','')+'" target="_blank" style="font-size:12px;">📎 Чек</a>':esc(p.note||'');
+    const statusBadge=isPending?'<span style="color:var(--warning);font-size:12px;">⏳ Ожидает</span>':'<span style="color:var(--accent);font-size:12px;">✅ Подтверждён</span>';
+    const confirmBtn=isPending?"<button class=\"btn btn-sm btn-success\" onclick=\"confirmClientPayment('"+p.id+"','"+p.assignment_id+"')\" style=\"padding:3px 8px;font-size:11px;\">✓ Подтвердить</button>":'';
+    return`<tr style="${isPending?'background:var(--bg);':''}"><td>${formatDate((p.created_at||'').split('T')[0])}</td><td>${(parseFloat(p.amount)||0).toLocaleString('ru')}\u20bd</td><td>${p.method==='transfer'?'Перевод':p.method==='cash'?'Наличные':p.method==='card'?'Карта':p.method==='invoice'?'Безнал':p.method||'—'}</td><td>${statusBadge}</td><td>${noteHtml}</td><td>${confirmBtn}</td></tr>`;
   });
-  document.getElementById('cd-payments').innerHTML=rows.join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-light);">Нет платежей</td></tr>';
+  document.getElementById('cd-payments').innerHTML=rows.join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-light);">Нет платежей</td></tr>';
 }
-async function saveClientDetailPayment(){
-  if(!_cdClientId)return;
-  const amount=parseFloat(document.getElementById('cd-pay-amount').value)||0;
-  if(amount<=0){alert('Введите сумму');return;}
-  const method=document.getElementById('cd-pay-method').value;
-  const fileInput=document.getElementById('cd-receipt');
-  // Find unpaid assignments for this client, oldest first
-  const unpaid=_cdShifts.filter(a=>a.payment_status!=='paid').sort((a,b)=>(a.shifts?.date||'').localeCompare(b.shifts?.date||''));
-  if(!unpaid.length){alert('Нет неоплаченных смен');return;}
-  let remaining=amount;
-  for(const a of unpaid){
-    if(remaining<=0)break;
-    const h=parseFloat(a.hours_worked)||0,cr=parseFloat(a.client_rate_per_hour)||520,ex=parseFloat(a.extra_amount)||0;
-    const total=(h*cr)+ex;
-    const paid=parseFloat(a.paid_amount)||0;
-    const debt=Math.round(total-paid);
-    const pay=Math.min(remaining,debt);
-    if(pay<=0)continue;
-    const newPaid=paid+pay;
-    const status=newPaid>=total?'paid':'unpaid';
-    await api('shift_assignments','PATCH',{paid_amount:newPaid,payment_status:status},'?id=eq.'+a.id);
-    let note='';
-    if(fileInput.files.length>0){
-      const fd=new FormData();fd.append('receipt',fileInput.files[0]);
-      try{const upRes=await fetch('/upload-receipt',{method:'POST',body:fd});const upData=await upRes.json();if(upData.url)note='receipt:'+upData.url;}catch(e){console.error('Receipt upload failed:',e);}
-    }
-    await api('payments','POST',{assignment_id:a.id,amount:pay,method,note:note||null});
-    remaining-=pay;
+async function confirmClientPayment(paymentId,assignmentId){
+  if(!confirm('Подтвердить оплату?'))return;
+  await api('payments','PATCH',{status:'paid'},'?id=eq.'+paymentId);
+  const asgn=_cdShifts.find(a=>a.id===assignmentId);
+  if(asgn){
+    const h=parseFloat(asgn.hours_worked)||0,cr=parseFloat(asgn.client_rate_per_hour)||520,ex=parseFloat(asgn.extra_amount)||0;
+    const total=Math.round((h*cr)+ex);
+    await api('shift_assignments','PATCH',{paid_amount:total,payment_status:'paid'},'?id=eq.'+assignmentId);
   }
-  toast('Оплата '+amount.toLocaleString('ru')+'\u20bd записана');
+  toast('Оплата подтверждена ✓');
   await openClientDetail(_cdClientId);
   loadDashboard();
 }
@@ -1886,10 +1944,318 @@ async function saveClientDetailPayment(){
     if(saved&&saved.phone){document.getElementById('auth-phone').value=saved.phone;}
   }catch(e){console.error('Auto-login error:',e);}
 })();
+// ===== GPS Tracking =====
+let trkMap=null, trkMarkers={}, trkPolylines={}, trkTimerInterval=null, trkRefreshInterval=null, trkStartTime=null, trkActive=false, trkWorkers=[], trkSessionId=null;
+
+function openTrackingPanel(){
+  document.getElementById('tracking-panel').classList.add('show');
+  loadTrackingWorkers();
+  updateTrackingUI();
+  if(!trkMap) setTimeout(initTrackingMap,100);
+}
+function closeTrackingPanel(){
+  document.getElementById('tracking-panel').classList.remove('show');
+  if(trkRefreshInterval){clearInterval(trkRefreshInterval);trkRefreshInterval=null;}
+  document.getElementById('tracking-auto-refresh').style.display='none';
+}
+
+function initTrackingMap(){
+  const el=document.getElementById('tracking-leaflet-map');
+  if(!el||trkMap)return;
+  trkMap=L.map('tracking-leaflet-map',{zoomControl:true}).setView([55.7558,37.6173],10);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(trkMap);
+  setTimeout(()=>trkMap.invalidateSize(),200);
+}
+
+async function loadTrackingWorkers(){
+  let workers=cachedWorkers;
+  if(!workers||!workers.length){workers=await api('workers','GET',null,'?select=id,full_name,phone,is_active&order=full_name');}
+  trkWorkers=(workers||[]).filter(w=>w.is_active!==false);
+  renderTrackingWorkerSelect();
+  renderTrackingWorkerList([]);
+}
+
+function renderTrackingWorkerSelect(){
+  const sel=document.getElementById('tracking-worker-select');
+  const saved=JSON.parse(localStorage.getItem('dp_tracking_workers')||'[]');
+  sel.innerHTML=trkWorkers.map(w=>`<option value="${w.id}" ${saved.includes(w.id)?'selected':''}>${esc(w.full_name)}</option>`).join('');
+}
+function trackingSelectAll(){
+  const sel=document.getElementById('tracking-worker-select');
+  [...sel.options].forEach(o=>o.selected=true);
+  onTrackingWorkerSelectChange();
+}
+function trackingDeselectAll(){
+  const sel=document.getElementById('tracking-worker-select');
+  [...sel.options].forEach(o=>o.selected=false);
+  onTrackingWorkerSelectChange();
+}
+function onTrackingWorkerSelectChange(){
+  const sel=document.getElementById('tracking-worker-select');
+  const ids=[...sel.selectedOptions].map(o=>parseInt(o.value));
+  localStorage.setItem('dp_tracking_workers',JSON.stringify(ids));
+}
+function getSelectedTrackingWorkers(){
+  const sel=document.getElementById('tracking-worker-select');
+  return [...sel.selectedOptions].map(o=>parseInt(o.value));
+}
+
+async function startTracking(){
+  const ids=getSelectedTrackingWorkers();
+  if(!ids.length){toast('Выберите хотя бы одного исполнителя');return;}
+  try{
+    const res=await api('tracking/start','POST',{worker_ids:ids});
+    trkSessionId=res.session_id||null;
+    trkActive=true;trkStartTime=Date.now();
+    updateTrackingUI();
+    await refreshMap();
+    trkRefreshInterval=setInterval(()=>refreshMap(),30000);
+    document.getElementById('tracking-auto-refresh').style.display='';
+    trkTimerInterval=setInterval(updateTrackingTimer,1000);
+  }catch(e){console.error('startTracking:',e);toast('Ошибка запуска трекинга');}
+}
+
+async function stopTracking(){
+  try{
+    if(trkSessionId) await api('tracking/stop','POST',{session_id:trkSessionId});
+  }catch(e){}
+  trkActive=false;trkStartTime=null;trkSessionId=null;
+  if(trkRefreshInterval){clearInterval(trkRefreshInterval);trkRefreshInterval=null;}
+  if(trkTimerInterval){clearInterval(trkTimerInterval);trkTimerInterval=null;}
+  document.getElementById('tracking-auto-refresh').style.display='none';
+  document.getElementById('tracking-timer').textContent='00:00:00';
+  updateTrackingUI();
+  // Clear markers
+  Object.values(trkMarkers).forEach(m=>trkMap&&trkMap.removeLayer(m));
+  Object.values(trkPolylines).forEach(p=>trkMap&&trkMap.removeLayer(p));
+  trkMarkers={};trkPolylines={};
+  document.getElementById('tracking-map-empty').style.display='flex';
+  renderTrackingWorkerList([]);
+}
+
+async function refreshMap(){
+  if(!trkActive||!trkSessionId)return;
+  try{
+    const data=await api('tracking/locations','GET',null,'?session_id='+trkSessionId);
+    if(!data||!data.workers){document.getElementById('tracking-map-empty').style.display='flex';return;}
+    updateMarkersFromAPI(data);
+    renderTrackingWorkerListAPI(data.workers);
+  }catch(e){console.error('refreshMap:',e);}
+}
+
+function updateMarkersFromAPI(data){
+  if(!trkMap)return;
+  const workers=data.workers||[];
+  const trail=data.trail||[];
+  document.getElementById('tracking-map-empty').style.display=workers.length?'none':'flex';
+  const now=Date.now();
+  const currentIds=new Set(workers.map(w=>parseInt(w.worker_id)));
+  // Remove old markers
+  Object.keys(trkMarkers).forEach(id=>{if(!currentIds.has(parseInt(id))){trkMap.removeLayer(trkMarkers[id]);delete trkMarkers[id];}});
+  Object.keys(trkPolylines).forEach(id=>{if(!currentIds.has(parseInt(id))){trkMap.removeLayer(trkPolylines[id]);delete trkPolylines[id];}});
+
+  workers.forEach(w=>{
+    const wid=w.worker_id;
+    const loc=w.last_location;
+    if(!loc)return;
+    const ts=loc.recorded_at?new Date(loc.recorded_at).getTime():0;
+    const age=now-ts;
+    let color='#a0aec0';
+    if(age<10*60*1000)color='#48bb78';
+    else if(age<30*60*1000)color='#d69e2e';
+    const name=w.name||'ID '+wid;
+    const phone=w.phone||'';
+    const lat=parseFloat(loc.lat);
+    const lng=parseFloat(loc.lng);
+    if(isNaN(lat)||isNaN(lng))return;
+
+    const icon=L.divIcon({className:'',html:`<div style="background:${color};width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);"></div>`,iconSize:[16,16],iconAnchor:[8,8]});
+    const popup=`<div style="font-size:13px;min-width:180px;"><strong>${esc(name)}</strong>${phone?'<br>📱 '+esc(phone):''}<br>🕐 ${loc.recorded_at?new Date(loc.recorded_at).toLocaleString('ru'):'?'}${loc.accuracy?'<br>🎯 ±'+Math.round(loc.accuracy)+'м':''}${loc.speed?'<br>🏃 '+parseFloat(loc.speed).toFixed(1)+' м/с':''}${loc.battery_level!=null?'<br>🔋 '+loc.battery_level+'%':''}</div>`;
+
+    if(trkMarkers[wid]){trkMarkers[wid].setLatLng([lat,lng]).setIcon(icon).setPopupContent(popup);}
+    else{trkMarkers[wid]=L.marker([lat,lng],{icon}).addTo(trkMap).bindPopup(popup);}
+
+    // Build trail per worker from full trail array
+    const workerTrail=trail.filter(t=>t.worker_id==wid).map(t=>[parseFloat(t.lat),parseFloat(t.lng)]).filter(p=>!isNaN(p[0])&&!isNaN(p[1]));
+    if(workerTrail.length>1){
+      if(trkPolylines[wid]){trkPolylines[wid].setLatLngs(workerTrail);}
+      else{trkPolylines[wid]=L.polyline(workerTrail,{color,color,weight:3,opacity:.6,dashArray:'6 4'}).addTo(trkMap);}
+    }
+  });
+}
+
+function fitAllMarkers(){
+  if(!trkMap||!Object.keys(trkMarkers).length)return;
+  const group=L.featureGroup(Object.values(trkMarkers));
+  trkMap.fitBounds(group.getBounds().pad(.1));
+}
+
+function showTrackingWorker(workerId){
+  const m=trkMarkers[workerId];
+  if(m&&trkMap){trkMap.setView(m.getLatLng(),15);m.openPopup();}
+}
+
+function renderTrackingWorkerListAPI(workers){
+  const el=document.getElementById('tracking-worker-list');
+  const now=Date.now();
+  if(!workers||!workers.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-light);font-size:13px;">Нет данных</div>';return;}
+  el.innerHTML=workers.map(w=>{
+    const wid=w.worker_id;
+    const name=w.name||'ID '+wid;
+    const loc=w.last_location;
+    const ts=loc&&loc.recorded_at?new Date(loc.recorded_at).getTime():0;
+    const age=now-ts;
+    let status='Офлайн',dotCls='offline';
+    if(age<10*60*1000){status='Онлайн';dotCls='online';}
+    else if(age<30*60*1000){status='Давно';dotCls='stale';}
+    const timeStr=loc&&loc.recorded_at?new Date(loc.recorded_at).toLocaleTimeString('ru'):'—';
+    const battery=loc&&loc.battery_level!=null?` 🔋${loc.battery_level}%`:'';
+    return `<div class="tracking-worker" onclick="showTrackingWorker(${wid})"><div class="tw-dot ${dotCls}"></div><div class="tw-info"><div class="tw-name">${esc(name)}</div><div class="tw-meta">${status} · ${timeStr}${battery}</div></div></div>`;
+  }).join('');
+}
+
+function updateTrackingUI(){
+  const dot=document.getElementById('tracking-status-dot');
+  const text=document.getElementById('tracking-status-text');
+  const btnStart=document.getElementById('btn-tracking-start');
+  const btnStop=document.getElementById('btn-tracking-stop');
+  const hdrBtn=document.getElementById('tracking-header-btn');
+  if(trkActive){
+    dot.className='status-dot active';text.textContent='Активен';
+    btnStart.style.display='none';btnStop.style.display='';
+    hdrBtn.innerHTML='📡 Трекинг <span style="color:#48bb78;">●</span>';
+  }else{
+    dot.className='status-dot inactive';text.textContent='Неактивен';
+    btnStart.style.display='';btnStop.style.display='none';
+    hdrBtn.innerHTML='📡 Трекинг';
+  }
+}
+
+function updateTrackingTimer(){
+  if(!trkStartTime)return;
+  const diff=Math.floor((Date.now()-trkStartTime)/1000);
+  const h=String(Math.floor(diff/3600)).padStart(2,'0');
+  const m=String(Math.floor((diff%3600)/60)).padStart(2,'0');
+  const s=String(diff%60).padStart(2,'0');
+  document.getElementById('tracking-timer').textContent=`${h}:${m}:${s}`;
+}
+
+// ===== Shift Map =====
+let _shiftMap = null;
+let _shiftMapMarkers = [];
+
+function closeShiftMapModal() {
+  const modal = document.getElementById('shift-map-modal');
+  if (modal) modal.classList.remove('show');
+}
+
+async function openShiftMap(shiftId) {
+  const modal = document.getElementById('shift-map-modal');
+  if (modal) modal.classList.add('show');
+
+  // Init or reuse map
+  if (!_shiftMap) {
+    _shiftMap = L.map('shift-location-map').setView([53.0245, 158.6488], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap', maxZoom: 19
+    }).addTo(_shiftMap);
+    setTimeout(() => _shiftMap.invalidateSize(), 200);
+  } else {
+    setTimeout(() => _shiftMap.invalidateSize(), 100);
+  }
+
+  // Clear old markers
+  _shiftMapMarkers.forEach(m => _shiftMap.removeLayer(m));
+  _shiftMapMarkers = [];
+
+  try {
+    // Fetch shift data
+    const shifts = await api('shifts', 'GET', null, '?id=eq.' + shiftId + '&select=*,clients(name)');
+    if (!shifts || !shifts.length) { toast('Смена не найдена'); return; }
+    const shift = shifts[0];
+    const bounds = [];
+
+    // Geocode address
+    if (shift.address) {
+      try {
+        const geoRes = await fetch('/api/address-suggest?q=' + encodeURIComponent(shift.address), {
+          headers: { 'Authorization': 'Bearer ' + localStorage.getItem('dp_token') }
+        });
+        const geoData = await geoRes.json();
+        if (geoData && geoData.length) {
+          const lat = parseFloat(geoData[0].lat);
+          const lon = parseFloat(geoData[0].lon);
+          const m = L.marker([lat, lon], {
+            icon: L.divIcon({ className: '', html: '<div style="background:#e53e3e;width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>', iconSize: [18, 18], iconAnchor: [9, 9] })
+          }).addTo(_shiftMap).bindPopup('<b>📍 ' + esc(shift.clients?.name || 'Объект') + '</b><br>' + esc(shift.address));
+          _shiftMapMarkers.push(m);
+          bounds.push([lat, lon]);
+        }
+      } catch (e) { console.error('Geocode error:', e); }
+    }
+
+    // Fetch assignments
+    const assignments = await api('shift_assignments', 'GET', null,
+      '?shift_id=eq.' + shiftId + '&select=worker_id,invite_status,workers(full_name,phone)');
+    const confirmed = (assignments || []).filter(a => a.invite_status === 'confirmed');
+    if (!confirmed.length) { toast('Нет подтвердивших исполнителей'); }
+
+    // Get workers' last locations
+    if (confirmed.length) {
+      const workerIds = confirmed.map(a => a.worker_id);
+      try {
+        const locRes = await fetch('/api/tracking/workers-location?worker_ids=' + workerIds.join(','), {
+          headers: { 'Authorization': 'Bearer ' + localStorage.getItem('dp_token') }
+        });
+        const locations = await locRes.json();
+        const locMap = {};
+        (locations || []).forEach(l => { locMap[l.worker_id] = l; });
+
+        for (const a of confirmed) {
+          const w = a.workers || {};
+          const loc = locMap[a.worker_id];
+          if (loc && loc.lat && loc.lng) {
+            const age = (Date.now() - new Date(loc.recorded_at).getTime()) / 60000;
+            let color = '#999';
+            let label = 'Оффлайн';
+            if (age < 10) { color = '#38a169'; label = 'Онлайн'; }
+            else if (age < 30) { color = '#f0ad4e'; label = 'Стареет'; }
+            const m = L.marker([loc.lat, loc.lng], {
+              icon: L.divIcon({ className: '', html: '<div style="background:' + color + ';width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>', iconSize: [14, 14], iconAnchor: [7, 7] })
+            }).addTo(_shiftMap).bindPopup(
+              '<b>' + esc(w.full_name || 'Исполнитель') + '</b>' +
+              (w.phone ? '<br>📞 ' + esc(w.phone) : '') +
+              '<br>📍 ' + age.toFixed(0) + ' мин назад' +
+              (loc.accuracy ? '<br>🎯 Точность: ' + Math.round(loc.accuracy) + 'м' : '') +
+              (loc.battery_level != null ? '<br>🔋 ' + Math.round(loc.battery_level) + '%' : '')
+            );
+            _shiftMapMarkers.push(m);
+            bounds.push([loc.lat, loc.lng]);
+          } else {
+            // No location data
+            toast((w.full_name || 'Исполнитель') + ' — нет данных геолокации');
+          }
+        }
+      } catch (e) {
+        console.error('Workers location error:', e);
+        toast('Ошибка получения локаций: ' + e.message);
+      }
+    }
+
+    // Fit bounds
+    if (bounds.length) {
+      _shiftMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+    }
+  } catch (e) {
+    console.error('openShiftMap error:', e);
+    toast('Ошибка: ' + e.message);
+  }
+}
+
 // PWA
-if('serviceWorker' in navigator)// SW disabled
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
 // Real-time polling every 30s
-setInterval(()=>{if(currentUser)loadDashboard();},5000);
+setInterval(()=>{if(currentUser&&document.visibilityState==='visible')loadDashboard();},30000);
 </script>
 
 <div id="modal-pay" class="modal"><div class="modal-content">
@@ -1933,6 +2299,22 @@ setInterval(()=>{if(currentUser)loadDashboard();},5000);
         <button class="btn btn-outline" style="flex:1;padding:12px;" onclick="shareCred()">📤 Поделиться</button>
       </div>
     </div></div>
+<!-- Shift Map Modal -->
+<div id="shift-map-modal" class="modal" style="z-index:10000;">
+  <div class="modal-content" style="width:95vw;max-width:100vw;height:90vh;padding:0;display:flex;flex-direction:column;">
+    <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);">
+      <h3>📍 Карта смены</h3>
+      <button class="close-btn" onclick="closeShiftMapModal()">&times;</button>
+    </div>
+    <div id="shift-location-map" style="flex:1;min-height:0;"></div>
+    <div id="shift-map-legend" style="padding:8px 16px;font-size:12px;border-top:1px solid var(--border);display:flex;gap:16px;">
+      <span>🔴 Объект</span>
+      <span style="color:green;">● Онлайн</span>
+      <span style="color:#f0ad4e;">● Стареет</span>
+      <span style="color:#999;">● Оффлайн</span>
+    </div>
+  </div>
+</div>
 <script src="/push-client.js"></script>
 </body>
 </html>
