@@ -1,252 +1,70 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Предложения по развитию — Dispatcher.PRO</title>
+<title>SQL Миграции — Dispatcher.PRO</title>
 <style>
 body{font-family:system-ui;background:#1a1a2e;color:#eee;padding:20px;max-width:900px;margin:0 auto}
 h1{color:#4ecdc4;text-align:center}
 h2{color:#4ecdc4;border-bottom:2px solid #16213e;padding-bottom:8px;margin-top:30px}
-h3{color:#e74c3c;margin:15px 0 5px}
-.card{background:#16213e;border-radius:10px;padding:15px;margin:10px 0;border-left:4px solid #4ecdc4}
-.card.high{border-left-color:#e74c3c}
-.card.medium{border-left-color:#f39c12}
-.card.small{border-left-color:#2ecc71}
-.card.large{border-left-color:#9b59b6}
+.sql-box{background:#0a0a1a;border:1px solid #333;border-radius:8px;padding:15px;margin:10px 0;font-family:monospace;font-size:13px;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.copy-btn{background:#4ecdc4;color:#000;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;margin:5px 0}
+.copy-btn:hover{background:#45b7aa}
+.copy-btn:active{transform:scale(0.97)}
+.card{background:#16213e;border-radius:10px;padding:15px;margin:10px 0;border-left:4px solid #f39c12}
+.card.done{border-left-color:#2ecc71;opacity:0.7}
 p{margin:5px 0;font-size:14px;line-height:1.5}
-.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:bold;color:#000;margin-right:5px}
-.p0{background:#e74c3c}.p1{background:#f39c12}.p2{background:#3498db}.p3{background:#9b59b6}.p4{background:#95a5a6}
-.why{color:#aaa;font-size:12px;font-style:italic;margin-top:5px}
-.matrix{width:100%;border-collapse:collapse;margin:20px 0}
-.matrix th,.matrix td{padding:8px 12px;border:1px solid #16213e;text-align:left;font-size:13px}
-.matrix th{background:#0f3460;color:#4ecdc4}
-.back{display:inline-block;background:#16213e;color:#4ecdc4;padding:8px 16px;border-radius:8px;text-decoration:none;margin:10px 0}
+.note{background:#2c3e50;border-radius:8px;padding:12px;margin:15px 0;font-size:13px;color:#aaa}
+.note strong{color:#e74c3c}
 </style>
 </head>
 <body>
-<h1>💡 Предложения по развитию</h1>
-<p style="text-align:center;color:#aaa">Dispatcher.PRO — 26 предложений после полного аудита (14.05.2026)</p>
+<h1>🗃️ SQL Миграции</h1>
+<p style="text-align:center;color:#aaa">Dispatcher.PRO — 6 таблиц для создания в Supabase</p>
 
-<a href="https://диспетчер-про.рф/sql-setup.html" class="back">← Назад к SQL Setup</a>
-
-<h2>🔐 1. Безопасность</h2>
-
-<div class="card small">
-<h3>1.1 Row Level Security на всех таблицах</h3>
-<p><span class="tag p0">P0</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p class="why">RLS включён, anon заблокирован, service_role имеет полный доступ.</p>
+<div class="note">
+<strong>Как выполнить:</strong><br>
+1. Открой <a href="https://supabase.com/dashboard" target="_blank" style="color:#4ecdc4">Supabase → SQL Editor</a><br>
+2. Нажми кнопку <strong>📋 Копировать SQL</strong> внизу блока<br>
+3. Вставь в SQL Editor → нажми <strong>Run</strong><br>
+4. Должно написать <strong>"Success"</strong><br><br>
+⚠️ <strong>Выполняй по одной таблице за раз!</strong>
 </div>
 
-<div class="card small">
-<h3>1.2 Content-Security-Policy Header</h3>
-<p><span class="tag p1">P1</span> Добавить CSP header: script-src 'self', img-src data: https:, connect-src 'self' https://*.supabase.co. Защита от XSS атак — злоумышленник не сможет загрузить внешние скрипты и украсть токены.</p>
-</div>
-
-<div class="card small">
-<h3>1.3 HMAC подпись для GAS Webhook</h3>
-<p><span class="tag p1">P1</span> Заменить статический secret на HMAC-SHA256 подпись тела запроса. Сейчас любой знающий secret может писать данные в БД.</p>
-</div>
-
-<div class="card medium">
-<h3>1.4 Верификация при привязке бота</h3>
-<p><span class="tag p2">P2</span> При /start &lt;phone&gt; — отправить код подтверждения. Сейчас кто угодно может привязать чужой номер к своему Telegram.</p>
-</div>
-
-<div class="card small">
-<h3>1.5 Убрать plaintext fallback в паролях</h3>
-<p><span class="tag p0">P0</span> В auth.js есть строка `storedPassword === inputPassword`. Удалить, мигрировать все plaintext пароли в bcrypt.</p>
-</div>
-
-<div class="card medium">
-<h3>1.6 Refresh Token Rotation</h3>
-<p><span class="tag p2">P2</span> При каждом refresh — инвалидировать старый токен. Обнаружение кражи JWT.</p>
-</div>
-
-<h2>📱 2. UX улучшения</h2>
-
-<div class="card medium">
-<h3>2.1 Уведомление о завершении смены</h3>
-<p><span class="tag p2">P2</span> Событие "смена завершена" → TG + МАКС + Push. Сводка: дата, часы, сумма. Клиент и рабочий узнают автоматически.</p>
-</div>
-
-<div class="card small">
-<h3>2.2 Кнопка "Завершить все смены"</h3>
-<p><span class="tag p1">P1</span> Mass action для диспетчера — закрыть все смены дня одним кликом вместо 10+</p>
-</div>
-
-<div class="card small">
-<h3>2.3 Phone input с маской</h3>
-<p><span class="tag p1">P1</span> Маска +7 (___) ___-__-__ во все формы. Валидация 11 цифр на frontend и backend.</p>
-</div>
-
-<div class="card small">
-<h3>2.4 Escape закрывает модалки</h3>
-<p><span class="tag p1">P1</span> document.addEventListener('keydown', Escape → closeModal). Стандартное UX.</p>
-</div>
-
-<div class="card medium">
-<h3>2.5 Push-уведомления — починить или убрать</h3>
-<p><span class="tag p1">P1</span> Либо развернуть Edge Function с корректной encryption, либо убрать кнопку подписки из UI чтобы не вводить в заблуждение.</p>
-</div>
-
-<div class="card medium">
-<h3>2.6 Offline-режим</h3>
-<p><span class="tag p1">P1</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p>Service Worker обновлён: cache-first для статики, network-first для API, offline fallback страница. GPS-трекинг сохранён.</p>
-<p><span class="tag p2">P2</span> Service Worker кеширует статические ресурсы. "Нет подключения" вместо белого экрана. Важно для рабочих на объектах.</p>
-</div>
-
-<div class="card small">
-<h3>2.7 Тёмная тема</h3>
-<p><span class="tag p3">P3</span> @media (prefers-color-scheme: dark). Ночные смены — белый экран режет глаза.</p>
-</div>
-
-<h2>⚡ 3. Производительность</h2>
-
-<div class="card medium">
-<h3>3.1 Batch запросы вместо N+1</h3>
-<p><span class="tag p2">P2</span> handlePostProcess делает 8-12 API вызовов на один POST. Заменить на batch с Supabase joins. При 100+ смен/день = экономия 800+ запросов.</p>
-</div>
-
-<div class="card small">
-<h3>3.2 Page Visibility для polling</h3>
-<p><span class="tag p1">P1</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p class="why">Polling 30 сек + проверка document.visibilityState.</p>
-</div>
-
-<div class="card small">
-<h3>3.3 Debounce для поиска</h3>
-<p><span class="tag p1">P1</span> 300ms debounce на worker/client поиск. Сейчас каждый символ = API запрос.</p>
-</div>
-
-<div class="card small">
-<h3>3.4 Кешировать service_types</h3>
-<p><span class="tag p1">P1</span> Загрузить один раз при логине, кешировать в sessionStorage. 10 смен = 10 запросов к одним данным → 1.</p>
-</div>
-
-<div class="card medium">
-<h3>3.5 Оптимизировать loadDashboard</h3>
-<p><span class="tag p2">P2</span> 5-7 параллельных запросов → 1-2 batch с aggregates.</p>
-</div>
-
-<h2>🏗️ 4. Архитектура</h2>
-
-<div class="card medium">
-<h3>4.1 Разбить routes.js на модули</h3>
-<p><span class="tag p2">P2</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p class="why">routes/ — auth-routes, shift-routes, user-routes, payment-routes, tracking-routes.</p>
-<p><span class="tag p2">P2</span> 863 строки → routes/auth.js, routes/tracking.js, routes/api-proxy.js. Монолит трудно поддерживать.</p>
-</div>
-
-<div class="card medium">
-<h3>4.2 Общий модуль для ботов (bot-common.js)</h3>
-<p><span class="tag p2">P2</span> telegram.js + max-bot.js — 80% копипаста (~400 строк). Общая логика → bot-common.js, адаптеры — тонкие обёртки.</p>
-</div>
-
-<div class="card small">
-<h3>4.3 Общий db helper (sbFetch)</h3>
-<p><span class="tag p1">P1</span> sbHeaders/sbFetch дублирован в 5 местах → modules/db.js с единым API.</p>
-</div>
-
-<div class="card small">
-<h3>4.4 Удалить мусор</h3>
-<p><span class="tag p0">P0</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p class="why">~30 .bak файлов и modules/tracking.js удалены.</p>
-</div>
-
-<div class="card small">
-<h3>4.5 Migration tracking</h3>
-<p><span class="tag p2">P2</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p>Таблица schema_migrations создана. Скрипт <code>run-migrations.sh</code> показывает готовые миграции. SQL: <code>migrations/000_create_migrations_table.sql</code></p>
-</div>
-
-<div class="card small">
-<h3>4.6 notifications.json → Supabase таблица</h3>
-<p><span class="tag p2">P2</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p>Таблица app_notifications создана с RLS. SQL: <code>migrations/create-notifications-table.sql</code></p>
-<p><span class="tag p1">P1</span> JSON файл растёт бесконечно, конкурентная запись без блокировок. Перенести в БД с TTL 30 дней.</p>
-</div>
-
-<h2>🚀 5. Новые функции</h2>
-
-<div class="card large">
-<h3>5.1 Мультиязычность (RU/EN)</h3>
-<p><span class="tag p4">P4</span> Все строки → языковой файл. Начать с worker.html и client.html. Расширяет аудиторию.</p>
-</div>
-
-<div class="card medium">
-<h3>5.2 Фото-отчёт с объекта</h3>
-<p><span class="tag p2">P2</span> Worker фото до/после → загрузка → прикрепление к смене → видно клиенту. Подтверждение выполненной работы.</p>
-</div>
-
-<div class="card medium">
-<h3>5.3 Автоматический расчёт зарплаты</h3>
-<p><span class="tag p3">P3</span> По завершении смены: часы × ставка + доп. Сводка рабочему и клиенту. Снижает ошибки.</p>
-</div>
-
-<div class="card medium">
-<h3>5.4 Dashboard с графиками</h3>
-<p><span class="tag p2">P2</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p class="why">Canvas bar chart с выручкой за 14 дней в owner.html (аналитика).</p>
-<p><span class="tag p2">P2</span> Доходы по дням, загрузка рабочих, топ клиентов. Chart.js или Canvas.</p>
-</div>
-
-<div class="card medium">
-<h3>5.5 Рейтинги и отзывы</h3>
-<p><span class="tag p3">P3</span> Клиент ставит оценку рабочему (1-5 ⭐). Dispatcher видит рейтинги при назначении. Мотивация рабочих.</p>
-</div>
-
-<div class="card medium">
-<h3>5.6 Google Calendar / iCal</h3>
-<p><span class="tag p2">P2</span> Экспорт смен в Google Calendar. Подписка на iCal feed. Синхронизация без дублирования.</p>
-</div>
-
-<div class="card large">
-<h3>5.7 Chat между клиентом и рабочим</h3>
-<p><span class="tag p4">P4</span> Через TG/МАКС бота анонимно. Dispatcher видит переписку. Координация на объекте без лишнего звена.</p>
-</div>
-
-<div class="card medium">
-<h3>5.8 Повторяющиеся заказы</h3>
-<p><span class="tag p2">P2</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p class="why">Таблица recurring_orders + API маршруты + автосоздание смен + вкладка в index.html/client.html.</p>
-<p><span class="tag p2">P2</span> Шаблон заказа (каждый понедельник, одинаковые услуги). Автоматическое создание смен. 80% заказов = постоянные клиенты.</p>
-</div>
-
-<div class="card large">
-<h3>5.9 Telegram Web App (Mini App)</h3>
-<p><span class="tag p4">P4</span> worker.html/client.html → TG Mini App. Нативный опыт в Telegram, авторизация через TG.</p>
-</div>
-
-<div class="card medium">
-<h3>5.10 Двухфакторная аутентификация</h3>
-<p><span class="tag p2">P2</span> SMS код или TG подтверждение при логине. Особенно для owner и dispatcher.</p>
-</div>
-
-<hr style="border-color:#16213e;margin:30px 0">
-<h2>🤖 Bot Verification Migration</h2>
+<!-- ===== МИГРАЦИЯ 1 ===== -->
+<h2>1️⃣ Уведомления (app_notifications)</h2>
 <div class="card">
-<p>Run in Supabase SQL Editor:</p>
-<pre style="background:#0f0f23;padding:12px;border-radius:8px;overflow-x:auto;font-size:13px;">CREATE TABLE IF NOT EXISTS bot_verification_codes (
+<p>Зачем: Хранить уведомления в БД вместо файла. Не теряются при перезапуске.</p>
+</div>
+<button class="copy-btn" onclick="copyBlock('sql1')">📋 Копировать SQL #1</button>
+<pre class="sql-box" id="sql1">CREATE TABLE IF NOT EXISTS app_notifications (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  phone text NOT NULL,
-  code text NOT NULL,
-  platform text NOT NULL,
-  verified boolean DEFAULT false,
+  user_id uuid,
+  role text,
+  message text NOT NULL,
+  is_read boolean DEFAULT false,
+  data jsonb,
   created_at timestamptz DEFAULT now(),
-  expires_at timestamptz DEFAULT (now() + interval '10 minutes')
+  expires_at timestamptz DEFAULT (now() + interval '30 days')
 );
-ALTER TABLE bot_verification_codes ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Service role full access" ON bot_verification_codes;
-CREATE POLICY "Service role full access" ON bot_verification_codes FOR ALL USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Block anon" ON bot_verification_codes;
-CREATE POLICY "Block anon" ON bot_verification_codes FOR ALL USING (false) WITH CHECK (false);</pre>
-</div>
 
-<hr style="border-color:#16213e;margin:30px 0">
-<h2>🔄 Recurring Orders (Подписки)</h2>
+CREATE INDEX IF NOT EXISTS idx_notifs_user ON app_notifications(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifs_role ON app_notifications(role, created_at DESC);
+
+ALTER TABLE app_notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "service_role_all" ON app_notifications;
+CREATE POLICY "service_role_all" ON app_notifications FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "anon_block" ON app_notifications;
+CREATE POLICY "anon_block" ON app_notifications FOR ALL USING (false) WITH CHECK (false);</pre>
+
+<!-- ===== МИГРАЦИЯ 2 ===== -->
+<h2>2️⃣ Подписки / Повторяющиеся заказы (recurring_orders)</h2>
 <div class="card">
-<p>Run in Supabase SQL Editor:</p>
-<pre style="background:#0f0f23;padding:12px;border-radius:8px;overflow-x:auto;font-size:13px;">CREATE TABLE IF NOT EXISTS recurring_orders (
+<p>Зачем: Автосоздание смен по расписанию (каждый понедельник и т.д.)</p>
+</div>
+<button class="copy-btn" onclick="copyBlock('sql2')">📋 Копировать SQL #2</button>
+<pre class="sql-box" id="sql2">CREATE TABLE IF NOT EXISTS recurring_orders (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   client_id uuid REFERENCES clients(id),
   worker_id uuid REFERENCES workers(id),
@@ -260,22 +78,134 @@ CREATE POLICY "Block anon" ON bot_verification_codes FOR ALL USING (false) WITH 
   created_at timestamptz DEFAULT now(),
   created_by uuid
 );
+
 ALTER TABLE recurring_orders ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Service role full access" ON recurring_orders;
-CREATE POLICY "Service role full access" ON recurring_orders FOR ALL USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Block anon" ON recurring_orders;
-CREATE POLICY "Block anon" ON recurring_orders FOR ALL USING (false) WITH CHECK (false);</pre>
+
+DROP POLICY IF EXISTS "service_role_all" ON recurring_orders;
+CREATE POLICY "service_role_all" ON recurring_orders FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "anon_block" ON recurring_orders;
+CREATE POLICY "anon_block" ON recurring_orders FOR ALL USING (false) WITH CHECK (false);</pre>
+
+<!-- ===== МИГРАЦИЯ 3 ===== -->
+<h2>3️⃣ Чат клиент ↔ рабочий (chat_messages)</h2>
+<div class="card">
+<p>Зачем: Прямой чат между рабочим и клиентом. Диспетчер видит.</p>
 </div>
+<button class="copy-btn" onclick="copyBlock('sql3')">📋 Копировать SQL #3</button>
+<pre class="sql-box" id="sql3">CREATE TABLE IF NOT EXISTS chat_messages (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  shift_id uuid REFERENCES shifts(id),
+  sender_id uuid,
+  sender_role text,
+  sender_name text,
+  message text NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_shift ON chat_messages(shift_id, created_at);
+
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "service_role_all" ON chat_messages;
+CREATE POLICY "service_role_all" ON chat_messages FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "anon_block" ON chat_messages;
+CREATE POLICY "anon_block" ON chat_messages FOR ALL USING (false) WITH CHECK (false);</pre>
+
+<!-- ===== МИГРАЦИЯ 4 ===== -->
+<h2>4️⃣ Верификация бота (bot_verification_codes)</h2>
+<div class="card">
+<p>Зачем: Код подтверждения при привязке номера к Telegram.</p>
+</div>
+<button class="copy-btn" onclick="copyBlock('sql4')">📋 Копировать SQL #4</button>
+<pre class="sql-box" id="sql4">CREATE TABLE IF NOT EXISTS bot_verification_codes (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  phone text NOT NULL,
+  code text NOT NULL,
+  platform text NOT NULL,
+  verified boolean DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  expires_at timestamptz DEFAULT (now() + interval '10 minutes')
+);
+
+ALTER TABLE bot_verification_codes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "service_role_all" ON bot_verification_codes;
+CREATE POLICY "service_role_all" ON bot_verification_codes FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "anon_block" ON bot_verification_codes;
+CREATE POLICY "anon_block" ON bot_verification_codes FOR ALL USING (false) WITH CHECK (false);</pre>
+
+<!-- ===== МИГРАЦИЯ 5 ===== -->
+<h2>5️⃣ Рейтинги и отзывы (reviews)</h2>
+<div class="card">
+<p>Зачем: Оценка работы 1-5 ⭐. Видно при назначении на смену.</p>
+</div>
+<button class="copy-btn" onclick="copyBlock('sql5')">📋 Копировать SQL #5</button>
+<pre class="sql-box" id="sql5">CREATE TABLE IF NOT EXISTS reviews (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  shift_id uuid REFERENCES shifts(id),
+  client_id uuid REFERENCES clients(id),
+  worker_id uuid REFERENCES workers(id),
+  rating int CHECK (rating >= 1 AND rating <= 5),
+  comment text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS reviews_shift_client_idx ON reviews(shift_id, client_id);
+
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "service_role_all" ON reviews;
+CREATE POLICY "service_role_all" ON reviews FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "anon_block" ON reviews;
+CREATE POLICY "anon_block" ON reviews FOR ALL USING (false) WITH CHECK (false);</pre>
+
+<!-- ===== МИГРАЦИЯ 6 ===== -->
+<h2>6️⃣ Отслеживание миграций (schema_migrations)</h2>
+<div class="card">
+<p>Зачем: Система следит какие миграции применены.</p>
+</div>
+<button class="copy-btn" onclick="copyBlock('sql6')">📋 Копировать SQL #6</button>
+<pre class="sql-box" id="sql6">CREATE TABLE IF NOT EXISTS schema_migrations (
+  id serial PRIMARY KEY,
+  version text UNIQUE NOT NULL,
+  filename text,
+  applied_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "service_role_all" ON schema_migrations;
+CREATE POLICY "service_role_all" ON schema_migrations FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "anon_block" ON schema_migrations;
+CREATE POLICY "anon_block" ON schema_migrations FOR ALL USING (false) WITH CHECK (false);</pre>
 
 <hr style="border-color:#16213e;margin:30px 0">
-<h2>📊 Матрица приоритетов</h2>
-<table class="matrix">
-<tr><th>Приоритет</th><th>Описание</th><th>Кол-во</th></tr>
-<tr><td><span class="tag p0">P0</span></td><td>Критически важно, прямо сейчас</td><td>3 (2 ✅)</td></tr>
-<tr><td><span class="tag p1">P1</span></td><td>На этой неделе</td><td>8 (1 ✅)</td></tr>
-<tr><td><span class="tag p2">P2</span></td><td>Этот спринт</td><td>10</td></tr>
-<tr><td><span class="tag p3">P3</span></td><td>Следующий спринт</td><td>3</td></tr>
-<tr><td><span class="tag p4">P4</span></td><td>Бэклог</td><td>3</td></tr>
-</table>
+<h2>✅ Уже выполнено ранее</h2>
+<div class="card done">
+<p>RLS на всех 12 таблицах — выполнено</p>
+</div>
+<div class="card done">
+<p>tracking_sessions + tracking_locations — выполнено</p>
+</div>
+<div class="card done">
+<p>payments.status колонка — выполнена</p>
+</div>
+
+<script>
+function copyBlock(id){
+  const el=document.getElementById(id);
+  const sql=el.textContent.trim();
+  navigator.clipboard.writeText(sql).then(()=>{
+    const btn=event.target;
+    btn.textContent='✅ Скопировано!';
+    setTimeout(()=>btn.textContent='📋 Копировать SQL',2000);
+  });
+}
+</script>
 </body>
 </html>
