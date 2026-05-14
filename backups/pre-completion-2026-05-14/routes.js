@@ -8,12 +8,10 @@ const path = require('path');
 const { config, loadJson, saveJson } = require('./config');
 const { sendPushNotification, sendPushToRole } = require('../notifications-module/push-trigger');
 const { getCorsHeaders, SEC_HEADERS } = require('./cors');
-const { createToken, requireAuth, getTokenFromReq, hashPassword, checkPassword, isPlaintext, needsUpgrade, checkRateLimit, resetRateLimit, blacklistToken, isBlacklisted, refreshToken } = require('./auth');
+const { createToken, requireAuth, hashPassword, checkPassword, isPlaintext, needsUpgrade, checkRateLimit, resetRateLimit } = require('./auth');
 const { tgNotify, tgNotifyRole, handleTgMessage, startPolling } = require('./telegram');
 const { maxNotify, maxNotifyRole } = require('./max-bot');
-const { audit } = require('./audit');
 const { syncToGoogleSheets } = require('./gas-sync');
-const { recordRequest, getStats } = require('./monitoring');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'application/js',
@@ -56,18 +54,7 @@ async function sbFetch(table, query, opts = {}) {
 
 // --- Health ---
 function handleHealth(req, res, cors) {
-  json(res, {
-    status: 'ok',
-    uptime: process.uptime(),
-    memory: process.memoryUsage().rss,
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
-  }, 200, cors);
-}
-
-// --- Stats ---
-function handleStats(req, res, cors) {
-  json(res, getStats(), 200, cors);
+  json(res, { status: 'ok' }, 200, cors);
 }
 
 // --- Client pay method ---
@@ -187,7 +174,7 @@ async function handleApiProxy(req, res, cors, urlPath) {
   if (!table) return json(res, { error: 'Missing table' }, 400, cors);
 
   const session = requireAuth(req);
-  if (!session) return json(res, { error: 'Требуется авторизация', code: 'AUTH_REQUIRED' }, 401, cors);
+  if (!session) return json(res, { error: 'Требуется авторизация' }, 401, cors);
 
   // Role-based access
   const ownerOnly = ['users'];
@@ -223,11 +210,6 @@ async function handleApiProxy(req, res, cors, urlPath) {
     // Post-processing hooks (sync + notifications)
     if (sbRes.status < 300) {
       await handlePostProcess(table, req.method, data, body, query, req);
-      // Audit data operations
-      const session = requireAuth(req);
-      const methodMap = { POST: 'data_create', PATCH: 'data_update', DELETE: 'data_delete' };
-      const action = methodMap[req.method];
-      if (action) audit(action, `${table} ${req.method}`, session?.userId, session?.role, req.headers['x-forwarded-for'] || req.socket.remoteAddress);
     }
 
     res.writeHead(sbRes.status, { 'Content-Type': 'application/json', ...cors });
@@ -340,10 +322,13 @@ async function handlePostProcess(table, method, data, body, query, req) {
           if (id) {
             const asgn = ((await (await sbFetch('shift_assignments', `id=eq.${id}&select=worker_id,payment_status&limit=1`)).json())[0]);
             if (asgn) {
-              const statusNames = { pending: '⏳ Ожидает', paid: '✅ Оплачен', partial: '🔹 Частично', unpaid: '❌ Не оплачен' };
+                maxNotify('workers', w.phone, `💰 Статус оплаты изменён
+
+👤 ${w.full_name}
+📊 ${statusNames[asgn.payment_status] || asgn.payment_status}`);
               const w = ((await (await sbFetch('workers', `id=eq.${asgn.worker_id}&select=phone,full_name&limit=1`)).json())[0]);
               if (w) {
-                maxNotify('workers', w.phone, `💰 Статус оплаты изменён\n\n👤 ${w.full_name}\n📊 ${statusNames[asgn.payment_status] || asgn.payment_status}`);
+                const statusNames = { pending: '⏳ Ожидает', paid: '✅ Оплачен', partial: '🔹 Частично', unpaid: '❌ Не оплачен' };
                 tgNotify('workers', w.phone, `💰 Статус оплаты изменён\n\n👤 ${w.full_name}\n📊 ${statusNames[asgn.payment_status] || asgn.payment_status}`);
                 // Push-уведомление рабочему об оплате
                 sendPushNotification({ userId: asgn.worker_id, userRole: 'worker', eventType: 'payment_status', priority: 'high', title: '💰 Статус оплаты', body: `${w.full_name}: ${statusNames[asgn.payment_status] || asgn.payment_status}`, deepLink: '/worker.html' });
@@ -368,19 +353,8 @@ async function handlePostProcess(table, method, data, body, query, req) {
         id: first.id, date: new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }),
         type: 'Приход', counterpartyName, amount: first.amount,
         method: { transfer: 'Перевод', cash: 'Наличные', invoice: 'Безнал' }[first.method] || first.method || '',
-        status: first.status === 'pending_confirmation' ? 'Ожидает подтверждения' : 'Проведен', note: first.note || ''
+        status: 'Проведен', note: first.note || ''
       });
-      // Push: notify worker about new payment
-      if (method === 'POST' && first.assignment_id) {
-        try {
-          const asgn = ((await (await sbFetch('shift_assignments', `id=eq.${first.assignment_id}&select=worker_id&limit=1`)).json())[0]);
-          if (asgn?.worker_id) {
-            const amountStr = first.amount ? `${first.amount}₽` : 'Оплата';
-            const methodStr = { transfer: 'Перевод', cash: 'Наличные', invoice: 'Безнал' }[first.method] || first.method || '';
-            sendPushNotification({ userId: asgn.worker_id, userRole: 'worker', eventType: 'payment_recorded', priority: 'high', title: '💰 Оплата проведена', body: `${amountStr} (${methodStr})`, deepLink: '/worker.html' });
-          }
-        } catch (pe) { console.error('[Push] Payment notification error:', pe.message); }
-      }
     }
 
     // Clients
@@ -418,10 +392,10 @@ async function handleLogin(req, res, cors) {
     const phoneCol = table === 'clients' ? 'contact' : 'phone';
     const isActiveFilter = table === 'clients' ? '' : '&is_active=eq.true';
     const users = await (await sbFetch(table, `${phoneCol}=ilike.%25${cleanPhone.slice(-10)}%25${isActiveFilter}&limit=1`)).json();
-    if (!users.length) { audit('login_failure', `not found: ${cleanPhone} (${table})`, null, null, ip); return json(res, { ok: false, error: 'Пользователь не найден' }); }
+    if (!users.length) return json(res, { ok: false, error: 'Пользователь не найден' });
     const u = users[0];
 
-    if (!checkPassword(pass, u.password)) { audit('login_failure', `wrong pass: ${u.full_name || u.name} (${table})`, u.id, u.role, ip); return json(res, { ok: false, error: 'Неверный пароль' }); }
+    if (!checkPassword(pass, u.password)) return json(res, { ok: false, error: 'Неверный пароль' });
     if (role && u.role !== role) return json(res, { ok: false, error: 'Нет доступа' });
     if (u.is_active === false) return json(res, { ok: false, error: 'Аккаунт отключён' });
 
@@ -432,7 +406,6 @@ async function handleLogin(req, res, cors) {
 
     resetRateLimit(ip);
     const token = createToken(u.id, u.role || (table === 'workers' ? 'worker' : table === 'clients' ? 'client' : 'owner'), table);
-    audit('login_success', `${u.full_name || u.name} (${table})`, u.id, u.role, ip);
     json(res, {
       ok: true, token,
       user: { id: u.id, full_name: u.full_name || u.name, phone: u.phone || u.contact || '', role: u.role, rate_per_hour: u.rate_per_hour, monthly_target_hours: u.monthly_target_hours, is_active: u.is_active }
@@ -484,14 +457,6 @@ async function handleRegister(req, res, cors) {
       } catch (e) { console.error('[GAS] User sync error:', e.message); }
     }
 
-    // Audit registration
-    if (sbRes.status < 300) {
-      try {
-        const regData = Array.isArray(JSON.parse(result)) ? JSON.parse(result)[0] : JSON.parse(result);
-        audit('register', `${regData.full_name || regData.name || ''} (${table})`, regData.id, regData.role || table, req.headers['x-forwarded-for'] || req.socket.remoteAddress);
-      } catch(e) {}
-    }
-
     res.writeHead(sbRes.status, { 'Content-Type': 'application/json', ...cors });
     res.end(result);
   } catch (e) { json(res, { ok: false, error: e.message }, 500, cors); }
@@ -518,7 +483,6 @@ async function handleForgot(req, res, cors) {
       body: JSON.stringify({ chat_id: u.telegram_chat_id, text: `🔑 Ваш новый пароль: <code>${newPass}</code>\n\nВойдите в систему и смените его в настройках.`, parse_mode: 'HTML' })
     });
     console.log('[TG] Password reset for', u.full_name);
-    audit('password_reset', u.full_name, u.id, table, req.headers['x-forwarded-for'] || req.socket.remoteAddress);
     json(res, { ok: true });
   } catch (e) {
     console.error('[Forgot] Error:', e.message);
@@ -548,25 +512,6 @@ async function handleAuthMe(req, res, cors) {
   } catch (e) { json(res, { ok: false, error: e.message }, 500, cors); }
 }
 
-// --- Auth refresh ---
-async function handleAuthRefresh(req, res, cors) {
-  const body = await readBody(req)
-  try {
-    const { token } = JSON.parse(body)
-    if (!token) return json(res, { ok: false, error: 'Токен не указан' }, 400, cors)
-    const newToken = refreshToken(token)
-    if (!newToken) return json(res, { ok: false, error: 'Токен недействителен', code: 'AUTH_REQUIRED' }, 401, cors)
-    json(res, { ok: true, token: newToken })
-  } catch (e) { json(res, { ok: false, error: e.message }, 500, cors) }
-}
-
-// --- Auth logout ---
-async function handleAuthLogout(req, res, cors) {
-  const token = getTokenFromReq(req)
-  if (token) blacklistToken(token, 7 * 24 * 60 * 60 * 1000)
-  json(res, { ok: true })
-}
-
 // --- Export CSV ---
 async function handleExportCsv(req, res, cors) {
   try {
@@ -580,8 +525,6 @@ async function handleExportCsv(req, res, cors) {
       const h = parseFloat(a.hours_worked), r = parseFloat(a.rate_per_hour) || 400, cr = parseFloat(a.client_rate_per_hour) || 520, ex = parseFloat(a.extra_amount) || 0;
       csv += `${a.shifts?.date || ''},"${wMap[a.worker_id] || ''}","${a.shifts?.clients?.name || ''}",${h},${h*r+ex},${h*cr+ex},${(cr-r)*h},${a.payment_status}\n`;
     });
-    const session = requireAuth(req);
-    audit('export', 'payments.csv', session?.userId, session?.role, req.headers['x-forwarded-for'] || req.socket.remoteAddress);
     res.writeHead(200, { ...cors, 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename=payments.csv' });
     res.end(csv);
   } catch (e) { res.writeHead(500, cors); res.end('Export error'); }
@@ -597,8 +540,6 @@ async function handleUploadReceipt(req, res, cors) {
     if (buf.length > config.maxFileSize) { res.writeHead(413, cors); return res.end('File too large'); }
     const fname = Date.now() + '-' + String(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
     fs.writeFileSync(path.join(config.receiptsDir, fname), buf);
-    const session = requireAuth(req);
-    audit('upload_receipt', fname, session?.userId, session?.role, req.headers['x-forwarded-for'] || req.socket.remoteAddress);
     json(res, { filename: fname, url: '/receipts/' + fname });
   } catch (e) { console.error('Upload error:', e); res.writeHead(500, cors); res.end('Error'); }
 }
@@ -614,93 +555,6 @@ function handleReceipt(req, res, cors, urlPath) {
 }
 
 // --- Telegram webhook ---
-// --- GPS Tracking ---
-const trackingSessions = {}; // In-memory: worker_id -> { session_id, started_at }
-
-async function handleTrackingStatus(req, res, cors, urlPath) {
-  const q = new URL(req.url, 'http://localhost').searchParams;
-  const workerId = q.get('worker_id');
-  if (!workerId) return json(res, { error: 'worker_id required' }, 400, cors);
-  const session = trackingSessions[workerId];
-  if (session) {
-    try {
-      const sbRes = await sbFetch('tracking_locations', `session_id=eq.${session.session_id}&order=created_at.desc&limit=1`, {});
-      const locations = await sbRes.json();
-      return json(res, { active: true, session_id: session.session_id, started_at: session.started_at, last_location: locations?.[0] || null }, 200, cors);
-    } catch (e) {
-      return json(res, { active: true, session_id: session.session_id, started_at: session.started_at }, 200, cors);
-    }
-  }
-  try {
-    const sbRes = await sbFetch('tracking_sessions', `worker_id=eq.${workerId}&status=eq.active&order=created_at.desc&limit=1`, {});
-    const sessions = await sbRes.json();
-    if (sessions?.length) {
-      const s = sessions[0];
-      trackingSessions[workerId] = { session_id: s.id, started_at: s.created_at };
-      return json(res, { active: true, session_id: s.id, started_at: s.created_at }, 200, cors);
-    }
-  } catch (e) {}
-  return json(res, { active: false }, 200, cors);
-}
-
-async function handleTrackingStart(req, res, cors) {
-  const body = await readBody(req);
-  try {
-    const { session_id, worker_id } = JSON.parse(body);
-    if (!session_id || !worker_id) return json(res, { error: 'session_id and worker_id required' }, 400, cors);
-    await sbFetch('tracking_sessions', `id=eq.${session_id}`, { method: 'PATCH', body: JSON.stringify({ status: 'active', worker_id }) });
-    trackingSessions[worker_id] = { session_id, started_at: new Date().toISOString() };
-    console.log('[Tracking] Started for worker', worker_id, 'session', session_id);
-    return json(res, { ok: true, session_id }, 200, cors);
-  } catch (e) {
-    return json(res, { error: e.message }, 500, cors);
-  }
-}
-
-async function handleTrackingStop(req, res, cors) {
-  const body = await readBody(req);
-  try {
-    const { session_id, worker_id } = JSON.parse(body);
-    if (!session_id) return json(res, { error: 'session_id required' }, 400, cors);
-    await sbFetch('tracking_sessions', `id=eq.${session_id}`, { method: 'PATCH', body: JSON.stringify({ status: 'stopped', ended_at: new Date().toISOString() }) });
-    if (worker_id) delete trackingSessions[worker_id];
-    console.log('[Tracking] Stopped session', session_id);
-    return json(res, { ok: true }, 200, cors);
-  } catch (e) {
-    return json(res, { error: e.message }, 500, cors);
-  }
-}
-
-async function handleTrackingLocation(req, res, cors) {
-  const body = await readBody(req);
-  try {
-    const data = JSON.parse(body);
-    const { session_id, worker_id, lat, lng, accuracy, speed, heading, battery_level } = data;
-    if (!session_id || !worker_id || lat == null || lng == null) {
-      return json(res, { error: 'session_id, worker_id, lat, lng required' }, 400, cors);
-    }
-    const location = {
-      session_id, worker_id,
-      lat: parseFloat(lat), lng: parseFloat(lng),
-      accuracy: accuracy ? parseFloat(accuracy) : null,
-      speed: speed ? parseFloat(speed) : null,
-      heading: heading ? parseFloat(heading) : null,
-      battery_level: battery_level != null ? parseFloat(battery_level) : null,
-      created_at: new Date().toISOString()
-    };
-    const sbRes = await sbFetch('tracking_locations', '', { method: 'POST', body: JSON.stringify(location) });
-    if (!sbRes.ok) {
-      const err = await sbRes.text();
-      console.error('[Tracking] Location save failed:', sbRes.status, err);
-      return json(res, { error: 'DB save failed' }, 500, cors);
-    }
-    return json(res, { ok: true }, 200, cors);
-  } catch (e) {
-    console.error('[Tracking] Location error:', e.message);
-    return json(res, { error: e.message }, 500, cors);
-  }
-}
-
 // --- Static files ---
 // --- GAS webhook (receives changes from Google Sheets) ---
 async function handleGasWebhook(req, res, cors) {
@@ -775,20 +629,10 @@ function createRouter() {
 
     // --- Public routes ---
     if (urlPath === '/health' && req.method === 'GET') return handleHealth(req, res, cors);
-
-    // --- Stats (auth required, owner/dispatcher only) ---
-    if (urlPath === '/api/stats' && req.method === 'GET') {
-      const session = requireAuth(req);
-      if (!session) return json(res, { error: 'Требуется авторизация' }, 401, cors);
-      if (session.role !== 'owner' && session.role !== 'dispatcher') return json(res, { error: 'Нет доступа' }, 403, cors);
-      return handleStats(req, res, cors);
-    }
     if (urlPath === '/auth/login' && req.method === 'POST') return await handleLogin(req, res, cors);
     if (urlPath === '/auth/register' && req.method === 'POST') return await handleRegister(req, res, cors);
     if (urlPath === '/auth/forgot' && req.method === 'POST') return await handleForgot(req, res, cors);
     if (urlPath === '/auth/me' && req.method === 'GET') return await handleAuthMe(req, res, cors);
-    if (urlPath === '/auth/refresh' && req.method === 'POST') return await handleAuthRefresh(req, res, cors);
-    if (urlPath === '/auth/logout' && req.method === 'POST') return await handleAuthLogout(req, res, cors);
 
     // --- GAS webhook (secret-based auth) ---
     if (urlPath === '/api/gas-webhook' && req.method === 'POST') {
@@ -798,7 +642,7 @@ function createRouter() {
     }
 
     // --- Auth required routes ---
-    const auth = () => { if (!requireAuth(req)) { json(res, { error: 'Требуется авторизация', code: 'AUTH_REQUIRED' }, 401, cors); return false; } return true; };
+    const auth = () => { if (!requireAuth(req)) { json(res, { error: 'Требуется авторизация' }, 401, cors); return false; } return true; };
 
     if (urlPath === '/api/client-pay-method' && req.method === 'GET') { if (!auth()) return; return handleClientPayMethodGet(req, res, cors); }
     if (urlPath === '/api/client-pay-method' && req.method === 'POST') { if (!auth()) return; return handleClientPayMethodPost(req, res, cors); }
@@ -808,45 +652,6 @@ function createRouter() {
     if (urlPath === '/api/claim-order' && req.method === 'POST') { if (!auth()) return; return await handleClaimOrder(req, res, cors); }
     if (urlPath.startsWith('/api/address-suggest') && req.method === 'GET') { if (!auth()) return; return await handleAddressSuggest(req, res, cors); }
     if (urlPath === '/api/telegram-status' && req.method === 'GET') { if (!auth()) return; return await handleTelegramStatus(req, res, cors); }
-
-    // --- GPS Tracking ---
-    if (urlPath === '/api/tracking/status' && req.method === 'GET') { if (!auth()) return; return await handleTrackingStatus(req, res, cors, urlPath); }
-    if (urlPath === '/api/tracking/start' && req.method === 'POST') { if (!auth()) return; return await handleTrackingStart(req, res, cors); }
-    if (urlPath === '/api/tracking/stop' && req.method === 'POST') { if (!auth()) return; return await handleTrackingStop(req, res, cors); }
-    if (urlPath === '/api/tracking/location' && req.method === 'POST') { if (!auth()) return; return await handleTrackingLocation(req, res, cors); }
-
-    // --- Workers last location (for shift map) ---
-    if (urlPath === '/api/tracking/workers-location' && req.method === 'GET') {
-      if (!auth()) return;
-      try {
-        const q = new URL(req.url, 'http://localhost').searchParams;
-        const workerIds = (q.get('worker_ids') || '').split(',').filter(Boolean);
-        if (!workerIds.length) return json(res, [], 200, cors);
-        const results = [];
-        for (const wid of workerIds) {
-          // Check in-memory cache first
-          const session = trackingSessions[wid];
-          let sessionId = session?.session_id;
-          if (!sessionId) {
-            // Query DB for active session
-            const sbRes = await sbFetch('tracking_sessions', `worker_id=eq.${wid}&status=eq.active&order=created_at.desc&limit=1`, {});
-            const sessions = await sbRes.json();
-            if (sessions?.length) sessionId = sessions[0].id;
-          }
-          if (!sessionId) continue;
-          const locRes = await sbFetch('tracking_locations', `session_id=eq.${sessionId}&order=created_at.desc&limit=1`, {});
-          const locs = await locRes.json();
-          if (locs?.length) {
-            results.push({ worker_id: wid, lat: locs[0].lat, lng: locs[0].lng, accuracy: locs[0].accuracy, speed: locs[0].speed, battery_level: locs[0].battery_level, recorded_at: locs[0].created_at });
-          }
-        }
-        return json(res, results, 200, cors);
-      } catch (e) {
-        console.error('[Tracking] workers-location error:', e.message);
-        return json(res, { error: e.message }, 500, cors);
-      }
-    }
-
     if (urlPath.startsWith('/api/')) return await handleApiProxy(req, res, cors, urlPath);
     if (urlPath === '/export/payments.csv') { if (!auth()) return; return await handleExportCsv(req, res, cors); }
     if (urlPath === '/upload-receipt' && req.method === 'POST') { if (!auth()) return; return await handleUploadReceipt(req, res, cors); }

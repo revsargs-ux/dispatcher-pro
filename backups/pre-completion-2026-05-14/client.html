@@ -75,10 +75,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 }
 </style>
 <style>
-.pw-wrap{position:relative}
-.pw-wrap input{width:100%;padding:12px 40px 12px 14px;border:2px solid var(--border);border-radius:8px;font-size:15px;margin-bottom:12px;transition:.2s}
+.pw-wrap{position:relative;display:flex;align-items:center;margin-bottom:12px}
+.pw-wrap input{flex:1;width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:8px;font-size:15px;margin:0;transition:.2s;border-right:none;border-top-right-radius:0;border-bottom-right-radius:0}
 .pw-wrap input:focus{outline:none;border-color:var(--primary)}
-.pw-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:18px;user-select:none;color:var(--text-light)}
+.pw-eye{display:flex;align-items:center;justify-content:center;width:44px;height:46px;background:#fff;border:2px solid var(--border);border-left:none;border-radius:0 8px 8px 0;cursor:pointer;font-size:16px;user-select:none;color:var(--text-light);flex-shrink:0}
+.pw-eye:active{background:#f0f0f0}
 .pw-match{height:4px;border-radius:2px;margin:-8px 0 12px;transition:background .3s}
 .pw-match.ok{background:#38a169}
 .pw-match.fail{background:#c53030}
@@ -136,6 +137,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   <div id="tg-banner" style="display:none;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkTelegram()">📱 Подключить уведомления в Telegram</div>
   <div id="tg-linked" style="display:none;background:#e8f5e9;color:#2e7d32;padding:10px 16px;border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px">✅ Telegram уведомления подключены</div>
+  <div id="max-banner" style="display:none;background:linear-gradient(135deg,#6b3fa0,#8b5cf6);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkMax()">💬 Подключить уведомления в МАКС</div>
+  <div id="max-linked" style="display:none;background:#f3e8ff;color:#6b21a8;padding:10px 16px;border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px">✅ МАКС уведомления подключены</div>
 
   <button class="btn btn-green" onclick="openNewOrderModal()" style="width:100%;margin-bottom:12px;padding:14px;font-size:16px;border-radius:10px;">➕ Новый заказ</button>
 
@@ -187,7 +190,7 @@ async function api(t,m='GET',b=null,q=''){
   const tk=localStorage.getItem('dp_token');if(tk)o.headers['Authorization']='Bearer '+tk;
   if(b)o.body=JSON.stringify(b);
   const r=await fetch(u,o);
-  if(r.status===401){if(localStorage.getItem('c_auth')){localStorage.removeItem('dp_token');localStorage.removeItem('c_auth');location.reload();}return[];}
+  if(r.status===401){localStorage.removeItem('dp_token');return[];}
   if(!r.ok){const txt=await r.text();throw new Error('API '+m+' '+t+': '+r.status+' '+txt);}
   if(m==='DELETE')return true;
   return await r.json();
@@ -248,17 +251,25 @@ async function login(){
     const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'clients',phone:'+'+ph,pass:pass})});
     const d=await r.json();
     if(!d.ok){showErr(d.error||'Ошибка входа');return;}
-    client=d.user;localStorage.setItem('c_auth',ph+':'+pass);if(d.token)localStorage.setItem('dp_token',d.token);showMain();
+    client=d.user;localStorage.setItem('c_auth',JSON.stringify({id:d.user.id,full_name:d.user.full_name||d.user.name,phone:d.user.phone||d.user.contact,contact:d.user.phone||d.user.contact}));if(d.token)localStorage.setItem('dp_token',d.token);showMain();
   }catch(e){showErr('Ошибка подключения');}
 }
 async function autoLogin(){
-  const saved=localStorage.getItem('c_auth');if(!saved)return false;
-  const[ph,pass]=saved.split(':');
+  const token=localStorage.getItem('dp_token');
+  if(!token)return false;
   try{
-    const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'clients',phone:'+'+ph,pass:pass})});
+    const r=await fetch('/auth/me',{headers:{'Authorization':'Bearer '+token}});
+    if(!r.ok){localStorage.removeItem('dp_token');localStorage.removeItem('c_auth');return false;}
     const d=await r.json();
-    if(d.ok){client=d.user;showMain();return true;}
+    if(d.ok&&d.user){
+      client=d.user;
+      if(d.token)localStorage.setItem('dp_token',d.token);
+      localStorage.setItem('c_auth',JSON.stringify({id:d.user.id,full_name:d.user.full_name||d.user.name,phone:d.user.phone||d.user.contact,contact:d.user.phone||d.user.contact}));
+      showMain();
+      return true;
+    }
   }catch(e){console.error('autoLogin error',e);}
+  localStorage.removeItem('dp_token');localStorage.removeItem('c_auth');
   return false;
 }
 async function register(){
@@ -276,7 +287,7 @@ async function register(){
   try{
     const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'clients',phone:'+'+ph,pass:pass})});
     const d=await r.json();
-    if(d.ok){client=d.user;localStorage.setItem('c_auth',ph+':'+pass);if(d.token)localStorage.setItem('dp_token',d.token);showMain();return;}
+    if(d.ok){client=d.user;localStorage.setItem('c_auth',JSON.stringify({id:d.user.id,full_name:d.user.full_name||d.user.name,phone:d.user.phone||d.user.contact,contact:d.user.phone||d.user.contact}));if(d.token)localStorage.setItem('dp_token',d.token);showMain();return;}
   }catch(e){}
   toast('Зарегистрировано! Войдите с вашим паролем');
   showLogin();
@@ -302,6 +313,18 @@ function linkTelegram(){
   else window.open('https://t.me/DispetcherPro_bot','_blank');
 }
 
+async function checkMaxStatus(){
+  try{
+    const r=await fetch('/api/telegram-status?phone='+norm(client.contact||client.phone||'')+'&table=clients&field=max_chat_id');
+    const d=await r.json();
+    if(d.linked){document.getElementById('max-banner').style.display='none';document.getElementById('max-linked').style.display='';}
+    else{document.getElementById('max-banner').style.display='';document.getElementById('max-linked').style.display='none';}
+  }catch(e){}
+}
+function linkMax(){
+  window.open('https://max.ru/id4100044993_bot','_blank');
+}
+
 // Tabs
 document.getElementById('tab-bar').addEventListener('click',e=>{
   const t=e.target.closest('.tab-btn');if(!t)return;
@@ -316,6 +339,7 @@ async function showMain(){
   document.getElementById('main-screen').style.display='block';
   document.getElementById('client-name').textContent=(client?.full_name||client?.name||'');
   checkTelegramStatus();
+  checkMaxStatus();
   const workers=await api('workers','GET',null,'?select=id,full_name');
   wMap={};workers.forEach(w=>wMap[w.id]=w.full_name);
   await render();
@@ -857,5 +881,6 @@ async function submitNewOrder(){
     <button class="btn btn-primary" onclick="submitPayment()" style="width:100%;padding:14px;font-size:16px;font-weight:600;margin:8px 0 24px;border-radius:10px;">💳 Отправить</button>
   </div>
 </div></div>
+<script src="/push-client.js"></script>
 </body>
 </html>

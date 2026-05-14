@@ -7,7 +7,9 @@ const path = require('path');
 
 const { config } = require('./modules/config');
 const { createRouter, startPolling } = require('./modules/routes');
+const { handlePushSubscription } = require('./notifications-module/push-route');
 const { runGasSync } = require('./modules/gas-sync');
+const { startMaxPolling } = require('./modules/max-bot');
 
 // Ensure receipts directory exists
 if (!fs.existsSync(config.receiptsDir)) fs.mkdirSync(config.receiptsDir, { recursive: true });
@@ -29,6 +31,10 @@ setInterval(() => {
 const router = createRouter();
 const server = http.createServer(async (req, res) => {
   try {
+    // Push subscription endpoint (изолированный модуль уведомлений)
+    if (req.url === '/api/push-subscription') {
+      return handlePushSubscription(req, res);
+    }
     await router(req, res);
   } catch (e) {
     console.error('Unhandled route error:', e.message);
@@ -47,6 +53,9 @@ process.on('unhandledRejection', (err) => { console.error('Unhandled:', err); })
 
 // Start Telegram polling
 startPolling();
+
+// Start МАКС polling
+startMaxPolling();
 
 // Start GAS periodic sync (every 5 minutes)
 const sbHeaders = () => ({ 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey, 'Content-Type': 'application/json' });

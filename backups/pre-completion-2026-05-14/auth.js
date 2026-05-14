@@ -27,74 +27,9 @@ function createToken(userId, role, table) {
   );
 }
 
-// --- Token blacklist (in-memory, persisted to data/sessions.json) ---
-const BLACKLIST_FILE = path.join(config.appDir, 'data', 'sessions.json')
-const tokenBlacklist = new Map() // token -> expiry timestamp
-
-function loadBlacklist() {
-  try {
-    const data = JSON.parse(fs.readFileSync(BLACKLIST_FILE, 'utf8'))
-    const now = Date.now()
-    for (const [token, expiry] of Object.entries(data)) {
-      if (typeof expiry === 'number' && expiry > now) tokenBlacklist.set(token, expiry)
-    }
-  } catch(e) {}
-}
-
-function saveBlacklist() {
-  try {
-    const now = Date.now()
-    const obj = {}
-    for (const [token, expiry] of tokenBlacklist.entries()) {
-      if (expiry > now) obj[token] = expiry
-    }
-    fs.writeFileSync(BLACKLIST_FILE, JSON.stringify(obj))
-  } catch(e) { console.error('[Blacklist] Save error:', e.message) }
-}
-
-function blacklistToken(token, expiresInMs) {
-  const expiry = Date.now() + (expiresInMs || 7 * 24 * 60 * 60 * 1000) // default 7d
-  tokenBlacklist.set(token, expiry)
-  saveBlacklist()
-}
-
-function isBlacklisted(token) {
-  const expiry = tokenBlacklist.get(token)
-  if (!expiry) return false
-  if (Date.now() > expiry) {
-    tokenBlacklist.delete(token)
-    return false
-  }
-  return true
-}
-
-function refreshToken(oldToken) {
-  try {
-    const payload = jwt.verify(oldToken, JWT_SECRET)
-    if (isBlacklisted(oldToken)) return null
-    blacklistToken(oldToken, 7 * 24 * 60 * 60 * 1000)
-    return createToken(payload.userId, payload.role, payload.table)
-  } catch(e) {
-    return null
-  }
-}
-
-// Cleanup expired blacklist entries every 10 minutes
-setInterval(() => {
-  const now = Date.now()
-  let changed = false
-  for (const [token, expiry] of tokenBlacklist.entries()) {
-    if (now > expiry) { tokenBlacklist.delete(token); changed = true }
-  }
-  if (changed) saveBlacklist()
-}, 600000)
-
-loadBlacklist()
-
 function requireAuth(req) {
   const token = getTokenFromReq(req);
   if (!token) return null;
-  if (isBlacklisted(token)) return null;
   try {
     return jwt.verify(token, JWT_SECRET);
   } catch(e) {
@@ -169,6 +104,5 @@ setInterval(() => {
 module.exports = {
   createToken, requireAuth, getTokenFromReq,
   hashPassword, checkPassword, isPlaintext, needsUpgrade,
-  checkRateLimit, resetRateLimit,
-  blacklistToken, isBlacklisted, refreshToken
+  checkRateLimit, resetRateLimit
 };

@@ -1,0 +1,14 @@
+{"timestamp":"2026-05-14T14:52:56.390Z","action":"test","details":"verify","userId":"system","role":"system","ip":"127.0.0.1"}
+{"timestamp":"2026-05-14T14:53:24.931Z","action":"login_success","details":"Ревик Саргсян (users)","userId":"f1a2b0e9-60ab-4055-998c-afa54bc7a82d","role":"owner","ip":"77.82.91.108"}
+{"timestamp":"2026-05-14T14:53:48.038Z","action":"register","details":"Test Dispatcher API (users)","userId":"8801aac3-69c9-4875-b420-ed79ed2c97da","role":"dispatcher","ip":"127.0.0.1"}
+{"timestamp":"2026-05-14T14:53:48.338Z","action":"login_success","details":"Test Dispatcher API (users)","userId":"8801aac3-69c9-4875-b420-ed79ed2c97da","role":"dispatcher","ip":"127.0.0.1"}
+{"timestamp":"2026-05-14T14:53:48.624Z","action":"login_failure","details":"wrong pass: Test Dispatcher API (users)","userId":"8801aac3-69c9-4875-b420-ed79ed2c97da","role":"dispatcher","ip":"127.0.0.1"}
+{"timestamp":"2026-05-14T14:53:48.724Z","action":"login_failure","details":"not found: 79990000999 (users)","userId":"anonymous","role":"unknown","ip":"127.0.0.1"}
+{"timestamp":"2026-05-14T17:38:57.852Z","action":"login_failure","details":"not found: 79999999999 (users)","userId":"anonymous","role":"unknown","ip":"172.18.0.1"}
+{"timestamp":"2026-05-14T17:38:58.268Z","action":"register","details":"Audit Test Worker (workers)","userId":"d50f63a7-aaa4-43f3-8034-e8e040aa9e94","role":"workers","ip":"172.18.0.1"}
+{"timestamp":"2026-05-14T17:39:13.533Z","action":"login_success","details":"Audit Test Worker (workers)","userId":"d50f63a7-aaa4-43f3-8034-e8e040aa9e94","role":"unknown","ip":"172.18.0.1"}
+{"timestamp":"2026-05-14T17:39:40.227Z","action":"login_failure","details":"not found: 79999999999 (users)","userId":"anonymous","role":"unknown","ip":"172.18.0.1"}
+{"timestamp":"2026-05-14T17:39:40.336Z","action":"login_failure","details":"not found: 79999999999 (users)","userId":"anonymous","role":"unknown","ip":"172.18.0.1"}
+{"timestamp":"2026-05-14T17:39:40.440Z","action":"login_failure","details":"not found: 79999999999 (users)","userId":"anonymous","role":"unknown","ip":"172.18.0.1"}
+{"timestamp":"2026-05-14T17:39:40.544Z","action":"login_failure","details":"not found: 79999999999 (users)","userId":"anonymous","role":"unknown","ip":"172.18.0.1"}
+{"timestamp":"2026-05-14T17:39:40.646Z","action":"login_failure","details":"not found: 79999999999 (users)","userId":"anonymous","role":"unknown","ip":"172.18.0.1"}

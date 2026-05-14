@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Предложения по развитию — Dispatcher.PRO</title>
+<style>
+body{font-family:system-ui;background:#1a1a2e;color:#eee;padding:20px;max-width:900px;margin:0 auto}
+h1{color:#4ecdc4;text-align:center}
+h2{color:#4ecdc4;border-bottom:2px solid #16213e;padding-bottom:8px;margin-top:30px}
+h3{color:#e74c3c;margin:15px 0 5px}
+.card{background:#16213e;border-radius:10px;padding:15px;margin:10px 0;border-left:4px solid #4ecdc4}
+.card.high{border-left-color:#e74c3c}
+.card.medium{border-left-color:#f39c12}
+.card.small{border-left-color:#2ecc71}
+.card.large{border-left-color:#9b59b6}
+p{margin:5px 0;font-size:14px;line-height:1.5}
+.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:bold;color:#000;margin-right:5px}
+.p0{background:#e74c3c}.p1{background:#f39c12}.p2{background:#3498db}.p3{background:#9b59b6}.p4{background:#95a5a6}
+.why{color:#aaa;font-size:12px;font-style:italic;margin-top:5px}
+.matrix{width:100%;border-collapse:collapse;margin:20px 0}
+.matrix th,.matrix td{padding:8px 12px;border:1px solid #16213e;text-align:left;font-size:13px}
+.matrix th{background:#0f3460;color:#4ecdc4}
+.back{display:inline-block;background:#16213e;color:#4ecdc4;padding:8px 16px;border-radius:8px;text-decoration:none;margin:10px 0}
+</style>
+</head>
+<body>
+<h1>💡 Предложения по развитию</h1>
+<p style="text-align:center;color:#aaa">Dispatcher.PRO — 26 предложений после полного аудита (14.05.2026)</p>
+
+<a href="https://диспетчер-про.рф/sql-setup.html" class="back">← Назад к SQL Setup</a>
+
+<h2>🔐 1. Безопасность</h2>
+
+<div class="card small">
+<h3>1.1 Row Level Security на всех таблицах</h3>
+<p><span class="tag p0">P0</span> <b>✅ ВЫПОЛНЕНО</b></p>
+<p class="why">RLS включён, anon заблокирован, service_role имеет полный доступ.</p>
+</div>
+
+<div class="card small">
+<h3>1.2 Content-Security-Policy Header</h3>
+<p><span class="tag p1">P1</span> Добавить CSP header: script-src 'self', img-src data: https:, connect-src 'self' https://*.supabase.co. Защита от XSS атак — злоумышленник не сможет загрузить внешние скрипты и украсть токены.</p>
+</div>
+
+<div class="card small">
+<h3>1.3 HMAC подпись для GAS Webhook</h3>
+<p><span class="tag p1">P1</span> Заменить статический secret на HMAC-SHA256 подпись тела запроса. Сейчас любой знающий secret может писать данные в БД.</p>
+</div>
+
+<div class="card medium">
+<h3>1.4 Верификация при привязке бота</h3>
+<p><span class="tag p2">P2</span> При /start &lt;phone&gt; — отправить код подтверждения. Сейчас кто угодно может привязать чужой номер к своему Telegram.</p>
+</div>
+
+<div class="card small">
+<h3>1.5 Убрать plaintext fallback в паролях</h3>
+<p><span class="tag p0">P0</span> В auth.js есть строка `storedPassword === inputPassword`. Удалить, мигрировать все plaintext пароли в bcrypt.</p>
+</div>
+
+<div class="card medium">
+<h3>1.6 Refresh Token Rotation</h3>
+<p><span class="tag p2">P2</span> При каждом refresh — инвалидировать старый токен. Обнаружение кражи JWT.</p>
+</div>
+
+<h2>📱 2. UX улучшения</h2>
+
+<div class="card medium">
+<h3>2.1 Уведомление о завершении смены</h3>
+<p><span class="tag p2">P2</span> Событие "смена завершена" → TG + МАКС + Push. Сводка: дата, часы, сумма. Клиент и рабочий узнают автоматически.</p>
+</div>
+
+<div class="card small">
+<h3>2.2 Кнопка "Завершить все смены"</h3>
+<p><span class="tag p1">P1</span> Mass action для диспетчера — закрыть все смены дня одним кликом вместо 10+</p>
+</div>
+
+<div class="card small">
+<h3>2.3 Phone input с маской</h3>
+<p><span class="tag p1">P1</span> Маска +7 (___) ___-__-__ во все формы. Валидация 11 цифр на frontend и backend.</p>
+</div>
+
+<div class="card small">
+<h3>2.4 Escape закрывает модалки</h3>
+<p><span class="tag p1">P1</span> document.addEventListener('keydown', Escape → closeModal). Стандартное UX.</p>
+</div>
+
+<div class="card medium">
+<h3>2.5 Push-уведомления — починить или убрать</h3>
+<p><span class="tag p1">P1</span> Либо развернуть Edge Function с корректной encryption, либо убрать кнопку подписки из UI чтобы не вводить в заблуждение.</p>
+</div>
+
+<div class="card medium">
+<h3>2.6 Offline-режим</h3>
+<p><span class="tag p2">P2</span> Service Worker кеширует статические ресурсы. "Нет подключения" вместо белого экрана. Важно для рабочих на объектах.</p>
+</div>
+
+<div class="card small">
+<h3>2.7 Тёмная тема</h3>
+<p><span class="tag p3">P3</span> @media (prefers-color-scheme: dark). Ночные смены — белый экран режет глаза.</p>
+</div>
+
+<h2>⚡ 3. Производительность</h2>
+
+<div class="card medium">
+<h3>3.1 Batch запросы вместо N+1</h3>
+<p><span class="tag p2">P2</span> handlePostProcess делает 8-12 API вызовов на один POST. Заменить на batch с Supabase joins. При 100+ смен/день = экономия 800+ запросов.</p>
+</div>
+
+<div class="card small">
+<h3>3.2 Page Visibility для polling</h3>
+<p><span class="tag p1">P1</span> <b>✅ ВЫПОЛНЕНО</b></p>
+<p class="why">Polling 30 сек + проверка document.visibilityState.</p>
+</div>
+
+<div class="card small">
+<h3>3.3 Debounce для поиска</h3>
+<p><span class="tag p1">P1</span> 300ms debounce на worker/client поиск. Сейчас каждый символ = API запрос.</p>
+</div>
+
+<div class="card small">
+<h3>3.4 Кешировать service_types</h3>
+<p><span class="tag p1">P1</span> Загрузить один раз при логине, кешировать в sessionStorage. 10 смен = 10 запросов к одним данным → 1.</p>
+</div>
+
+<div class="card medium">
+<h3>3.5 Оптимизировать loadDashboard</h3>
+<p><span class="tag p2">P2</span> 5-7 параллельных запросов → 1-2 batch с aggregates.</p>
+</div>
+
+<h2>🏗️ 4. Архитектура</h2>
+
+<div class="card medium">
+<h3>4.1 Разбить routes.js на модули</h3>
+<p><span class="tag p2">P2</span> 863 строки → routes/auth.js, routes/tracking.js, routes/api-proxy.js. Монолит трудно поддерживать.</p>
+</div>
+
+<div class="card medium">
+<h3>4.2 Общий модуль для ботов (bot-common.js)</h3>
+<p><span class="tag p2">P2</span> telegram.js + max-bot.js — 80% копипаста (~400 строк). Общая логика → bot-common.js, адаптеры — тонкие обёртки.</p>
+</div>
+
+<div class="card small">
+<h3>4.3 Общий db helper (sbFetch)</h3>
+<p><span class="tag p1">P1</span> sbHeaders/sbFetch дублирован в 5 местах → modules/db.js с единым API.</p>
+</div>
+
+<div class="card small">
+<h3>4.4 Удалить мусор</h3>
+<p><span class="tag p0">P0</span> <b>✅ ВЫПОЛНЕНО</b></p>
+<p class="why">~30 .bak файлов и modules/tracking.js удалены.</p>
+</div>
+
+<div class="card small">
+<h3>4.5 Migration tracking</h3>
+<p><span class="tag p2">P2</span> Таблица schema_migrations. Скрипт для применения миграций по порядку.</p>
+</div>
+
+<div class="card small">
+<h3>4.6 notifications.json → Supabase таблица</h3>
+<p><span class="tag p1">P1</span> JSON файл растёт бесконечно, конкурентная запись без блокировок. Перенести в БД с TTL 30 дней.</p>
+</div>
+
+<h2>🚀 5. Новые функции</h2>
+
+<div class="card large">
+<h3>5.1 Мультиязычность (RU/EN)</h3>
+<p><span class="tag p4">P4</span> Все строки → языковой файл. Начать с worker.html и client.html. Расширяет аудиторию.</p>
+</div>
+
+<div class="card medium">
+<h3>5.2 Фото-отчёт с объекта</h3>
+<p><span class="tag p2">P2</span> Worker фото до/после → загрузка → прикрепление к смене → видно клиенту. Подтверждение выполненной работы.</p>
+</div>
+
+<div class="card medium">
+<h3>5.3 Автоматический расчёт зарплаты</h3>
+<p><span class="tag p3">P3</span> По завершении смены: часы × ставка + доп. Сводка рабочему и клиенту. Снижает ошибки.</p>
+</div>
+
+<div class="card medium">
+<h3>5.4 Dashboard с графиками</h3>
+<p><span class="tag p2">P2</span> Доходы по дням, загрузка рабочих, топ клиентов. Chart.js или Canvas.</p>
+</div>
+
+<div class="card medium">
+<h3>5.5 Рейтинги и отзывы</h3>
+<p><span class="tag p3">P3</span> Клиент ставит оценку рабочему (1-5 ⭐). Dispatcher видит рейтинги при назначении. Мотивация рабочих.</p>
+</div>
+
+<div class="card medium">
+<h3>5.6 Google Calendar / iCal</h3>
+<p><span class="tag p2">P2</span> Экспорт смен в Google Calendar. Подписка на iCal feed. Синхронизация без дублирования.</p>
+</div>
+
+<div class="card large">
+<h3>5.7 Chat между клиентом и рабочим</h3>
+<p><span class="tag p4">P4</span> Через TG/МАКС бота анонимно. Dispatcher видит переписку. Координация на объекте без лишнего звена.</p>
+</div>
+
+<div class="card medium">
+<h3>5.8 Повторяющиеся заказы</h3>
+<p><span class="tag p2">P2</span> Шаблон заказа (каждый понедельник, одинаковые услуги). Автоматическое создание смен. 80% заказов = постоянные клиенты.</p>
+</div>
+
+<div class="card large">
+<h3>5.9 Telegram Web App (Mini App)</h3>
+<p><span class="tag p4">P4</span> worker.html/client.html → TG Mini App. Нативный опыт в Telegram, авторизация через TG.</p>
+</div>
+
+<div class="card medium">
+<h3>5.10 Двухфакторная аутентификация</h3>
+<p><span class="tag p2">P2</span> SMS код или TG подтверждение при логине. Особенно для owner и dispatcher.</p>
+</div>
+
+<hr style="border-color:#16213e;margin:30px 0">
+<h2>📊 Матрица приоритетов</h2>
+<table class="matrix">
+<tr><th>Приоритет</th><th>Описание</th><th>Кол-во</th></tr>
+<tr><td><span class="tag p0">P0</span></td><td>Критически важно, прямо сейчас</td><td>3 (2 ✅)</td></tr>
+<tr><td><span class="tag p1">P1</span></td><td>На этой неделе</td><td>8 (1 ✅)</td></tr>
+<tr><td><span class="tag p2">P2</span></td><td>Этот спринт</td><td>10</td></tr>
+<tr><td><span class="tag p3">P3</span></td><td>Следующий спринт</td><td>3</td></tr>
+<tr><td><span class="tag p4">P4</span></td><td>Бэклог</td><td>3</td></tr>
+</table>
+</body>
+</html>
