@@ -695,8 +695,9 @@ async function loadDashboard(){
   try{
     const today=new Date().toISOString().split('T')[0];
     const monthStart=today.slice(0,8)+'01';
-    // Batch all dashboard queries in parallel
+    // Get my shifts this month
     let shiftQ=`?select=id,date,status,clients(name),start_time,comment&date=gte.${monthStart}&order=date.desc`;
+    // All dispatchers see all shifts
     shiftQ+='&limit=200';
     const[shifts,myAssignments]=await Promise.all([
       api('shifts','GET',null,shiftQ),
@@ -717,15 +718,6 @@ async function loadDashboard(){
     const mySalary=totalH*rate;
     const progress=target>0?Math.min(100,Math.round(totalH/target*100)):0;
 
-    // Prefetch today's assignments in parallel with stats rendering
-    const todayShifts=(shifts||[]).filter(s=>s.date===today);
-    const todayIds=todayShifts.map(s=>s.id);
-    const shiftsListEl=document.getElementById('dashboard-shifts');
-    let todayAsgnPromise=Promise.resolve([]);
-    if(todayIds.length){
-      todayAsgnPromise=api('shift_assignments','GET',null,'?select=invite_status,shift_id');
-    }
-    // Render stats while todayAsgn loads
     document.getElementById('dashboard-stats').innerHTML=`
       <div class="stat-card"><div class="num">${totalH.toLocaleString('ru')}</div><div class="label">Часов за месяц</div></div>
       <div class="stat-card accent"><div class="num">${mySalary.toLocaleString('ru')}₽</div><div class="label">Моя зарплата</div></div>
@@ -745,8 +737,15 @@ async function loadDashboard(){
       </div>
     `;
     // Today's shifts
+    const todayShifts=(shifts||[]).filter(s=>s.date===today);
+    const shiftsListEl=document.getElementById('dashboard-shifts');
     if(!todayShifts.length){shiftsListEl.innerHTML='<p style="color:var(--text-light);padding:12px;">Нет смен на сегодня</p>';return;}
-    const todayAsgn=await todayAsgnPromise;
+    // Get assignments for today
+    const todayIds=todayShifts.map(s=>s.id);
+    let todayAsgn=[];
+    if(todayIds.length){
+      todayAsgn=await api('shift_assignments','GET',null,'?select=invite_status,shift_id');
+    }
     const asgnByShift={};
     todayAsgn.forEach(a=>{if(!asgnByShift[a.shift_id])asgnByShift[a.shift_id]={c:0,i:0};asgnByShift[a.shift_id].c++;if(a.invite_status==='confirmed')asgnByShift[a.shift_id].i++;});
     shiftsListEl.innerHTML=todayShifts.map(s=>{
