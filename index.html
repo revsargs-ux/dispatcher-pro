@@ -1026,7 +1026,7 @@ function setupAddressSuggestions(){
         const res=await fetch('/api/address-suggest?q='+encodeURIComponent(q),{headers:{'Authorization':'Bearer '+token}});
         const data=await res.json();
         if(data.suggestions&&data.suggestions.length){
-          suggBox.innerHTML=data.suggestions.map(s=>`<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;" class="addr-suggestion" data-lat="${s.lat||''}" data-lon="${s.lon||''}">${typeof s==='string'?s:s.name||s.display_name||''}</div>`).join('');
+          suggBox.innerHTML=data.suggestions.map(s=>`<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;" class="addr-suggestion" data-lat="${s.lat||''}" data-lon="${s.lon||''}">${esc(typeof s==='string'?s:s.name||s.display_name||'')}</div>`).join('');
           suggBox.style.display='block';
           suggBox.querySelectorAll('.addr-suggestion').forEach(el=>{
             el.addEventListener('click',function(){
@@ -1472,7 +1472,7 @@ async function saveClient(){
     await api('clients','POST',{name,contact,default_client_rate:cr,default_worker_rate:wr,archived:false,password:genPass});
     if(contact){
       const link='https://xn----gtbdan3bddhceo9d.xn--p1ai/client.html';
-      infoEl.innerHTML=`<div style="font-weight:600;margin-bottom:6px;">📋 Данные для клиента:</div><div>📱 ${contact}</div><div>🔑 ${genPass}</div><div>🔗 ${link}</div><button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="copyText('Кабинет клиента\\nТелефон: ${contact}\\nПароль: ${genPass}\\nСсылка: ${link}')">📋 Скопировать</button>`;
+      infoEl.innerHTML=`<div style="font-weight:600;margin-bottom:6px;">📋 Данные для клиента:</div><div>📱 ${esc(contact)}</div><div>🔑 ${esc(genPass)}</div><div>🔗 ${esc(link)}</div><button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="copyText('Кабинет клиента\\nТелефон: ${esc(contact)}\\nПароль: ${esc(genPass)}\\nСсылка: ${esc(link)}')">📋 Скопировать</button>`;
       infoEl.style.display='block';
     }
   }
@@ -1536,7 +1536,7 @@ async function saveDispatcher(){
     const genPass=document.getElementById('dispatcher-password').value.trim()||String(Math.floor(100000+Math.random()*900000));
     await api('users','POST',{full_name,phone,password:genPass,role:'dispatcher',rate_per_hour:rate,monthly_target_hours:target,is_active:true});
     const link='https://xn----gtbdan3bddhceo9d.xn--p1ai';
-    infoEl.innerHTML=`<div style="font-weight:600;margin-bottom:6px;">📋 Данные для диспетчера:</div><div>📱 ${phone}</div><div>🔑 ${genPass}</div><div>🔗 ${link}</div><button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="copyText('Кабинет диспетчера\\nТелефон: ${phone}\\nПароль: ${genPass}\\nСсылка: ${link}')">📋 Скопировать</button>`;
+    infoEl.innerHTML=`<div style="font-weight:600;margin-bottom:6px;">📋 Данные для диспетчера:</div><div>📱 ${esc(phone)}</div><div>🔑 ${esc(genPass)}</div><div>🔗 ${esc(link)}</div><button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="copyText('Кабинет диспетчера\\nТелефон: ${esc(phone)}\\nПароль: ${esc(genPass)}\\nСсылка: ${esc(link)}')">📋 Скопировать</button>`;
     infoEl.style.display='block';
   }
   closeModal('modal-dispatcher');loadDispatchers();
@@ -1581,7 +1581,7 @@ function renderWorkerPayments(){
     const h=parseFloat(a.hours_worked),r=parseFloat(a.rate_per_hour)||400,ex=parseFloat(a.extra_amount)||0;
     const total=(h*r)+ex;
     const paid=a.payment_status==='paid';
-    return`<tr><td>${wMap[a.worker_id]||'—'}</td><td>${esc(a.shifts?.clients?.name)||"\u2014"}</td><td>${formatDate(a.shifts?.date)}</td>
+    return`<tr><td>${esc(wMap[a.worker_id])||'—'}</td><td>${esc(a.shifts?.clients?.name)||"\u2014"}</td><td>${formatDate(a.shifts?.date)}</td>
       <td>${h}ч</td><td>${total.toLocaleString('ru')}₽</td>
       <td><span class="badge ${paid?'badge-paid':'badge-unpaid'}">${paid?'Оплачено':'Не оплачено'}</span>${_payBtn(a)}</td></tr>`;
   }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
@@ -1593,8 +1593,8 @@ function _payBtn(a){
   const p=pays[pays.length-1];
   const hasReceipt=p.note&&p.note.startsWith('receipt:');
   const icon=hasReceipt?'📎':'💰';
-  const safeNote=(p.note||'').replace(/'/g,"\\'");
-  return ` <button class="btn btn-sm btn-outline" onclick="openVerify('${p.id}','${a.id}',${p.amount},'${p.method}','${safeNote}')">${icon}</button>`;
+  const safeNote=esc((p.note||'').replace(/'/g,"\\'"));
+  return ` <button class=\"btn btn-sm btn-outline\" onclick=\"openVerify('${p.id}','${a.id}',${p.amount},'${esc(p.method)}','${safeNote}')\">${icon}</button>`;
 }
 
 // ===== Client Payments =====
@@ -1628,9 +1628,9 @@ function renderClientPayments(){
     const h=parseFloat(a.hours_worked),cr=parseFloat(a.client_rate_per_hour)||520,ex=parseFloat(a.extra_amount)||0;
     const total=(h*cr)+ex;
     const paid=a.payment_status==='paid';
-    return`<tr><td>${esc(a.shifts?.clients?.name)||"\u2014"}</td><td>${wMap[a.worker_id]||'—'}</td><td>${formatDate(a.shifts?.date)}</td>
+    return`<tr><td>${esc(a.shifts?.clients?.name)||"\u2014"}</td><td>${esc(wMap[a.worker_id])||'—'}</td><td>${formatDate(a.shifts?.date)}</td>
       <td>${h}ч</td><td>${total.toLocaleString('ru')}₽</td>
-      <td><span class="badge ${paid?'badge-paid':'badge-unpaid'}">${paid?'Оплачено':'Не оплачено'}</span>${paid?'':" <button class=\"btn btn-sm btn-primary\" onclick=\"openPay('${a.id}',"+total+",'"+(a.shifts?.clients?.name||'')+"')\">💰</button>"}</td></tr>`;
+      <td><span class="badge ${paid?'badge-paid':'badge-unpaid'}">${paid?'Оплачено':'Не оплачено'}</span>${paid?'':" <button class=\"btn btn-sm btn-primary\" onclick=\"openPay('${a.id}',"+total+",'"+esc(a.shifts?.clients?.name||'')+"')\">💰</button>"}</td></tr>`;
   }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
 }
 
@@ -1767,17 +1767,17 @@ let _verifyPaymentId=null,_verifyAsgnId=null;
 function openVerify(paymentId,asgnId,amount,method,note){
   _verifyPaymentId=paymentId;_verifyAsgnId=asgnId;
   document.getElementById('verify-info').innerHTML=`
-    <div><strong>Сумма:</strong> ${amount}₽</div>
-    <div><strong>Способ:</strong> ${method==='transfer'?'Перевод':method==='invoice'?'Безналичный':method==='cash'?'Наличные':method}</div>
+    <div><strong>Сумма:</strong> ${esc(amount)}₽</div>
+    <div><strong>Способ:</strong> ${method==='transfer'?'Перевод':method==='invoice'?'Безналичный':method==='cash'?'Наличные':esc(method)}</div>
   `;
   // Show receipt if available
   const receiptEl=document.getElementById('verify-receipt');
   if(note&&note.startsWith('receipt:')){
     const url=note.replace('receipt:','');
     if(url.endsWith('.pdf')){
-      receiptEl.innerHTML=`<a href="${url}" target="_blank" style="color:var(--primary);">📄 Открыть PDF чек</a>`;
+      receiptEl.innerHTML=`<a href="${esc(url)}" target="_blank" style="color:var(--primary);">📄 Открыть PDF чек</a>`;
     }else{
-      receiptEl.innerHTML=`<img src="${url}" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;" onclick="window.open('${url}')">`;
+      receiptEl.innerHTML=`<img src="${esc(url)}" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;" onclick="window.open('${esc(url)}')">`;
     }
   }else{
     receiptEl.innerHTML='<div style="color:var(--text-light);">Чек не загружен</div>';
@@ -1819,7 +1819,7 @@ async function showNotifications(){
   const r=await fetch('/api/notifications/new-workers',{headers:{'Authorization':'Bearer '+token}});const notifs=await r.json();
   if(!notifs.length){toast('Нет новых регистраций');return;}
   const html='<div style="max-height:300px;overflow-y:auto;">'+notifs.map(n=>
-    '<div style="padding:10px;border-bottom:1px solid var(--border);"><div style="font-weight:600;">'+n.name+'</div><div style="font-size:12px;color:var(--text-light);">'+n.phone+' · '+formatDate(n.date.split('T')[0])+'</div></div>'
+    '<div style="padding:10px;border-bottom:1px solid var(--border);"><div style="font-weight:600;">'+esc(n.name)+'</div><div style="font-size:12px;color:var(--text-light);">'+esc(n.phone)+' · '+formatDate(n.date.split('T')[0])+'</div></div>'
   ).join('')+'</div>';
   document.getElementById('notif-content').innerHTML=html;
   openModal('modal-notif');
@@ -2390,9 +2390,9 @@ async function loadRecurring() {
   el.innerHTML = list.map(r => `<div class="card" style="padding:14px;">
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <div>
-        <strong>${r.clients?.name || '—'}</strong>
-        <div style="font-size:12px;color:var(--text-light);">${DAY_NAMES[r.day_of_week] || '?'} · ${r.time_start || '—'} · ${r.hours || 4}ч ${r.service_types?.name ? '· '+r.service_types.name : ''}</div>
-        ${r.workers?.full_name ? '<div style="font-size:12px;">👷 '+r.workers.full_name+'</div>' : ''}
+        <strong>${esc(r.clients?.name) || '—'}</strong>
+        <div style="font-size:12px;color:var(--text-light);">${DAY_NAMES[r.day_of_week] || '?'} · ${r.time_start || '—'} · ${r.hours || 4}ч ${r.service_types?.name ? '· '+esc(r.service_types.name) : ''}</div>
+        ${r.workers?.full_name ? '<div style="font-size:12px;">👷 '+esc(r.workers.full_name)+'</div>' : ''}
         ${r.object_address ? '<div style="font-size:12px;">📍 '+esc(r.object_address)+'</div>' : ''}
       </div>
       <div style="display:flex;gap:6px;">
@@ -2408,9 +2408,9 @@ function openNewRecurring() {
   const cSel = document.getElementById('rec-client');
   const wSel = document.getElementById('rec-worker');
   const sSel = document.getElementById('rec-service');
-  cSel.innerHTML = (cachedClients||[]).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-  wSel.innerHTML = '<option value="">— не указан —</option>' + (cachedWorkers||[]).map(w => `<option value="${w.id}">${w.full_name}</option>`).join('');
-  sSel.innerHTML = '<option value="">— не указана —</option>' + (cachedServiceTypes||[]).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  cSel.innerHTML = (cachedClients||[]).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  wSel.innerHTML = '<option value="">— не указан —</option>' + (cachedWorkers||[]).map(w => `<option value="${w.id}">${esc(w.full_name)}</option>`).join('');
+  sSel.innerHTML = '<option value="">— не указана —</option>' + (cachedServiceTypes||[]).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
   ['rec-address','rec-notes'].forEach(id => document.getElementById(id).value = '');
   openModal('modal-recurring');
 }

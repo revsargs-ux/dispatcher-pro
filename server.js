@@ -9,6 +9,7 @@ const { config } = require('./modules/config');
 const { createRouter, startPolling } = require('./modules/routes');
 const { handlePushSubscription } = require('./notifications-module/push-route');
 const { runGasSync } = require('./modules/gas-sync');
+const { requireAuth } = require('./modules/auth');
 const VERSION = '1.0.0';
 const { startMaxPolling } = require('./modules/max-bot');
 
@@ -61,8 +62,8 @@ const server = http.createServer(async (req, res) => {
     // Shift photo upload endpoint
     const urlPath = req.url.split('?')[0];
     if (urlPath === '/api/upload-shift-photo' && req.method === 'POST') {
-      const auth = req.headers['authorization'];
-      if (!auth) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Auth required' })); }
+      const authSession = requireAuth(req);
+      if (!authSession) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Auth required' })); }
       const body = await new Promise((resolve, reject) => { let d = ''; req.on('data', c => d += c); req.on('end', () => resolve(d)); req.on('error', reject); });
       try {
         const { filename, data: b64, shift_id } = JSON.parse(body);
@@ -78,6 +79,8 @@ const server = http.createServer(async (req, res) => {
     }
     // Shift photo list endpoint
     if (urlPath === '/api/shift-photos' && req.method === 'GET') {
+      const authSession = requireAuth(req);
+      if (!authSession) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Auth required' })); }
       const params = new URL(req.url, 'http://localhost').searchParams;
       const shiftId = params.get('shift_id');
       if (!shiftId) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'shift_id required' })); }
@@ -90,6 +93,8 @@ const server = http.createServer(async (req, res) => {
     }
     // Shift photo serve endpoint
     if (urlPath.startsWith('/shift-photos/')) {
+      const authSession = requireAuth(req);
+      if (!authSession) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Auth required' })); }
       const photoFile = path.join(shiftPhotosDir, urlPath.replace('/shift-photos/', ''));
       if (!photoFile.startsWith(shiftPhotosDir) || !fs.existsSync(photoFile)) { res.writeHead(404); return res.end('Not found'); }
       const ext = path.extname(photoFile).toLowerCase();

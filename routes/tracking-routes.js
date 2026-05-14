@@ -3,6 +3,22 @@
  */
 const { readBody, json } = require('./shared');
 const { sbFetch } = require('../modules/db');
+const { requireAuth } = require('../modules/auth');
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function validateUUID(value) {
+  if (!value || !UUID_RE.test(value)) return false;
+  return true;
+}
+
+function checkTrackingAccess(req, workerId) {
+  const session = requireAuth(req);
+  if (!session) return false;
+  if (['owner', 'dispatcher'].includes(session.role)) return true;
+  if (session.role === 'worker' && session.id === workerId) return true;
+  return false;
+}
 
 const trackingSessions = {}; // In-memory: worker_id -> { session_id, started_at }
 
@@ -37,6 +53,8 @@ async function handleTrackingStart(req, res, cors) {
   try {
     const { session_id, worker_id } = JSON.parse(body);
     if (!session_id || !worker_id) return json(res, { error: 'session_id and worker_id required' }, 400, cors);
+    if (!validateUUID(session_id) || !validateUUID(worker_id)) return json(res, { error: 'Invalid ID format' }, 400, cors);
+    if (!checkTrackingAccess(req, worker_id)) return json(res, { error: 'Access denied' }, 403, cors);
     await sbFetch('tracking_sessions', `id=eq.${session_id}`, { method: 'PATCH', body: JSON.stringify({ status: 'active', worker_id }) });
     trackingSessions[worker_id] = { session_id, started_at: new Date().toISOString() };
     console.log('[Tracking] Started for worker', worker_id, 'session', session_id);
@@ -68,6 +86,8 @@ async function handleTrackingLocation(req, res, cors) {
     if (!session_id || !worker_id || lat == null || lng == null) {
       return json(res, { error: 'session_id, worker_id, lat, lng required' }, 400, cors);
     }
+    if (!validateUUID(session_id) || !validateUUID(worker_id)) return json(res, { error: 'Invalid ID format' }, 400, cors);
+    if (!checkTrackingAccess(req, worker_id)) return json(res, { error: 'Access denied' }, 403, cors);
     const location = {
       session_id, worker_id,
       lat: parseFloat(lat), lng: parseFloat(lng),

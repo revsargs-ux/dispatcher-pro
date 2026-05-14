@@ -15,7 +15,6 @@ services:
       - ./server.js:/app/server.js:ro
       - ./modules:/app/modules:ro
       - ./routes:/app/routes:ro
-      - ./routes:/app/routes:ro
       - ./index.html:/app/index.html:ro
       - ./worker.html:/app/worker.html:ro
       - ./owner.html:/app/owner.html:ro

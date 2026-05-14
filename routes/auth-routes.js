@@ -12,6 +12,21 @@ const { syncToGoogleSheets } = require('../modules/gas-sync');
 // --- 2FA store: userId -> { code, expires, familyId } ---
 const twoFAStore = new Map();
 
+// --- 2FA rate limit: IP -> { count, resetAt } ---
+const twoFARateLimit = new Map();
+
+function check2FARateLimit(ip) {
+  const now = Date.now();
+  const entry = twoFARateLimit.get(ip);
+  if (!entry || now > entry.resetAt) {
+    twoFARateLimit.set(ip, { count: 1, resetAt: now + 5 * 60 * 1000 });
+    return true;
+  }
+  if (entry.count >= 10) return false;
+  entry.count++;
+  return true;
+}
+
 function generate2FACode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
@@ -66,6 +81,9 @@ async function handleLogin(req, res, cors) {
 
 // --- Verify 2FA ---
 async function handleVerify2FA(req, res, cors) {
+  // Rate limit by IP
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  if (!check2FARateLimit(clientIp)) return json(res, { ok: false, error: 'Слишком много попыток. Попробуйте позже.' }, 429, cors);
   const body = await readBody(req);
   try {
     const { userId, code } = JSON.parse(body);
