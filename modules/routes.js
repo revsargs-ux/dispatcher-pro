@@ -1,0 +1,665 @@
+/**
+ * API proxy + all route handlers
+ */
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+const { config, loadJson, saveJson } = require('./config');
+const { sendPushNotification, sendPushToRole } = require('../notifications-module/push-trigger');
+const { getCorsHeaders, SEC_HEADERS } = require('./cors');
+const { createToken, requireAuth, hashPassword, checkPassword, isPlaintext, needsUpgrade, checkRateLimit, resetRateLimit } = require('./auth');
+const { tgNotify, tgNotifyRole, handleTgMessage, startPolling } = require('./telegram');
+const { maxNotify, maxNotifyRole } = require('./max-bot');
+const { syncToGoogleSheets } = require('./gas-sync');
+
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'application/js',
+  '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
+  '.ico': 'image/x-icon', '.svg': 'image/svg+xml'
+};
+
+// --- Helper: read request body ---
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString()));
+    req.on('error', reject);
+  });
+}
+
+// --- Helper: send JSON response ---
+function json(res, data, status = 200, cors) {
+  res.writeHead(status, { 'Content-Type': 'application/json', ...cors });
+  res.end(JSON.stringify(data));
+}
+
+// --- Helper: Supabase auth headers ---
+function sbHeaders() {
+  return { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey, 'Content-Type': 'application/json' };
+}
+
+// --- Supabase fetch helper ---
+async function sbFetch(table, query, opts = {}) {
+  const headers = sbHeaders();
+  if (opts.method === 'POST' || opts.method === 'PATCH') headers['Prefer'] = 'return=representation';
+  const url = `${config.sbUrl}/rest/v1/${table}${query ? '?' + query : ''}`;
+  const fetchOpts = { method: opts.method || 'GET', headers };
+  if (opts.body && opts.method !== 'GET' && opts.method !== 'DELETE') fetchOpts.body = opts.body;
+  return fetch(url, fetchOpts);
+}
+
+// ===================== ROUTE HANDLERS =====================
+
+// --- Health ---
+function handleHealth(req, res, cors) {
+  json(res, { status: 'ok' }, 200, cors);
+}
+
+// --- Client pay method ---
+function handleClientPayMethodGet(req, res, cors) {
+  const cid = new URL('http://localhost' + req.url).searchParams.get('client_id');
+  const methods = loadJson('client-pay-methods.json');
+  json(res, { method: methods[cid] || 'transfer' }, 200, cors);
+}
+function handleClientPayMethodPost(req, res, cors) {
+  return readBody(req).then(body => {
+    const { client_id, method } = JSON.parse(body);
+    const methods = loadJson('client-pay-methods.json');
+    methods[client_id] = method;
+    saveJson('client-pay-methods.json', methods);
+    json(res, { ok: true }, 200, cors);
+  });
+}
+
+// --- Notifications ---
+function handleNotificationsGet(req, res, cors) {
+  const notifs = loadJson('notifications.json');
+  json(res, notifs, 200, cors);
+}
+function handleNotificationsDelete(req, res, cors) {
+  saveJson('notifications.json', []);
+  json(res, { ok: true }, 200, cors);
+}
+
+// --- Pending orders ---
+async function handlePendingOrders(req, res, cors) {
+  try {
+    const sbRes = await sbFetch('shifts', 'status=eq.pending&select=*,clients(id,name,city,contact),service_types(id,name)&order=created_at.desc&limit=50');
+    const data = await sbRes.json();
+    json(res, data, 200, cors);
+  } catch (e) { json(res, { error: e.message }, 500, cors); }
+}
+
+// --- Claim order ---
+async function handleClaimOrder(req, res, cors) {
+  const body = await readBody(req);
+  const { shift_id, dispatcher_id } = JSON.parse(body);
+  if (!shift_id || !dispatcher_id) return json(res, { error: 'Missing shift_id or dispatcher_id' }, 400, cors);
+
+  const checkRes = await sbFetch('shifts', `id=eq.${shift_id}&select=status,client_id&limit=1`);
+  const shifts = await checkRes.json();
+  if (!shifts.length || shifts[0].status !== 'pending') return json(res, { error: 'Заказ уже занят' }, 409, cors);
+
+  await sbFetch('shifts', `id=eq.${shift_id}`, { method: 'PATCH', body: JSON.stringify({ status: 'planned', created_by: dispatcher_id }) });
+
+  // Notify client
+  const clientId = shifts[0].client_id;
+  if (clientId) {
+    const cls = (await (await sbFetch('clients', `id=eq.${clientId}&select=telegram_chat_id,name&limit=1`)).json());
+    if (cls.length && cls[0].telegram_chat_id) {
+      const disps = (await (await sbFetch('users', `id=eq.${dispatcher_id}&select=full_name&limit=1`)).json());
+      const dispName = disps[0]?.full_name || 'Диспетчер';
+      await fetch(`${config.tgApi}/sendMessage`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: cls[0].telegram_chat_id, text: `✅ Ваш заказ принят в работу!\n\n📋 Диспетчер: ${dispName}\n\nСкоро мы подберём для вас рабочих.`, parse_mode: 'HTML' })
+      });
+      // Push-уведомление клиенту о принятии заказа
+      sendPushNotification({ userId: clientId, userRole: 'client', eventType: 'order_accepted', priority: 'high', title: '✅ Заказ принят', body: `Диспетчер: ${dispName}. Подбираем рабочих.`, deepLink: '/client.html' });
+    }
+  }
+
+  // Sync to GAS
+  try {
+    const cl3 = ((await (await sbFetch('clients', `id=eq.${clientId}&select=name&limit=1`)).json())[0] || {});
+    const sh3 = ((await (await sbFetch('shifts', `id=eq.${shift_id}&select=date,start_time,address,comment&limit=1`)).json())[0] || {});
+    let svcName = '';
+    const svc3 = ((await (await sbFetch('shifts', `id=eq.${shift_id}&select=service_type_id&limit=1`)).json())[0] || {});
+    if (svc3.service_type_id) {
+      const st = ((await (await sbFetch('service_types', `id=eq.${svc3.service_type_id}&select=name&limit=1`)).json())[0]);
+      svcName = st?.name || '';
+    }
+    syncToGoogleSheets('syncShift', {
+      shift_id, shift_date: sh3.date || '', shift_client: cl3.name || '', shift_service: svcName,
+      shift_start: sh3.start_time || '', shift_address: sh3.address || '', shift_comment: sh3.comment || '',
+      shift_dispatcher: dispName || '', shift_status: 'planned'
+    });
+  } catch (e) { console.error('[GAS] Claim sync error:', e.message); }
+
+  json(res, { ok: true }, 200, cors);
+}
+
+// --- Address suggest ---
+async function handleAddressSuggest(req, res, cors) {
+  const params = new URL(req.url, 'http://localhost').searchParams;
+  const q = params.get('q') || '';
+  if (q.length < 2) return json(res, { suggestions: [] }, 200, cors);
+  try {
+    const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ' Камчатский край')}&countrycodes=ru&limit=5&addressdetails=1&accept-language=ru`, {
+      headers: { 'User-Agent': 'DispatcherPRO/1.0' }
+    });
+    const geoData = await geoRes.json();
+    json(res, { suggestions: geoData.map(r => ({ name: r.display_name, lat: r.lat, lon: r.lon })).slice(0, 5) }, 200, cors);
+  } catch (e) { json(res, { suggestions: [] }, 200, cors); }
+}
+
+// --- Telegram status ---
+async function handleTelegramStatus(req, res, cors) {
+  const q = new URL('http://localhost' + req.url).searchParams;
+  const phone = (q.get('phone') || '').replace(/[-+()\s]/g, '').replace(/^8/, '7');
+  const table = q.get('table') || 'users';
+  const field = q.get('field') || 'telegram_chat_id';
+  try {
+    const phoneCol = table === 'clients' ? 'contact' : 'phone';
+    const rows = await (await sbFetch(table, `${phoneCol}=ilike.%25${phone.slice(-10)}%25&select=${field}&limit=1`)).json();
+    json(res, { linked: Array.isArray(rows) && rows.length > 0 && !!rows[0][field] }, 200, cors);
+  } catch (e) { json(res, { linked: false }, 500, cors); }
+}
+
+// --- API proxy (generic Supabase) with sync + notifications ---
+async function handleApiProxy(req, res, cors, urlPath) {
+  const table = urlPath.replace('/api/', '').split('/')[0];
+  const query = req.url.includes('?') ? req.url.split('?').slice(1).join('?') : '';
+  if (!table) return json(res, { error: 'Missing table' }, 400, cors);
+
+  const session = requireAuth(req);
+  if (!session) return json(res, { error: 'Требуется авторизация' }, 401, cors);
+
+  // Role-based access
+  const ownerOnly = ['users'];
+  const ownerAndClient = ['payments'];
+  if (ownerOnly.includes(table) && session.role !== 'owner') return json(res, { error: 'Нет доступа' }, 403, cors);
+  if (ownerAndClient.includes(table) && session.role !== 'owner' && session.role !== 'client') return json(res, { error: 'Нет доступа' }, 403, cors);
+  if (session.role === 'worker' && req.method !== 'GET' && !['shift_assignments', 'service_types'].includes(table))
+    return json(res, { error: 'Нет доступа' }, 403, cors);
+
+  const body = await readBody(req);
+  let parsedBody = body;
+  try {
+    if (body && req.method !== 'GET' && req.method !== 'DELETE') {
+      const parsed = JSON.parse(body);
+      // Hash password if present (for any user/worker/client table)
+      if (parsed.password && (table === 'workers' || table === 'clients' || table === 'users')) {
+        // Only hash if it looks like plaintext (not already a hash)
+        if (parsed.password.length < 50) {
+          parsed.password = hashPassword(parsed.password);
+        }
+      }
+      parsedBody = JSON.stringify(parsed);
+    }
+  } catch(e) {}
+
+  try {
+    const opts = { method: req.method, headers: sbHeaders() };
+    if (req.method === 'POST' || req.method === 'PATCH') opts.headers['Prefer'] = 'return=representation';
+    if (parsedBody && req.method !== 'GET' && req.method !== 'DELETE') opts.body = parsedBody;
+    const sbRes = await fetch(`${config.sbUrl}/rest/v1/${table}${query ? '?' + query : ''}`, opts);
+    const data = await sbRes.text();
+
+    // Post-processing hooks (sync + notifications)
+    if (sbRes.status < 300) {
+      await handlePostProcess(table, req.method, data, body, query, req);
+    }
+
+    res.writeHead(sbRes.status, { 'Content-Type': 'application/json', ...cors });
+    res.end(data);
+  } catch (e) {
+    console.error('Proxy error:', e.message);
+    json(res, { error: 'Proxy error' }, 502, cors);
+  }
+}
+
+// --- Post-process: sync to GAS + TG notifications ---
+async function handlePostProcess(table, method, data, body, query, req) {
+  if (!data || !data.trim()) return;
+  let parsed;
+  try { parsed = JSON.parse(data); } catch(e) { console.error('[PostProcess] JSON parse error:', e.message, 'data:', data.slice(0,100)); return; }
+  const first = Array.isArray(parsed) ? parsed[0] : parsed;
+  if (!first) return;
+  const headers = sbHeaders();
+
+  try {
+    // Shifts
+    if (table === 'shifts' && method === 'POST' && (first.status === 'pending' || first.status === 'planned') && first.client_id) {
+      const cl = ((await (await sbFetch('clients', `id=eq.${first.client_id}&select=name,city,contact&limit=1`)).json())[0] || {});
+      const svc = ((await (await sbFetch('service_types', `id=eq.${first.service_type_id}&select=name&limit=1`)).json())[0] || {});
+      const orderDate = first.date ? first.date.split('-').reverse().join('.') : '—';
+      const reqs = await (await sbFetch('shift_requirements', `shift_id=eq.${first.id}&select=required_count`)).json();
+      const workersCount = (reqs || []).reduce((s, r) => s + (parseInt(r.required_count) || 0), 0);
+      const orderText = `🆕 Новый заказ!\n\n🏢 Заказчик: ${cl.name || '—'}\n📅 Дата: ${orderDate}\n⏰ Время: ${first.start_time || '—'}\n📋 Услуга: ${svc.name || 'Не указан'}\n📍 Адрес: ${first.address || '—'}\n👥 Кол-во рабочих: ${workersCount || '—'}\n${first.comment ? '💬 ' + first.comment + '\n' : ''}\n⚡️ Перейдите в систему чтобы взять заказ`;
+      const dispatchers = await (await sbFetch('users', 'role=eq.dispatcher&is_active=eq.true&select=telegram_chat_id,full_name,city')).json();
+      for (const d of dispatchers) {
+        if (!d.telegram_chat_id) continue;
+        if (cl.city && d.city && d.city !== cl.city) continue;
+        await fetch(`${config.tgApi}/sendMessage`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: d.telegram_chat_id, text: orderText, parse_mode: 'HTML' })
+        });
+      }
+      // Push-уведомление диспетчерам о новом заказе
+      for (const d of dispatchers) {
+        if (d.telegram_chat_id) {
+          sendPushNotification({ userId: d.id, userRole: 'dispatcher', eventType: 'new_shift', priority: 'high', title: '🆕 Новый заказ', body: `${cl.name || '—'} | ${orderDate} | ${svc.name || ''}`, deepLink: '/' });
+        }
+      }
+      // GAS sync
+      const cl2 = ((await (await sbFetch('clients', `id=eq.${first.client_id}&select=name&limit=1`)).json())[0] || {});
+      const svc2 = ((await (await sbFetch('service_types', `id=eq.${first.service_type_id}&select=name&limit=1`)).json())[0] || {});
+      syncToGoogleSheets('syncShift', {
+        shift_id: first.id, shift_date: first.date, shift_client: cl2.name || '',
+        shift_service: svc2.name || '', shift_start: first.start_time || '',
+        shift_address: first.address || '', shift_comment: first.comment || '', shift_status: first.status
+      });
+    }
+    if (table === 'shifts' && method === 'PATCH') {
+      const shiftId = new URLSearchParams(query).get('id')?.replace('eq.', '');
+      if (shiftId) {
+        const sh = ((await (await sbFetch('shifts', `id=eq.${shiftId}&select=*,clients(name),service_types(name)&limit=1`)).json())[0]);
+        if (sh) syncToGoogleSheets('syncShift', {
+          shift_id: sh.id, shift_date: sh.date, shift_client: sh.clients?.name || '',
+          shift_service: sh.service_types?.name || '', shift_start: sh.start_time || '',
+          shift_address: sh.address || '', shift_comment: sh.comment || '', shift_status: sh.status || ''
+        });
+      }
+    }
+
+    // Workers
+    if (table === 'workers' && method === 'POST') {
+      syncToGoogleSheets('syncWorker', { id: first.id, full_name: first.full_name, phone: first.phone, is_active: true });
+      const notifs = loadJson('notifications.json');
+      notifs.push({ id: first.id, name: first.full_name, phone: first.phone, date: new Date().toISOString() });
+      saveJson('notifications.json', notifs);
+      tgNotifyRole('owner', `👷 Новый рабочий зарегистрирован\n\n👤 ${first.full_name}\n📱 +${first.phone}\n📅 ${new Date().toLocaleDateString('ru-RU')}`);
+      maxNotifyRole('owner', `👷 Новый рабочий зарегистрирован
+
+👤 ${first.full_name}
+📱 +${first.phone}
+📅 ${new Date().toLocaleDateString('ru-RU')}`);
+    }
+    if (table === 'workers' && method === 'PATCH') {
+      const wId = new URLSearchParams(query).get('id')?.replace('eq.', '');
+      if (wId) {
+        const ws = ((await (await sbFetch('workers', `id=eq.${wId}&select=id,full_name,phone,is_active&limit=1`)).json())[0]);
+        if (ws) syncToGoogleSheets('syncWorker', { id: ws.id, full_name: ws.full_name, phone: ws.phone, is_active: ws.is_active });
+      }
+    }
+
+    // Assignments
+    if (table === 'shift_assignments' && (method === 'POST' || method === 'PATCH')) {
+      const a = first;
+      let workerName = '';
+      if (a.worker_id) {
+        const ws = ((await (await sbFetch('workers', `id=eq.${a.worker_id}&select=full_name&limit=1`)).json())[0]);
+        workerName = ws?.full_name || '';
+      }
+      syncToGoogleSheets('syncAssignment', {
+        id: a.id, shift_id: a.shift_id || '', worker_name: workerName,
+        hours_worked: a.hours_worked, actual_start_time: a.actual_start_time || '',
+        actual_end_time: a.actual_end_time || '', rate_per_hour: a.rate_per_hour,
+        paid_amount: a.paid_amount, payment_status: a.payment_status, extra_amount: a.extra_amount
+      });
+      if (method === 'POST' && a.worker_id) {
+        tgNotify('workers', (await (await sbFetch('workers', `id=eq.${a.worker_id}&select=phone&limit=1`)).json())[0]?.phone,
+          `📋 Новый заказ\n\n📅 Проверьте расписание в системе\n\n👉 https://xn----gtbdan3bddhceo9d.xn--p1ai/worker.html`);
+        // Push-уведомление рабочему о назначении
+        sendPushNotification({ userId: a.worker_id, userRole: 'worker', eventType: 'shift_assigned', priority: 'high', title: '📋 Вас назначили на смену', body: 'Проверьте расписание в системе', deepLink: '/worker.html' });
+      }
+      if (method === 'PATCH') {
+        const patch = JSON.parse(body);
+        if (patch.payment_status) {
+          const id = new URL('http://localhost' + req.url).searchParams.get('id') || (req.url.match(/id=eq\.([\w-]+)/) || [])[1];
+          if (id) {
+            const asgn = ((await (await sbFetch('shift_assignments', `id=eq.${id}&select=worker_id,payment_status&limit=1`)).json())[0]);
+            if (asgn) {
+                maxNotify('workers', w.phone, `💰 Статус оплаты изменён
+
+👤 ${w.full_name}
+📊 ${statusNames[asgn.payment_status] || asgn.payment_status}`);
+              const w = ((await (await sbFetch('workers', `id=eq.${asgn.worker_id}&select=phone,full_name&limit=1`)).json())[0]);
+              if (w) {
+                const statusNames = { pending: '⏳ Ожидает', paid: '✅ Оплачен', partial: '🔹 Частично', unpaid: '❌ Не оплачен' };
+                tgNotify('workers', w.phone, `💰 Статус оплаты изменён\n\n👤 ${w.full_name}\n📊 ${statusNames[asgn.payment_status] || asgn.payment_status}`);
+                // Push-уведомление рабочему об оплате
+                sendPushNotification({ userId: asgn.worker_id, userRole: 'worker', eventType: 'payment_status', priority: 'high', title: '💰 Статус оплаты', body: `${w.full_name}: ${statusNames[asgn.payment_status] || asgn.payment_status}`, deepLink: '/worker.html' });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Payments
+    if (table === 'payments' && (method === 'POST' || method === 'PATCH')) {
+      let counterpartyName = '';
+      if (first.assignment_id) {
+        const as = ((await (await sbFetch('shift_assignments', `id=eq.${first.assignment_id}&select=worker_id&limit=1`)).json())[0]);
+        if (as?.worker_id) {
+          const ws = ((await (await sbFetch('workers', `id=eq.${as.worker_id}&select=full_name&limit=1`)).json())[0]);
+          counterpartyName = ws?.full_name || '';
+        }
+      }
+      syncToGoogleSheets('syncPayment', {
+        id: first.id, date: new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+        type: 'Приход', counterpartyName, amount: first.amount,
+        method: { transfer: 'Перевод', cash: 'Наличные', invoice: 'Безнал' }[first.method] || first.method || '',
+        status: 'Проведен', note: first.note || ''
+      });
+    }
+
+    // Clients
+    if (table === 'clients' && (method === 'POST' || method === 'PATCH')) {
+      syncToGoogleSheets('syncClient', {
+        id: first.id, name: first.name, contact: first.contact,
+        default_client_rate: first.default_client_rate, default_worker_rate: first.default_worker_rate, archived: first.archived
+      });
+    }
+
+    // Users
+    if (table === 'users' && method === 'PATCH') {
+      const uId = new URLSearchParams(query).get('id')?.replace('eq.', '');
+      if (uId) {
+        const us = ((await (await sbFetch('users', `id=eq.${uId}&select=id,full_name,phone,is_active&limit=1`)).json())[0]);
+        if (us) syncToGoogleSheets('syncUser', { id: us.id, full_name: us.full_name, phone: us.phone, is_active: us.is_active });
+      }
+    }
+  } catch (e) {
+    console.error('[PostProcess] Error:', e.message);
+  }
+}
+
+// --- Auth login ---
+async function handleLogin(req, res, cors) {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  if (!checkRateLimit(ip)) return json(res, { ok: false, error: 'Слишком много попыток. Подождите 5 минут.' }, 429, cors);
+
+  const body = await readBody(req);
+  try {
+    const { table, phone, pass, role } = JSON.parse(body);
+    if (!phone || !pass) return json(res, { ok: false, error: 'Заполните все поля' });
+
+    const cleanPhone = phone.replace(/[-+()\s]/g, '').replace(/^8/, '7');
+    const phoneCol = table === 'clients' ? 'contact' : 'phone';
+    const isActiveFilter = table === 'clients' ? '' : '&is_active=eq.true';
+    const users = await (await sbFetch(table, `${phoneCol}=ilike.%25${cleanPhone.slice(-10)}%25${isActiveFilter}&limit=1`)).json();
+    if (!users.length) return json(res, { ok: false, error: 'Пользователь не найден' });
+    const u = users[0];
+
+    if (!checkPassword(pass, u.password)) return json(res, { ok: false, error: 'Неверный пароль' });
+    if (role && u.role !== role) return json(res, { ok: false, error: 'Нет доступа' });
+    if (u.is_active === false) return json(res, { ok: false, error: 'Аккаунт отключён' });
+
+    // Upgrade plaintext or SHA-256 to bcrypt
+    if (needsUpgrade(u.password)) {
+      await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: hashPassword(pass) }) });
+    }
+
+    resetRateLimit(ip);
+    const token = createToken(u.id, u.role || (table === 'workers' ? 'worker' : table === 'clients' ? 'client' : 'owner'), table);
+    json(res, {
+      ok: true, token,
+      user: { id: u.id, full_name: u.full_name || u.name, phone: u.phone || u.contact || '', role: u.role, rate_per_hour: u.rate_per_hour, monthly_target_hours: u.monthly_target_hours, is_active: u.is_active }
+    });
+  } catch (e) { json(res, { ok: false, error: e.message }, 500, cors); }
+}
+
+// --- Auth register ---
+async function handleRegister(req, res, cors) {
+  const regSession = requireAuth(req);
+  const body = await readBody(req);
+  try {
+    const { table, data } = JSON.parse(body);
+    if (!regSession) {
+      if (!['workers', 'clients', 'users'].includes(table)) return json(res, { ok: false, error: 'Регистрация недоступна для этого типа' }, 403, cors);
+      if (table === 'users') {
+        if (data.role && data.role !== 'dispatcher') return json(res, { ok: false, error: 'Саморегистрация доступна только для диспетчеров' }, 403, cors);
+        data.role = data.role || 'dispatcher'; // Force role
+      }
+    } else {
+      if (!['owner', 'dispatcher'].includes(regSession.role)) return json(res, { ok: false, error: 'Нет прав для регистрации' }, 403, cors);
+      if (data.role === 'owner' && regSession.role !== 'owner') return json(res, { ok: false, error: 'Только владелец может создать владельца' }, 403, cors);
+    }
+
+    const phoneField = table === 'clients' ? 'contact' : 'phone';
+    if (data[phoneField]) {
+      const digits = data[phoneField].replace(/[-+()\s]/g, '').replace(/^8/, '7');
+      data[phoneField] = '+' + digits;
+    }
+
+    // Проверка дубликата телефона
+    if (data[phoneField]) {
+      const dupDigits = data[phoneField].replace(/[-+()\s]/g, '').replace(/^8/, '7');
+      const dupCheck = await (await sbFetch(table, `${phoneField}=ilike.%25${dupDigits.slice(-10)}%25&select=id,full_name&limit=1`)).json();
+      if (dupCheck.length) {
+        return json(res, { ok: false, error: 'Пользователь с таким номером уже зарегистрирован' }, 409, cors);
+      }
+    }
+
+    if (data.password) data.password = hashPassword(data.password);
+
+    const sbRes = await sbFetch(table, '', { method: 'POST', body: JSON.stringify(data) });
+    const result = await sbRes.text();
+
+    if (sbRes.status < 300 && table === 'users') {
+      try {
+        const u = Array.isArray(JSON.parse(result)) ? JSON.parse(result)[0] : JSON.parse(result);
+        if (u) syncToGoogleSheets('syncUser', { id: u.id, full_name: u.full_name, phone: u.phone || u.contact, is_active: u.is_active !== false });
+      } catch (e) { console.error('[GAS] User sync error:', e.message); }
+    }
+
+    res.writeHead(sbRes.status, { 'Content-Type': 'application/json', ...cors });
+    res.end(result);
+  } catch (e) { json(res, { ok: false, error: e.message }, 500, cors); }
+}
+
+// --- Forgot password ---
+async function handleForgot(req, res, cors) {
+  const body = await readBody(req);
+  try {
+    const { table, phone } = JSON.parse(body);
+    if (!phone) return json(res, { ok: false, error: 'Введите телефон' });
+
+    const cleanPhone = phone.replace(/[-+()\s]/g, '').replace(/^8/, '7');
+    const phoneCol = table === 'clients' ? 'contact' : 'phone';
+    const users = await (await sbFetch(table, `${phoneCol}=ilike.%25${cleanPhone.slice(-10)}%25&select=id,full_name,telegram_chat_id&limit=1`)).json();
+    if (!users.length) return json(res, { ok: false, error: 'Пользователь не найден' });
+    const u = users[0];
+    if (!u.telegram_chat_id) return json(res, { ok: false, error: 'Telegram не привязан. Обратитесь к администратору.' });
+
+    const newPass = Math.random().toString(36).slice(2, 8);
+    await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: hashPassword(newPass) }) });
+    await fetch(`${config.tgApi}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: u.telegram_chat_id, text: `🔑 Ваш новый пароль: <code>${newPass}</code>\n\nВойдите в систему и смените его в настройках.`, parse_mode: 'HTML' })
+    });
+    console.log('[TG] Password reset for', u.full_name);
+    json(res, { ok: true });
+  } catch (e) {
+    console.error('[Forgot] Error:', e.message);
+    json(res, { ok: false, error: 'Ошибка сервера' }, 500, cors);
+  }
+}
+
+// --- Auth me (verify JWT + return user data) ---
+async function handleAuthMe(req, res, cors) {
+  const session = requireAuth(req);
+  if (!session) return json(res, { ok: false, error: 'Токен недействителен' }, 401, cors);
+
+  try {
+    const { userId, role, table } = session;
+    const isActiveFilter = table === 'clients' ? '' : '&is_active=eq.true';
+    const users = await (await sbFetch(table, `id=eq.${userId}${isActiveFilter}&limit=1`)).json();
+    if (!users.length) return json(res, { ok: false, error: 'Пользователь не найден' }, 404, cors);
+    const u = users[0];
+    if (u.is_active === false) return json(res, { ok: false, error: 'Аккаунт отключён' }, 403, cors);
+
+    // Issue fresh token (extends session)
+    const freshToken = createToken(u.id, u.role || (table === 'workers' ? 'worker' : table === 'clients' ? 'client' : 'owner'), table);
+    json(res, {
+      ok: true, token: freshToken,
+      user: { id: u.id, full_name: u.full_name || u.name, phone: u.phone || u.contact || '', role: u.role, rate_per_hour: u.rate_per_hour, monthly_target_hours: u.monthly_target_hours, is_active: u.is_active }
+    });
+  } catch (e) { json(res, { ok: false, error: e.message }, 500, cors); }
+}
+
+// --- Export CSV ---
+async function handleExportCsv(req, res, cors) {
+  try {
+    const ms = new Date().toISOString().split('T')[0].slice(0, 8) + '01';
+    const asgn = await (await sbFetch('shift_assignments',
+      `select=hours_worked,rate_per_hour,client_rate_per_hour,extra_amount,payment_status,worker_id,shifts!inner(date,client_id,clients(name))&shifts.date=gte.${ms}&limit=1000`)).json();
+    const workers = await (await sbFetch('workers', 'select=id,full_name&limit=300')).json();
+    const wMap = {}; workers.forEach(w => wMap[w.id] = w.full_name);
+    let csv = '\uFEFFДата,Рабочий,Клиент,Часы,Рабочему,От клиента,Маржа,Статус\n';
+    (asgn || []).filter(a => parseFloat(a.hours_worked) > 0).forEach(a => {
+      const h = parseFloat(a.hours_worked), r = parseFloat(a.rate_per_hour) || 400, cr = parseFloat(a.client_rate_per_hour) || 520, ex = parseFloat(a.extra_amount) || 0;
+      csv += `${a.shifts?.date || ''},"${wMap[a.worker_id] || ''}","${a.shifts?.clients?.name || ''}",${h},${h*r+ex},${h*cr+ex},${(cr-r)*h},${a.payment_status}\n`;
+    });
+    res.writeHead(200, { ...cors, 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename=payments.csv' });
+    res.end(csv);
+  } catch (e) { res.writeHead(500, cors); res.end('Export error'); }
+}
+
+// --- Upload receipt ---
+async function handleUploadReceipt(req, res, cors) {
+  const body = await readBody(req);
+  try {
+    const { filename, data: b64 } = JSON.parse(body);
+    if (!filename || !b64) return res.writeHead(400, cors).end('Missing fields');
+    const buf = Buffer.from(b64, 'base64');
+    if (buf.length > config.maxFileSize) { res.writeHead(413, cors); return res.end('File too large'); }
+    const fname = Date.now() + '-' + String(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
+    fs.writeFileSync(path.join(config.receiptsDir, fname), buf);
+    json(res, { filename: fname, url: '/receipts/' + fname });
+  } catch (e) { console.error('Upload error:', e); res.writeHead(500, cors); res.end('Error'); }
+}
+
+// --- Serve receipt ---
+function handleReceipt(req, res, cors, urlPath) {
+  const rFile = path.join(config.receiptsDir, urlPath.replace('/receipts/', ''));
+  if (!rFile.startsWith(config.receiptsDir) || !fs.existsSync(rFile)) { res.writeHead(404, cors); return res.end('Not found'); }
+  const ext = path.extname(rFile).toLowerCase();
+  const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.pdf': 'application/pdf' }[ext] || 'application/octet-stream';
+  res.writeHead(200, { ...cors, 'Content-Type': mime, 'Cache-Control': 'no-cache' });
+  fs.createReadStream(rFile).pipe(res);
+}
+
+// --- Telegram webhook ---
+// --- Static files ---
+// --- GAS webhook (receives changes from Google Sheets) ---
+async function handleGasWebhook(req, res, cors) {
+  const body = await readBody(req);
+  try {
+    const { table, id, data } = JSON.parse(body);
+    if (!table || !id || !data) return json(res, { error: 'Missing table, id or data' }, 400, cors);
+    
+    const allowedTables = ['workers', 'clients', 'shifts', 'shift_assignments', 'payments', 'users'];
+    if (!allowedTables.includes(table)) return json(res, { error: 'Table not allowed' }, 403, cors);
+    
+    // Update Supabase
+    const sbRes = await sbFetch(table, `id=eq.${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    const result = await sbRes.text();
+    
+    console.log('[GAS-Webhook] Updated', table, id, 'status:', sbRes.status);
+    res.writeHead(sbRes.status, { 'Content-Type': 'application/json', ...cors });
+    res.end(result);
+  } catch (e) {
+    console.error('[GAS-Webhook] Error:', e.message);
+    json(res, { error: e.message }, 500, cors);
+  }
+}
+
+function handleStatic(req, res, urlPath) {
+  if (urlPath === '/') urlPath = '/index.html';
+  const filePath = path.join(config.appDir, urlPath);
+  if (!filePath.startsWith(config.appDir)) { res.writeHead(403); return res.end('Forbidden'); }
+  fs.readFile(filePath, (err, data) => {
+    if (err) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('Not found'); }
+    const ext = path.extname(filePath);
+    res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream', ...SEC_HEADERS, 'Cache-Control': 'no-cache' });
+    res.end(data);
+  });
+}
+
+// ===================== MAIN ROUTER =====================
+// Rate limiting: IP -> { count, lastAttempt }
+const apiLimiter = {};
+
+function checkApiRateLimit(ip) {
+  const now = Date.now();
+  if (!apiLimiter[ip]) apiLimiter[ip] = { count: 0, lastAttempt: 0 };
+  const a = apiLimiter[ip];
+  if (now - a.lastAttempt > 60000) { a.count = 0; } // 1 minute window
+  a.count++;
+  a.lastAttempt = now;
+  return a.count <= 120; // 120 requests per minute
+}
+
+// Cleanup rate limiters every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, a] of Object.entries(apiLimiter)) {
+    if (now - a.lastAttempt > 600000) delete apiLimiter[ip];
+  }
+}, 600000);
+
+function createRouter() {
+  return async (req, res) => {
+    const urlPath = req.url.split('?')[0];
+    const cors = getCorsHeaders(req);
+
+    // CORS preflight
+    if (req.method === 'OPTIONS') { res.writeHead(200, cors); return res.end(); }
+
+    // API rate limit
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (!checkApiRateLimit(clientIp) && urlPath.startsWith('/api/')) {
+      return json(res, { error: 'Слишком много запросов' }, 429, cors);
+    }
+
+    // --- Public routes ---
+    if (urlPath === '/health' && req.method === 'GET') return handleHealth(req, res, cors);
+    if (urlPath === '/auth/login' && req.method === 'POST') return await handleLogin(req, res, cors);
+    if (urlPath === '/auth/register' && req.method === 'POST') return await handleRegister(req, res, cors);
+    if (urlPath === '/auth/forgot' && req.method === 'POST') return await handleForgot(req, res, cors);
+    if (urlPath === '/auth/me' && req.method === 'GET') return await handleAuthMe(req, res, cors);
+
+    // --- GAS webhook (secret-based auth) ---
+    if (urlPath === '/api/gas-webhook' && req.method === 'POST') {
+      const secret = (req.headers['x-gas-secret'] || '');
+      if (secret !== config.gasWebhookSecret) return json(res, { error: 'Invalid secret' }, 403, cors);
+      return await handleGasWebhook(req, res, cors);
+    }
+
+    // --- Auth required routes ---
+    const auth = () => { if (!requireAuth(req)) { json(res, { error: 'Требуется авторизация' }, 401, cors); return false; } return true; };
+
+    if (urlPath === '/api/client-pay-method' && req.method === 'GET') { if (!auth()) return; return handleClientPayMethodGet(req, res, cors); }
+    if (urlPath === '/api/client-pay-method' && req.method === 'POST') { if (!auth()) return; return handleClientPayMethodPost(req, res, cors); }
+    if (urlPath === '/api/notifications/new-workers' && req.method === 'GET') { if (!auth()) return; return handleNotificationsGet(req, res, cors); }
+    if (urlPath === '/api/notifications/new-workers' && req.method === 'DELETE') { if (!auth()) return; return handleNotificationsDelete(req, res, cors); }
+    if (urlPath === '/api/pending-orders' && req.method === 'GET') { if (!auth()) return; return await handlePendingOrders(req, res, cors); }
+    if (urlPath === '/api/claim-order' && req.method === 'POST') { if (!auth()) return; return await handleClaimOrder(req, res, cors); }
+    if (urlPath.startsWith('/api/address-suggest') && req.method === 'GET') { if (!auth()) return; return await handleAddressSuggest(req, res, cors); }
+    if (urlPath === '/api/telegram-status' && req.method === 'GET') { if (!auth()) return; return await handleTelegramStatus(req, res, cors); }
+    if (urlPath.startsWith('/api/')) return await handleApiProxy(req, res, cors, urlPath);
+    if (urlPath === '/export/payments.csv') { if (!auth()) return; return await handleExportCsv(req, res, cors); }
+    if (urlPath === '/upload-receipt' && req.method === 'POST') { if (!auth()) return; return await handleUploadReceipt(req, res, cors); }
+    if (urlPath.startsWith('/receipts/')) { if (!auth()) return; return handleReceipt(req, res, cors, urlPath); }
+
+    // --- Static files ---
+    return handleStatic(req, res, urlPath);
+  };
+}
+
+module.exports = { createRouter, startPolling, handlePostProcess };

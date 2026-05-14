@@ -1,0 +1,65 @@
+/**
+ * Dispatcher.PRO — Main entry point
+ */
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+const { config } = require('./modules/config');
+const { createRouter, startPolling } = require('./modules/routes');
+const { runGasSync } = require('./modules/gas-sync');
+
+// Ensure receipts directory exists
+if (!fs.existsSync(config.receiptsDir)) fs.mkdirSync(config.receiptsDir, { recursive: true });
+
+// Clean old receipts daily
+setInterval(() => {
+  try {
+    const now = Date.now();
+    fs.readdirSync(config.receiptsDir).forEach(f => {
+      const stat = fs.statSync(path.join(config.receiptsDir, f));
+      if (now - stat.mtimeMs > config.receiptTtlDays * 24 * 60 * 60 * 1000) {
+        fs.unlinkSync(path.join(config.receiptsDir, f));
+        console.log('[Receipts] Deleted old file:', f);
+      }
+    });
+  } catch (e) { console.error('[Receipts] Cleanup error:', e.message); }
+}, 24 * 60 * 60 * 1000);
+
+const router = createRouter();
+const server = http.createServer(async (req, res) => {
+  try {
+    await router(req, res);
+  } catch (e) {
+    console.error('Unhandled route error:', e.message);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+});
+
+server.listen(config.port, '0.0.0.0', () => {
+  console.log(`Dispatcher.PRO proxy on :${config.port}`);
+});
+
+// Global error handlers
+process.on('uncaughtException', (err) => { console.error('Uncaught:', err.message); });
+process.on('unhandledRejection', (err) => { console.error('Unhandled:', err); });
+
+// Start Telegram polling
+startPolling();
+
+// Start GAS periodic sync (every 5 minutes)
+const sbHeaders = () => ({ 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey, 'Content-Type': 'application/json' });
+const sbFetchForSync = async (table, query, opts = {}) => {
+  const headers = sbHeaders();
+  if (opts.method === 'PATCH') headers['Prefer'] = 'return=representation';
+  const url = `${config.sbUrl}/rest/v1/${table}${query ? '?' + query : ''}`;
+  const fetchOpts = { method: opts.method || 'GET', headers };
+  if (opts.body) fetchOpts.body = opts.body;
+  return fetch(url, fetchOpts);
+};
+
+setInterval(() => runGasSync(sbFetchForSync), 5 * 60 * 1000);
+// Run once on startup after 30 seconds
+setTimeout(() => runGasSync(sbFetchForSync), 30000);
+console.log('[GAS-Sync] Periodic sync enabled (every 5 min)');
