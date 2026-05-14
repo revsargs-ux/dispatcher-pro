@@ -132,8 +132,6 @@ p{margin:5px 0;font-size:14px;line-height:1.5}
 
 <div class="card medium">
 <h3>4.1 Разбить routes.js на модули</h3>
-<p><span class="tag p2">P2</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p class="why">routes/ — auth-routes, shift-routes, user-routes, payment-routes, tracking-routes.</p>
 <p><span class="tag p2">P2</span> 863 строки → routes/auth.js, routes/tracking.js, routes/api-proxy.js. Монолит трудно поддерживать.</p>
 </div>
 
@@ -185,8 +183,6 @@ p{margin:5px 0;font-size:14px;line-height:1.5}
 
 <div class="card medium">
 <h3>5.4 Dashboard с графиками</h3>
-<p><span class="tag p2">P2</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p class="why">Canvas bar chart с выручкой за 14 дней в owner.html (аналитика).</p>
 <p><span class="tag p2">P2</span> Доходы по дням, загрузка рабочих, топ клиентов. Chart.js или Canvas.</p>
 </div>
 
@@ -207,8 +203,6 @@ p{margin:5px 0;font-size:14px;line-height:1.5}
 
 <div class="card medium">
 <h3>5.8 Повторяющиеся заказы</h3>
-<p><span class="tag p2">P2</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p class="why">Таблица recurring_orders + API маршруты + автосоздание смен + вкладка в index.html/client.html.</p>
 <p><span class="tag p2">P2</span> Шаблон заказа (каждый понедельник, одинаковые услуги). Автоматическое создание смен. 80% заказов = постоянные клиенты.</p>
 </div>
 
@@ -240,31 +234,6 @@ DROP POLICY IF EXISTS "Service role full access" ON bot_verification_codes;
 CREATE POLICY "Service role full access" ON bot_verification_codes FOR ALL USING (true) WITH CHECK (true);
 DROP POLICY IF EXISTS "Block anon" ON bot_verification_codes;
 CREATE POLICY "Block anon" ON bot_verification_codes FOR ALL USING (false) WITH CHECK (false);</pre>
-</div>
-
-<hr style="border-color:#16213e;margin:30px 0">
-<h2>🔄 Recurring Orders (Подписки)</h2>
-<div class="card">
-<p>Run in Supabase SQL Editor:</p>
-<pre style="background:#0f0f23;padding:12px;border-radius:8px;overflow-x:auto;font-size:13px;">CREATE TABLE IF NOT EXISTS recurring_orders (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  client_id uuid REFERENCES clients(id),
-  worker_id uuid REFERENCES workers(id),
-  service_type_id uuid REFERENCES service_types(id),
-  day_of_week int,
-  time_start time,
-  hours numeric DEFAULT 4,
-  object_address text,
-  notes text,
-  is_active boolean DEFAULT true,
-  created_at timestamptz DEFAULT now(),
-  created_by uuid
-);
-ALTER TABLE recurring_orders ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Service role full access" ON recurring_orders;
-CREATE POLICY "Service role full access" ON recurring_orders FOR ALL USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Block anon" ON recurring_orders;
-CREATE POLICY "Block anon" ON recurring_orders FOR ALL USING (false) WITH CHECK (false);</pre>
 </div>
 
 <hr style="border-color:#16213e;margin:30px 0">

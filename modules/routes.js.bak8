@@ -20,7 +20,6 @@ const shiftRoutes = require('../routes/shift-routes');
 const userRoutes = require('../routes/user-routes');
 const paymentRoutes = require('../routes/payment-routes');
 const trackingRoutes = require('../routes/tracking-routes');
-const chatRoutes = require('../routes/chat-routes');
 const { readBody, json } = require('../routes/shared');
 
 const MIME_TYPES = {
@@ -183,29 +182,8 @@ function createRouter() {
     if (urlPath === '/api/notifications/new-workers' && req.method === 'DELETE') { if (!auth()) return; return await userRoutes.handleNotificationsDelete(req, res, cors); }
     if (urlPath === '/api/pending-orders' && req.method === 'GET') { if (!auth()) return; return await shiftRoutes.handlePendingOrders(req, res, cors); }
     if (urlPath === '/api/claim-order' && req.method === 'POST') { if (!auth()) return; return await shiftRoutes.handleClaimOrder(req, res, cors); }
-
-    // Recurring orders
-    if (urlPath === '/api/recurring' && req.method === 'GET') { if (!auth()) return; return await shiftRoutes.handleRecurringList(req, res, cors); }
-    if (urlPath === '/api/recurring' && req.method === 'POST') { if (!auth()) return; return await shiftRoutes.handleRecurringCreate(req, res, cors); }
-    if (urlPath.match(/^\/api\/recurring\/[0-9a-f-]{36}$/) && req.method === 'PATCH') {
-      if (!auth()) return;
-      const id = urlPath.split('/').pop();
-      return await shiftRoutes.handleRecurringUpdate(req, res, cors, id);
-    }
-    if (urlPath.match(/^\/api\/recurring\/[0-9a-f-]{36}$/) && req.method === 'DELETE') {
-      if (!auth()) return;
-      const id = urlPath.split('/').pop();
-      return await shiftRoutes.handleRecurringDelete(req, res, cors, id);
-    }
     if (urlPath.startsWith('/api/address-suggest') && req.method === 'GET') { if (!auth()) return; return await userRoutes.handleAddressSuggest(req, res, cors); }
     if (urlPath === '/api/telegram-status' && req.method === 'GET') { if (!auth()) return; return await userRoutes.handleTelegramStatus(req, res, cors); }
-
-    // Chat routes
-    if (urlPath.startsWith('/api/chat/') && urlPath.split('/').length === 5) {
-      if (!auth()) return;
-      if (req.method === 'GET') return await chatRoutes.handleChatGet(req, res, cors, urlPath);
-      if (req.method === 'POST') return await chatRoutes.handleChatPost(req, res, cors, urlPath);
-    }
 
     // Tracking routes
     if (urlPath === '/api/tracking/status' && req.method === 'GET') { if (!auth()) return; return await trackingRoutes.handleTrackingStatus(req, res, cors, urlPath); }

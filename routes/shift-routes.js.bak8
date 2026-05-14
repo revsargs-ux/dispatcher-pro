@@ -244,71 +244,9 @@ async function handlePostProcess(table, method, data, body, query, req) {
   }
 }
 
-// ===== Recurring orders / subscriptions =====
-
-async function handleRecurringList(req, res, cors) {
-  try {
-    const sbRes = await sbFetch('recurring_orders', 'is_active=eq.true&select=*,clients(id,name),workers(id,full_name),service_types(id,name)&order=created_at.desc&limit=100');
-    const data = await sbRes.json();
-    json(res, data, 200, cors);
-  } catch (e) { json(res, { error: e.message }, 500, cors); }
-}
-
-async function handleRecurringCreate(req, res, cors) {
-  const body = await readBody(req);
-  const parsed = JSON.parse(body);
-  const { client_id, worker_id, service_type_id, day_of_week, time_start, hours, object_address, notes, created_by } = parsed;
-  if (!client_id || day_of_week === undefined || !time_start) {
-    return json(res, { error: 'Missing required fields' }, 400, cors);
-  }
-  try {
-    const sbRes = await sbFetch('recurring_orders', '', {
-      method: 'POST',
-      body: JSON.stringify({
-        client_id, worker_id, service_type_id,
-        day_of_week, time_start, hours: hours || 4,
-        object_address: object_address || null,
-        notes: notes || null,
-        is_active: true,
-        created_by: created_by || null
-      }),
-      headers: { ...sbHeaders(), 'Prefer': 'return=representation' }
-    });
-    const data = await sbRes.json();
-    json(res, data, sbRes.status, cors);
-  } catch (e) { json(res, { error: e.message }, 500, cors); }
-}
-
-async function handleRecurringUpdate(req, res, cors, id) {
-  const body = await readBody(req);
-  const parsed = JSON.parse(body);
-  try {
-    const sbRes = await sbFetch('recurring_orders', `id=eq.${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(parsed),
-      headers: { ...sbHeaders(), 'Prefer': 'return=representation' }
-    });
-    const data = await sbRes.json();
-    json(res, data, sbRes.status, cors);
-  } catch (e) { json(res, { error: e.message }, 500, cors); }
-}
-
-async function handleRecurringDelete(req, res, cors, id) {
-  try {
-    const sbRes = await sbFetch('recurring_orders', `id=eq.${id}`, {
-      method: 'DELETE'
-    });
-    json(res, { ok: true }, 200, cors);
-  } catch (e) { json(res, { error: e.message }, 500, cors); }
-}
-
 module.exports = {
   handlePendingOrders,
   handleClaimOrder,
   handlePostProcess,
-  checkNotifsTable,
-  handleRecurringList,
-  handleRecurringCreate,
-  handleRecurringUpdate,
-  handleRecurringDelete
+  checkNotifsTable
 };
