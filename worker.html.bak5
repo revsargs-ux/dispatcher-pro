@@ -175,24 +175,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="toast" id="toast"></div>
 
 <script>
-// Phone input mask
-function setupPhoneMask(input){
-  if(!input)return;
-  input.addEventListener('input',function(){
-    let v=this.value.replace(/\D/g,'');
-    if(v.length>0&&v[0]!=='7')v='7'+v;
-    if(v.length>11)v=v.slice(0,11);
-    if(v.length>1)this.value='+'+v[0]+' ('+v.slice(1,4)+') '+v.slice(4,6)+'-'+v.slice(6,8)+'-'+v.slice(8);
-    else if(v.length===1)this.value='+'+v;
-    else this.value=v;
-  });
-  input.addEventListener('blur',function(){
-    let v=this.value.replace(/\D/g,'');
-    this.value=v.length>=1?'+'+v:'';
-  });
-}
-function initPhoneMasks(){document.querySelectorAll('input[type="tel"]').forEach(setupPhoneMask);}
-
 async function tryRefreshToken(){
   const tk=localStorage.getItem('dp_token');if(!tk)return false;
   try{const r=await fetch('/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tk})});if(!r.ok)return false;const d=await r.json();if(d.ok&&d.token){localStorage.setItem('dp_token',d.token);return true;}}catch(e){}
@@ -824,8 +806,6 @@ setInterval(() => {
   const ok=await autoLogin();
 })();
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
-initPhoneMasks();
 </script>
 <script src="/push-client.js"></script>
 </body>

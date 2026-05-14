@@ -212,26 +212,6 @@ canvas.chart{width:100%;height:200px;background:#fff;border-radius:10px;box-shad
 </div></div>
 
 <script>
-// Phone input mask
-function setupPhoneMask(input){
-  if(!input)return;
-  input.addEventListener('input',function(){
-    let v=this.value.replace(/\D/g,'');
-    if(v.length>0&&v[0]!=='7')v='7'+v;
-    if(v.length>11)v=v.slice(0,11);
-    if(v.length>1)this.value='+'+v[0]+' ('+v.slice(1,4)+') '+v.slice(4,6)+'-'+v.slice(6,8)+'-'+v.slice(8);
-    else if(v.length===1)this.value='+'+v;
-    else this.value=v;
-  });
-  input.addEventListener('blur',function(){
-    let v=this.value.replace(/\D/g,'');
-    this.value=v.length>=1?'+'+v:'';
-  });
-}
-function initPhoneMasks(){document.querySelectorAll('input[type="tel"]').forEach(setupPhoneMask);}
-
-// Debounce utility
-function debounce(fn,ms){let t;return function(...a){clearTimeout(t);t=setTimeout(()=>fn.apply(this,a),ms);};}
 
 async function tryRefreshToken(){
   const tk=localStorage.getItem('dp_token');if(!tk)return false;
@@ -612,7 +592,6 @@ function exportCSV(){window.location.href='/export/payments.csv';}
 function exportPDF(){window.print();}
 
 (async()=>{try{const p=localStorage.getItem('dp_rop');if(p)document.getElementById('auth-phone').value=p;}catch(e){}})();
-initPhoneMasks();
 // System monitoring
 let systemErrors=[];
 const origFetch=window.fetch;
@@ -649,7 +628,6 @@ document.addEventListener('click',function(e){var b=e.target.closest('.cpb');if(
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
 setInterval(()=>{if(currentUser&&document.visibilityState==='visible'){loadOverview();}},30000);
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
 </script>
 <div id="modal-credentials" class="modal"><div class="modal-content" style="max-width:420px;">
       <div class="modal-header"><h2>📋 Данные для входа</h2><button class="close-btn" onclick="closeModal('modal-credentials')">&times;</button></div>

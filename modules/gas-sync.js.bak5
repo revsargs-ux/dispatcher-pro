@@ -1,7 +1,6 @@
 /**
  * Google Sheets synchronization via GAS — bidirectional
  */
-const crypto = require('crypto');
 const { config } = require('./config');
 
 // --- Push TO Google Sheets (App → GAS) ---
@@ -130,29 +129,4 @@ async function runGasSync(sbFetch) {
   }
 }
 
-/**
- * Verify HMAC signature from GAS webhook
- * Header format: X-GAS-Signature: timestamp.signature
- * GAS side (comment for reference):
- *   const timestamp = Date.now().toString();
- *   const payload = timestamp + '.' + JSON.stringify(body);
- *   const signature = Utilities.computeHmacSha256Signature(payload, GAS_SECRET)
- *     .map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
- *   headers['X-GAS-Signature'] = timestamp + '.' + signature;
- */
-function verifyGasSignature(header, body) {
-  if (!header || !config.gasWebhookSecret) return false;
-  const [timestamp, signature] = header.split('.');
-  if (!timestamp || !signature) return false;
-  // Reject stale requests (>5 min)
-  if (Date.now() - parseInt(timestamp, 10) > 5 * 60 * 1000) return false;
-  const payload = timestamp + '.' + body;
-  const expected = crypto.createHmac('sha256', config.gasWebhookSecret).update(payload).digest('hex');
-  try {
-    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
-  } catch {
-    return false;
-  }
-}
-
-module.exports = { syncToGoogleSheets, runGasSync, verifyGasSignature };
+module.exports = { syncToGoogleSheets, runGasSync };
