@@ -127,34 +127,6 @@ async function handlePostProcess(table, method, data, body, query, req) {
           shift_service: sh.service_types?.name || '', shift_start: sh.start_time || '',
           shift_address: sh.address || '', shift_comment: sh.comment || '', shift_status: sh.status || ''
         });
-
-        // Auto-salary: when shift becomes completed, calculate earnings for all assignments
-        if (sh.status === 'completed') {
-          try {
-            const asgns = await (await sbFetch('shift_assignments', `shift_id=eq.${shiftId}&invite_status=eq.confirmed&select=id,worker_id,hours_worked,rate_per_hour,extra_amount`)).json();
-            if (Array.isArray(asgns)) {
-              for (const a of asgns) {
-                const h = parseFloat(a.hours_worked) || 0;
-                const rate = parseFloat(a.rate_per_hour) || 400;
-                const extra = parseFloat(a.extra_amount) || 0;
-                const calculated = h * rate + extra;
-                if (h > 0) {
-                  await sbFetch('shift_assignments', `id=eq.${a.id}`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ calculated_salary: calculated })
-                  });
-                  // Notify worker about salary
-                  const w = ((await (await sbFetch('workers', `id=eq.${a.worker_id}&select=phone,full_name&limit=1`)).json())[0]);
-                  if (w) {
-                    maxNotify('workers', w.phone, `💰 Расчёт зарплаты\n\n👤 ${w.full_name}\n⏱ ${h}ч × ${rate}₽ = ${(h*rate).toLocaleString('ru')}₽${extra > 0 ? '\n➕ Доп: ' + extra.toLocaleString('ru') + '₽' : ''}\n💰 Итого: ${calculated.toLocaleString('ru')}₽`);
-                    tgNotify('workers', w.phone, `💰 Расчёт зарплаты\n\n👤 ${w.full_name}\n⏱ ${h}ч × ${rate}₽ = ${(h*rate).toLocaleString('ru')}₽${extra > 0 ? '\n➕ Доп: ' + extra.toLocaleString('ru') + '₽' : ''}\n💰 Итого: ${calculated.toLocaleString('ru')}₽`);
-                    sendPushNotification({ userId: a.worker_id, userRole: 'worker', eventType: 'salary_calculated', priority: 'high', title: '💰 Зарплата рассчитана', body: `${h}ч × ${rate}₽ = ${calculated.toLocaleString('ru')}₽`, deepLink: '/worker.html' });
-                  }
-                }
-              }
-            }
-          } catch (e) { console.error('[AutoSalary] Error:', e.message); }
-        }
       }
     }
 
@@ -330,59 +302,6 @@ async function handleRecurringDelete(req, res, cors, id) {
   } catch (e) { json(res, { error: e.message }, 500, cors); }
 }
 
-// ===== Reviews =====
-
-async function handleGetWorkerReviews(req, res, cors, workerId) {
-  try {
-    const reviews = await (await sbFetch('reviews', `worker_id=eq.${workerId}&select=*,clients(name)&order=created_at.desc&limit=50`)).json();
-    const stats = await (await sbFetch('reviews', `worker_id=eq.${workerId}&select=rating`)).json();
-    const avg = Array.isArray(stats) && stats.length > 0
-      ? (stats.reduce((s, r) => s + (r.rating || 0), 0) / stats.length).toFixed(1)
-      : null;
-    json(res, { average: avg, count: Array.isArray(stats) ? stats.length : 0, reviews: Array.isArray(reviews) ? reviews : [] }, 200, cors);
-  } catch (e) { json(res, { error: e.message }, 500, cors); }
-}
-
-async function handleSubmitReview(req, res, cors) {
-  const session = requireAuth(req);
-  if (!session) return json(res, { error: 'Требуется авторизация' }, 401, cors);
-  if (session.role !== 'client') return json(res, { error: 'Только заказчик может оставить отзыв' }, 403, cors);
-
-  const body = await readBody(req);
-  const { shift_id, worker_id, rating, comment } = JSON.parse(body);
-  if (!shift_id || !worker_id || !rating) return json(res, { error: 'Missing required fields' }, 400, cors);
-  if (rating < 1 || rating > 5) return json(res, { error: 'Rating must be 1-5' }, 400, cors);
-
-  // Validate UUID format
-  if (!/^[0-9a-f-]{36}$/.test(shift_id) || !/^[0-9a-f-]{36}$/.test(worker_id)) {
-    return json(res, { error: 'Invalid ID format' }, 400, cors);
-  }
-
-  try {
-    // Check shift is completed
-    const shifts = await (await sbFetch('shifts', `id=eq.${shift_id}&select=status,client_id&limit=1`)).json();
-    if (!Array.isArray(shifts) || !shifts.length) return json(res, { error: 'Смена не найдена' }, 404, cors);
-    if (shifts[0].status !== 'completed') return json(res, { error: 'Отзыв только после завершения смены' }, 400, cors);
-    if (shifts[0].client_id !== session.userId) return json(res, { error: 'Нет доступа' }, 403, cors);
-
-    // Check worker was assigned
-    const asgns = await (await sbFetch('shift_assignments', `shift_id=eq.${shift_id}&worker_id=eq.${worker_id}&select=id&limit=1`)).json();
-    if (!Array.isArray(asgns) || !asgns.length) return json(res, { error: 'Рабочий не был назначен' }, 400, cors);
-
-    // Check no existing review
-    const existing = await (await sbFetch('reviews', `shift_id=eq.${shift_id}&client_id=eq.${session.userId}&select=id&limit=1`)).json();
-    if (Array.isArray(existing) && existing.length) return json(res, { error: 'Отзыв уже оставлен' }, 409, cors);
-
-    const sbRes = await sbFetch('reviews', '', {
-      method: 'POST',
-      body: JSON.stringify({ shift_id, worker_id, client_id: session.userId, rating, comment: comment || null }),
-      headers: { ...sbHeaders(), 'Prefer': 'return=representation' }
-    });
-    const data = await sbRes.json();
-    json(res, data, sbRes.status, cors);
-  } catch (e) { json(res, { error: e.message }, 500, cors); }
-}
-
 module.exports = {
   handlePendingOrders,
   handleClaimOrder,
@@ -391,7 +310,5 @@ module.exports = {
   handleRecurringList,
   handleRecurringCreate,
   handleRecurringUpdate,
-  handleRecurringDelete,
-  handleGetWorkerReviews,
-  handleSubmitReview
+  handleRecurringDelete
 };
