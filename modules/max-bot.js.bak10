@@ -258,77 +258,6 @@ async function linkMaxUser(chatId, phone) {
 }
 
 // ============================================================
-// Чат пересылка: из МАКС бота в чат смены
-// ============================================================
-const _maxChatFwdLimit = new Map();
-async function tryForwardChat(chatId, user, text) {
-  if (user.role !== 'worker' && user.role !== 'client') return false;
-
-  const now = Date.now();
-  const last = _maxChatFwdLimit.get(chatId) || 0;
-  if (now - last < 2000) return false;
-  _maxChatFwdLimit.set(chatId, now);
-
-  try {
-    let shiftIds = [];
-    if (user.role === 'worker') {
-      const aRes = await fetch(`${config.sbUrl}/rest/v1/shift_assignments?worker_id=eq.${user.id}&select=shift_id`, {
-        headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
-      });
-      const assignments = await aRes.json();
-      if (!Array.isArray(assignments)) return false;
-      shiftIds = assignments.map(a => a.shift_id);
-    } else {
-      const sRes = await fetch(`${config.sbUrl}/rest/v1/shifts?client_id=eq.${user.id}&select=id`, {
-        headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
-      });
-      const shifts = await sRes.json();
-      if (!Array.isArray(shifts)) return false;
-      shiftIds = shifts.map(s => s.id);
-    }
-    if (!shiftIds.length) return false;
-
-    const activeRes = await fetch(`${config.sbUrl}/rest/v1/shifts?id=in.(${shiftIds.join(',')})&status=in.(confirmed,in_progress,planned)&select=id&limit=5`, {
-      headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
-    });
-    const activeShifts = await activeRes.json();
-    if (!Array.isArray(activeShifts) || !activeShifts.length) return false;
-
-    const targetShiftId = activeShifts[0].id;
-    const senderName = user.full_name || 'Неизвестный';
-    const msg = {
-      shift_id: targetShiftId,
-      sender_id: user.id,
-      sender_role: user.role,
-      sender_name: senderName,
-      message: text.slice(0, 2000)
-    };
-    await fetch(`${config.sbUrl}/rest/v1/chat_messages`, {
-      method: 'POST',
-      headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-      body: JSON.stringify(msg)
-    });
-    console.log(`[MAX] Chat forwarded from ${senderName} (${user.role}) to shift ${targetShiftId}`);
-
-    const { forwardChatNotification } = require('./bot-common');
-    await forwardChatNotification(targetShiftId, user.role, user.id, senderName, text, async (chatId, text) => {
-      // TG send helper
-      await fetch(`${config.tgApi}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' })
-      }).catch(e => console.log('[MAX] TG notify error:', e.message));
-    }, maxSendMessage);
-
-    await maxSendMessage(chatId, '✉️ Сообщение отправлено в чат смены');
-    return true;
-  } catch (e) {
-    console.error('[MAX] tryForwardChat error:', e.message);
-    return false;
-  }
-}
-
-// ============================================================
 // Обработка входящих сообщений
 // ============================================================
 async function handleMaxMessage(update) {
@@ -424,10 +353,6 @@ async function handleMaxMessage(update) {
       if (command === 'orders') return await cmdOrders(chatId, user);
     }
   }
-
-  // === Чат пересылка: если у пользователя есть активные смены ===
-  const chatForwarded = await tryForwardChat(chatId, user, text);
-  if (chatForwarded) return;
 
   // === Всё остальное — AI ===
   await askAI(chatId, user, text);

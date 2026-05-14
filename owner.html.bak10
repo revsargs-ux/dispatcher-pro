@@ -96,10 +96,10 @@ canvas.chart{width:100%;height:200px;background:var(--card);border-radius:10px;b
 
 <div id="auth-screen" class="auth-screen"><div class="auth-box">
   <h1>👑 РОП</h1>
-  <p class="subtitle" data-i18n="auth_subtitle_owner">Руководитель · Dispatcher.PRO</p>
-  <input type="tel" id="auth-phone" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15">
-  <input type="password" id="auth-pass" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
-  <button onclick="doLogin()" data-i18n="btn_login">Войти</button>
+  <p class="subtitle">Руководитель · Dispatcher.PRO</p>
+  <input type="tel" id="auth-phone" placeholder="Телефон" maxlength="15">
+  <input type="password" id="auth-pass" placeholder="Пароль">
+  <button onclick="doLogin()">Войти</button>
   <div class="auth-error" id="auth-error"></div>
   <!-- 2FA Modal -->
   <div id="twofa-modal" style="display:none;text-align:center;margin-top:16px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--bg);">
@@ -116,20 +116,19 @@ canvas.chart{width:100%;height:200px;background:var(--card);border-radius:10px;b
   <div class="user-info">
     <span id="user-name"></span>
     <span class="role-badge">РУКОВОДИТЕЛЬ</span>
-    <button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button>
     <button id="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#fff;padding:0 4px;">🌙</button>
-    <button class="btn-logout" onclick="doLogout()" data-i18n="btn_logout">Выйти</button>
+    <button class="btn-logout" onclick="doLogout()">Выйти</button>
   </div>
 </div>
 
 <div class="tabs" id="tabs-bar">
-  <div class="tab active" data-panel="panel-overview" data-i18n="nav_overview">📊 Обзор</div>
-  <div class="tab" data-panel="panel-analytics" data-i18n="nav_analytics">📈 Аналитика</div>
-  <div class="tab" data-panel="panel-dispatchers" data-i18n="nav_dispatchers">👥 Диспетчеры</div>
-  <div class="tab" data-panel="panel-finances" data-i18n="nav_finances">💰 Финансы</div>
-  <div class="tab" data-panel="panel-clients" data-i18n="nav_clients">🏢 Клиенты</div>
-  <div class="tab" data-panel="panel-shifts" data-i18n="nav_shifts">📅 Смены</div>
-  <div class="tab" data-panel="panel-system" data-i18n="nav_system">⚙️ Система</div>
+  <div class="tab active" data-panel="panel-overview">📊 Обзор</div>
+  <div class="tab" data-panel="panel-analytics">📈 Аналитика</div>
+  <div class="tab" data-panel="panel-dispatchers">👥 Диспетчеры</div>
+  <div class="tab" data-panel="panel-finances">💰 Финансы</div>
+  <div class="tab" data-panel="panel-clients">🏢 Заказчики</div>
+  <div class="tab" data-panel="panel-shifts">📅 Смены</div>
+  <div class="tab" data-panel="panel-system">⚙️ Система</div>
 </div>
 
 <div id="panel-overview" class="panel active">
@@ -137,8 +136,8 @@ canvas.chart{width:100%;height:200px;background:var(--card);border-radius:10px;b
     <button onclick="changeMonth(-1)">◀</button>
     <span class="month-label" id="month-label"></span>
     <button onclick="changeMonth(1)">▶</button>
-    <button class="btn btn-outline btn-sm" onclick="exportCSV()" style="margin-left:auto;" data-i18n="btn_export_csv">📥 CSV</button>
-    <button class="btn btn-outline btn-sm" onclick="exportPDF()" data-i18n="btn_export_pdf">📄 PDF</button>
+    <button class="btn btn-outline btn-sm" onclick="exportCSV()" style="margin-left:auto;">📥 CSV</button>
+    <button class="btn btn-outline btn-sm" onclick="exportPDF()">📄 PDF</button>
   </div>
   <div class="stat-grid" id="overview-stats"></div>
   <div id="overview-dispatchers"></div>
@@ -165,7 +164,7 @@ canvas.chart{width:100%;height:200px;background:var(--card);border-radius:10px;b
 </div>
 
 <div id="panel-dispatchers" class="panel">
-  <div style="margin-bottom:12px;"><button class="btn btn-primary" onclick="openAddDispatcher()" data-i18n="btn_add_dispatcher">+ Добавить диспетчера</button></div>
+  <div style="margin-bottom:12px;"><button class="btn btn-primary" onclick="openAddDispatcher()">+ Добавить диспетчера</button></div>
   <div id="dispatchers-list"></div>
 </div>
 
@@ -202,7 +201,7 @@ canvas.chart{width:100%;height:200px;background:var(--card);border-radius:10px;b
     <p style="font-size:13px;color:var(--text-light);margin-top:8px;">Контейнер: n8n-dispatcher-1 · Порт: 8080 · Proxy: Traefik</p>
   </div>
   <div class="card">
-    <button class="btn btn-outline" onclick="fetch('/health').then(r=>r.json()).then(d=>{document.getElementById('sys-health').innerHTML='<span style=\'color:var(--accent)\'>✅ '+JSON.stringify(d)+'</span>';}).catch(e=>{document.getElementById('sys-health').innerHTML='<span style=\'color:var(--danger)\'>❌ '+e.message+'</span>';});" data-i18n="btn_check_health">🔄 Проверить здоровье</button>
+    <button class="btn btn-outline" onclick="fetch('/health').then(r=>r.json()).then(d=>{document.getElementById('sys-health').innerHTML='<span style=\'color:var(--accent)\'>✅ '+JSON.stringify(d)+'</span>';}).catch(e=>{document.getElementById('sys-health').innerHTML='<span style=\'color:var(--danger)\'>❌ '+e.message+'</span>';});">🔄 Проверить здоровье</button>
     <div id="sys-health" style="margin-top:8px;font-size:13px;"></div>
   </div>
 </div>
@@ -218,20 +217,11 @@ canvas.chart{width:100%;height:200px;background:var(--card);border-radius:10px;b
     <div class="form-group"><label>Ставка ₽/час</label><input type="number" id="disp-rate" value="7.5" step="0.5"></div>
     <div class="form-group"><label>Цель часов/мес</label><input type="number" id="disp-target" value="8000"></div>
   </div>
-  <button class="btn btn-primary" style="width:100%" onclick="saveDispatcher()" data-i18n="btn_save">Сохранить</button>
+  <button class="btn btn-primary" style="width:100%" onclick="saveDispatcher()">Сохранить</button>
   <div id="disp-access-info" style="display:none;margin-top:12px;padding:12px;background:#ebf8ff;border-radius:8px;font-size:14px;"></div>
 </div></div>
 
 <script>
-// ===== i18n =====
-const DEFAULT_LANG='ru';
-let currentLang=localStorage.getItem('lang')||DEFAULT_LANG;
-let translations={};
-async function loadLang(lang){try{const r=await fetch('/lang/'+lang+'.json');translations=await r.json();currentLang=lang;localStorage.setItem('lang',lang);applyTranslations();}catch(e){console.warn('Lang load error:',e);}}
-function t(key){return translations[key]||key;}
-function applyTranslations(){document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=t(el.getAttribute('data-i18n'));});document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{el.placeholder=t(el.getAttribute('data-i18n-placeholder'));});document.querySelectorAll('[data-i18n-title]').forEach(el=>{el.title=t(el.getAttribute('data-i18n-title'));});}
-function setLang(lang){loadLang(lang);}
-
 function toggleTheme(){
   const d=document.body;
   if(d.classList.contains('dark')){d.classList.remove('dark');d.classList.add('light');localStorage.setItem('dp_theme','light');}
@@ -710,7 +700,6 @@ function exportPDF(){window.print();}
 
 (async()=>{try{const p=localStorage.getItem('dp_rop');if(p)document.getElementById('auth-phone').value=p;}catch(e){}})();
 initPhoneMasks();
-loadLang(currentLang);
 // System monitoring
 let systemErrors=[];
 const origFetch=window.fetch;
@@ -753,8 +742,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.qu
       <div class="modal-header"><h2>📋 Данные для входа</h2><button class="close-btn" onclick="closeModal('modal-credentials')">&times;</button></div>
       <textarea id="cred-text" readonly onclick="this.select()" style="width:100%;height:110px;padding:14px;background:var(--bg);border:2px solid var(--border);border-radius:8px;font-size:15px;line-height:1.7;resize:none;font-family:monospace;color:var(--text);"></textarea>
       <div style="display:flex;gap:8px;margin-top:10px;">
-        <button class="btn btn-primary" style="flex:1;padding:12px;" onclick="copyCred()" data-i18n="btn_copy">📋 Скопировать</button>
-        <button class="btn btn-outline" style="flex:1;padding:12px;" onclick="shareCred()" data-i18n="btn_share">📤 Поделиться</button>
+        <button class="btn btn-primary" style="flex:1;padding:12px;" onclick="copyCred()">📋 Скопировать</button>
+        <button class="btn btn-outline" style="flex:1;padding:12px;" onclick="shareCred()">📤 Поделиться</button>
       </div>
     </div></div>
 <script src="/push-client.js"></script>

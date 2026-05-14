@@ -206,53 +206,6 @@ async function handleAuthLogout(req, res, cors) {
   json(res, { ok: true });
 }
 
-// --- TG Mini App login (by telegram_chat_id) ---
-async function handleTgLogin(req, res, cors) {
-  try {
-    const body = await readBody(req);
-    const { telegram_chat_id } = JSON.parse(body);
-    if (!telegram_chat_id) {
-      res.writeHead(400, { 'Content-Type': 'application/json', ...cors });
-      return res.end(JSON.stringify({ error: 'telegram_chat_id required' }));
-    }
-
-    const chatId = String(telegram_chat_id);
-
-    // Search workers and clients in parallel
-    const [workerRes, clientRes] = await Promise.all([
-      sbFetch('workers', 'telegram_chat_id=eq.' + encodeURIComponent(chatId) + '&select=id,full_name,telegram_chat_id&limit=1'),
-      sbFetch('clients', 'telegram_chat_id=eq.' + encodeURIComponent(chatId) + '&select=id,full_name,name,telegram_chat_id&limit=1')
-    ]);
-
-    const workers = await workerRes.json();
-    const clients = await clientRes.json();
-
-    let user = null;
-    let role = null;
-
-    if (Array.isArray(workers) && workers.length > 0) {
-      user = workers[0];
-      role = 'worker';
-    } else if (Array.isArray(clients) && clients.length > 0) {
-      user = clients[0];
-      role = 'client';
-    }
-
-    if (!user) {
-      res.writeHead(404, { 'Content-Type': 'application/json', ...cors });
-      return res.end(JSON.stringify({ error: 'User not found. Link your account in the bot first.' }));
-    }
-
-    const token = createToken(user.id, role, role === 'worker' ? 'workers' : 'clients');
-    res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
-    res.end(JSON.stringify({ token, user: { id: user.id, role, full_name: user.full_name || user.name } }));
-  } catch (e) {
-    console.error('[TG Login] Error:', e.message);
-    res.writeHead(500, { 'Content-Type': 'application/json', ...cors });
-    res.end(JSON.stringify({ error: 'Server error' }));
-  }
-}
-
 function mountAuthRoutes(router, createRouter) {
   // These are used by the main router — no-op here, mounting is done in main routes.js
 }
@@ -264,6 +217,5 @@ module.exports = {
   handleAuthMe,
   handleAuthRefresh,
   handleAuthLogout,
-  handleVerify2FA,
-  handleTgLogin
+  handleVerify2FA
 };
