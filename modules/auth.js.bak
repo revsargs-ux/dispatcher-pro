@@ -131,6 +131,7 @@ function checkPassword(inputPassword, storedPassword) {
   }
   const shaHash = legacyHash(inputPassword);
   if (storedPassword === shaHash) return true;
+  if (storedPassword === inputPassword) return true;
   return false;
 }
 

@@ -274,7 +274,7 @@ th.sort-desc::after{content:" ↓";opacity:1;}
     <button class="btn btn-outline" id="btn-worker-list" onclick="showWorkerList()" style="display:none;">📋 Список</button>
   </div>
   <div id="worker-list-view">
-    <div style="padding:0 0 8px;"><button class="btn btn-sm btn-outline" onclick="copyInviteLink()" style="margin-right:8px;">📋 Ссылка-приглашение</button><input type="text" id="worker-search" placeholder="🔍 Поиск..." style="width:100%;max-width:300px" oninput=""></div>
+    <div style="padding:0 0 8px;"><button class="btn btn-sm btn-outline" onclick="copyInviteLink()" style="margin-right:8px;">📋 Ссылка-приглашение</button><input type="text" id="worker-search" placeholder="🔍 Поиск..." style="width:100%;max-width:300px" oninput="loadWorkers()"></div>
     <div class="loading" id="workers-loading">⏳ Загрузка...</div>
     <table><thead><tr><th data-sort onclick="handleSort(this,&apos;workers-table&apos;)">ФИО</th><th data-sort onclick="handleSort(this,&apos;workers-table&apos;)">Телефон</th><th data-sort onclick="handleSort(this,&apos;workers-table&apos;)">Часы</th><th>Действия</th></tr></thead>
     <tbody id="workers-table"></tbody></table>
@@ -307,7 +307,7 @@ th.sort-desc::after{content:" ↓";opacity:1;}
     <button class="btn btn-outline" id="btn-client-list" onclick="showClientList()" style="display:none;">📋 Список</button>
   </div>
   <div id="client-list-view">
-    <div style="padding:0 0 8px;"><input type="text" id="client-search" placeholder="🔍 Поиск..." style="width:100%;max-width:300px" oninput=""></div>
+    <div style="padding:0 0 8px;"><input type="text" id="client-search" placeholder="🔍 Поиск..." style="width:100%;max-width:300px" oninput="loadClients()"></div>
     <div class="loading" id="clients-loading">⏳ Загрузка...</div>
     <table><thead><tr><th data-sort onclick="handleSort(this,&apos;clients-table&apos;)">Название</th><th data-sort onclick="handleSort(this,&apos;clients-table&apos;)">Контакт</th><th data-sort onclick="handleSort(this,&apos;clients-table&apos;)">Ставка</th><th>Действия</th></tr></thead>
     <tbody id="clients-table"></tbody></table>
@@ -526,27 +526,6 @@ th.sort-desc::after{content:" ↓";opacity:1;}
 <div class="toast" id="toast"></div>
 
 <script>
-// Debounce utility
-function debounce(fn,ms){let t;return function(...a){clearTimeout(t);t=setTimeout(()=>fn.apply(this,a),ms);};}
-
-// Phone input mask
-function setupPhoneMask(input){
-  if(!input)return;
-  input.addEventListener('input',function(){
-    let v=this.value.replace(/\D/g,'');
-    if(v.length>0&&v[0]!=='7')v='7'+v;
-    if(v.length>11)v=v.slice(0,11);
-    if(v.length>1)this.value='+'+v[0]+' ('+v.slice(1,4)+') '+v.slice(4,6)+'-'+v.slice(6,8)+'-'+v.slice(8);
-    else if(v.length===1)this.value='+'+v;
-    else this.value=v;
-  });
-  input.addEventListener('blur',function(){
-    let v=this.value.replace(/\D/g,'');
-    this.value=v.length>=1?'+'+v:'';
-  });
-}
-function initPhoneMasks(){document.querySelectorAll('input[type="tel"]').forEach(setupPhoneMask);}
-
 // API goes through server proxy - no keys in HTML
 
 
@@ -659,16 +638,12 @@ async function init(){
   document.getElementById('shift-date').value=new Date().toISOString().split('T')[0];
 }
 async function loadCache(){
-  const[w,c]=await Promise.all([
+  const[w,c,st]=await Promise.all([
     api('workers','GET',null,'?select=id,full_name,phone,is_active,archived&order=full_name'),
     api('clients','GET',null,'?select=id,name,contact,default_client_rate,default_worker_rate&order=name'),
+    api('service_types','GET',null,'?order=name')
   ]);
-  cachedWorkers=w||[];cachedClients=c||[];
-  // Cache service_types in sessionStorage (1h TTL)
-  let st=null;
-  try{const cached=JSON.parse(sessionStorage.getItem('service_types')||'null');if(cached&&Date.now()-cached.ts<3600000){st=cached.data;}}catch(e){}
-  if(!st){st=await api('service_types','GET',null,'?order=name');try{sessionStorage.setItem('service_types',JSON.stringify({data:st||[],ts:Date.now()}));}catch(e){}}
-  cachedServiceTypes=st||[];checkNotifications();
+  cachedWorkers=w||[];cachedClients=c||[];cachedServiceTypes=st||[];checkNotifications();
 }
 function populateFilters(){
   const sel=document.getElementById('shift-client');
@@ -1968,9 +1943,6 @@ async function confirmClientPayment(paymentId,assignmentId){
     const saved=JSON.parse(localStorage.getItem('dp_auth')||'null');
     if(saved&&saved.phone){document.getElementById('auth-phone').value=saved.phone;}
   }catch(e){console.error('Auto-login error:',e);}
-  initPhoneMasks();
-  const ws=document.getElementById('worker-search');if(ws)ws.addEventListener('input',debounce(loadWorkers,300));
-  const cs=document.getElementById('client-search');if(cs)cs.addEventListener('input',debounce(loadClients,300));
 })();
 // ===== GPS Tracking =====
 let trkMap=null, trkMarkers={}, trkPolylines={}, trkTimerInterval=null, trkRefreshInterval=null, trkStartTime=null, trkActive=false, trkWorkers=[], trkSessionId=null;
@@ -2284,7 +2256,6 @@ async function openShiftMap(shiftId) {
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
 // Real-time polling every 30s
 setInterval(()=>{if(currentUser&&document.visibilityState==='visible')loadDashboard();},30000);
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
 </script>
 
 <div id="modal-pay" class="modal"><div class="modal-content">

@@ -6,14 +6,13 @@ const fs = require('fs');
 const path = require('path');
 
 const { config, loadJson, saveJson } = require('./config');
-const { sbFetch, sbHeaders } = require('./db');
 const { sendPushNotification, sendPushToRole } = require('../notifications-module/push-trigger');
 const { getCorsHeaders, SEC_HEADERS } = require('./cors');
 const { createToken, requireAuth, getTokenFromReq, hashPassword, checkPassword, isPlaintext, needsUpgrade, checkRateLimit, resetRateLimit, blacklistToken, isBlacklisted, refreshToken } = require('./auth');
 const { tgNotify, tgNotifyRole, handleTgMessage, startPolling } = require('./telegram');
 const { maxNotify, maxNotifyRole } = require('./max-bot');
 const { audit } = require('./audit');
-const { syncToGoogleSheets, verifyGasSignature } = require('./gas-sync');
+const { syncToGoogleSheets } = require('./gas-sync');
 const { recordRequest, getStats } = require('./monitoring');
 
 const MIME_TYPES = {
@@ -38,7 +37,20 @@ function json(res, data, status = 200, cors) {
   res.end(JSON.stringify(data));
 }
 
-// sbFetch and sbHeaders are now imported from modules/db.js
+// --- Helper: Supabase auth headers ---
+function sbHeaders() {
+  return { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey, 'Content-Type': 'application/json' };
+}
+
+// --- Supabase fetch helper ---
+async function sbFetch(table, query, opts = {}) {
+  const headers = sbHeaders();
+  if (opts.method === 'POST' || opts.method === 'PATCH') headers['Prefer'] = 'return=representation';
+  const url = `${config.sbUrl}/rest/v1/${table}${query ? '?' + query : ''}`;
+  const fetchOpts = { method: opts.method || 'GET', headers };
+  if (opts.body && opts.method !== 'GET' && opts.method !== 'DELETE') fetchOpts.body = opts.body;
+  return fetch(url, fetchOpts);
+}
 
 // ===================== ROUTE HANDLERS =====================
 
@@ -75,55 +87,11 @@ function handleClientPayMethodPost(req, res, cors) {
 }
 
 // --- Notifications ---
-let _notifsTableExists = null; // null = unknown, true = exists, false = doesn't exist
-
-async function checkNotifsTable() {
-  if (_notifsTableExists !== null) return _notifsTableExists;
-  try {
-    const r = await sbFetch('app_notifications', 'select=id&limit=1');
-    _notifsTableExists = r.ok;
-    if (!_notifsTableExists) console.log('[Notifs] Supabase table not found, using JSON fallback');
-    else console.log('[Notifs] Using Supabase app_notifications');
-  } catch (e) { _notifsTableExists = false; }
-  return _notifsTableExists;
-}
-
-async function handleNotificationsGet(req, res, cors) {
-  try {
-    const session = requireAuth(req);
-    const userId = session?.sub || session?.userId;
-    const role = session?.role;
-    if (await checkNotifsTable()) {
-      // Supabase: query by user_id OR role
-      const parts = [];
-      if (userId) parts.push(`user_id=eq.${userId}`);
-      if (role) parts.push(`role=eq.${role}`);
-      const q = parts.length ? parts.join('&') + '&is_read=eq.false&order=created_at.desc&limit=50' : 'is_read=eq.false&order=created_at.desc&limit=50';
-      const r = await sbFetch('app_notifications', q);
-      const data = await r.json();
-      return json(res, Array.isArray(data) ? data : [], 200, cors);
-    }
-  } catch (e) { console.error('[Notifs] Supabase error, falling back to JSON:', e.message); }
-  // Fallback: JSON file
+function handleNotificationsGet(req, res, cors) {
   const notifs = loadJson('notifications.json');
   json(res, notifs, 200, cors);
 }
-async function handleNotificationsDelete(req, res, cors) {
-  try {
-    const session = requireAuth(req);
-    const userId = session?.sub || session?.userId;
-    const role = session?.role;
-    if (await checkNotifsTable()) {
-      // Supabase: mark as read instead of deleting
-      const parts = [];
-      if (userId) parts.push(`user_id=eq.${userId}`);
-      if (role) parts.push(`role=eq.${role}`);
-      const q = parts.join('&');
-      if (q) await sbFetch('app_notifications', q, { method: 'PATCH', body: JSON.stringify({ is_read: true }) });
-      return json(res, { ok: true }, 200, cors);
-    }
-  } catch (e) { console.error('[Notifs] Supabase error, falling back to JSON:', e.message); }
-  // Fallback: clear JSON file
+function handleNotificationsDelete(req, res, cors) {
   saveJson('notifications.json', []);
   json(res, { ok: true }, 200, cors);
 }
@@ -327,19 +295,9 @@ async function handlePostProcess(table, method, data, body, query, req) {
     // Workers
     if (table === 'workers' && method === 'POST') {
       syncToGoogleSheets('syncWorker', { id: first.id, full_name: first.full_name, phone: first.phone, is_active: true });
-      // Save notification: JSON fallback (always)
       const notifs = loadJson('notifications.json');
       notifs.push({ id: first.id, name: first.full_name, phone: first.phone, date: new Date().toISOString() });
       saveJson('notifications.json', notifs);
-      // Save notification: Supabase (if table exists)
-      try {
-        if (await checkNotifsTable()) {
-          await sbFetch('app_notifications', '', {
-            method: 'POST',
-            body: JSON.stringify({ role: 'owner', message: `👷 Новый рабочий: ${first.full_name} (+${first.phone})`, data: { worker_id: first.id, name: first.full_name, phone: first.phone } })
-          });
-        }
-      } catch (e) { console.error('[Notifs] Failed to save to Supabase:', e.message); }
       tgNotifyRole('owner', `👷 Новый рабочий зарегистрирован\n\n👤 ${first.full_name}\n📱 +${first.phone}\n📅 ${new Date().toLocaleDateString('ru-RU')}`);
       maxNotifyRole('owner', `👷 Новый рабочий зарегистрирован
 
@@ -746,7 +704,7 @@ async function handleTrackingLocation(req, res, cors) {
 // --- Static files ---
 // --- GAS webhook (receives changes from Google Sheets) ---
 async function handleGasWebhook(req, res, cors) {
-  const body = req._rawBody || await readBody(req);
+  const body = await readBody(req);
   try {
     const { table, id, data } = JSON.parse(body);
     if (!table || !id || !data) return json(res, { error: 'Missing table, id or data' }, 400, cors);
@@ -832,13 +790,10 @@ function createRouter() {
     if (urlPath === '/auth/refresh' && req.method === 'POST') return await handleAuthRefresh(req, res, cors);
     if (urlPath === '/auth/logout' && req.method === 'POST') return await handleAuthLogout(req, res, cors);
 
-    // --- GAS webhook (HMAC-signed auth) ---
+    // --- GAS webhook (secret-based auth) ---
     if (urlPath === '/api/gas-webhook' && req.method === 'POST') {
-      const sigHeader = (req.headers['x-gas-signature'] || '');
-      const body = await readBody(req);
-      if (!verifyGasSignature(sigHeader, body)) return json(res, { error: 'Invalid signature' }, 403, cors);
-      // Attach parsed body for handler
-      req._rawBody = body;
+      const secret = (req.headers['x-gas-secret'] || '');
+      if (secret !== config.gasWebhookSecret) return json(res, { error: 'Invalid secret' }, 403, cors);
       return await handleGasWebhook(req, res, cors);
     }
 
