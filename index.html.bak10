@@ -215,9 +215,9 @@ th.sort-desc::after{content:" ↓";opacity:1;}
   <h1>Dispatcher.PRO</h1>
   <p class="subtitle">Система управления персоналом</p>
   <div id="auth-login">
-    <input type="tel" id="auth-phone" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15">
-    <input type="password" id="auth-pass" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
-    <button onclick="doLogin()" data-i18n="btn_login">Войти</button>
+    <input type="tel" id="auth-phone" placeholder="Телефон" maxlength="15">
+    <input type="password" id="auth-pass" placeholder="Пароль">
+    <button onclick="doLogin()">Войти</button>
     <div class="link" style="margin-top:16px;">Нет аккаунта? <a onclick="showRegForm()">Зарегистрироваться</a></div>
   </div>
   <div id="auth-reg" style="display:none;">
@@ -257,19 +257,18 @@ th.sort-desc::after{content:" ↓";opacity:1;}
     <span id="notif-count" style="display:none;background:var(--danger);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;text-align:center;line-height:20px;cursor:pointer;margin-right:4px;" onclick="showNotifications()">0</span>
     <span class="tracking-btn" id="tracking-header-btn" onclick="openTrackingPanel()" style="cursor:pointer;display:flex;align-items:center;gap:4px;font-size:12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:5px 12px;border-radius:6px;transition:.2s;">📡 Трекинг</span>
     <button id="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#fff;padding:0 4px;">🌙</button>
-    <button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button>
-    <button class="btn-logout" onclick="doLogout()" data-i18n="btn_logout">Выйти</button>
+    <button class="btn-logout" onclick="doLogout()">Выйти</button>
   </div>
 </div>
 
 <div class="tabs" id="tabs-bar">
-  <div class="tab active" data-panel="panel-dashboard" data-i18n="nav_dashboard">📊 Дашборд</div>
-  <div class="tab" data-panel="panel-shifts" data-i18n="nav_shifts">📅 Смены</div>
-  <div class="tab" data-panel="panel-workers" data-i18n="nav_workers">👷 Рабочие</div>
-  <div class="tab" data-panel="panel-clients" data-i18n="nav_clients">🏢 Клиенты</div>
-  <div class="tab" data-panel="panel-dispatchers" id="tab-dispatchers" style="display:none;" data-i18n="nav_dispatchers">👥 Диспетчеры</div>
-  <div class="tab" data-panel="panel-settings" data-i18n="nav_settings">⚙️ Настройки</div>
-  <div class="tab" data-panel="panel-recurring" data-i18n="nav_recurring">🔄 Подписки</div>
+  <div class="tab active" data-panel="panel-dashboard">📊 Дашборд</div>
+  <div class="tab" data-panel="panel-shifts">📅 Смены</div>
+  <div class="tab" data-panel="panel-workers">👷 Рабочие</div>
+  <div class="tab" data-panel="panel-clients">🏢 Клиенты</div>
+  <div class="tab" data-panel="panel-dispatchers" id="tab-dispatchers" style="display:none;">👥 Диспетчеры</div>
+  <div class="tab" data-panel="panel-settings">⚙️ Настройки</div>
+  <div class="tab" data-panel="panel-recurring">🔄 Подписки</div>
 </div>
 
 <!-- Dashboard -->
@@ -284,7 +283,7 @@ th.sort-desc::after{content:" ↓";opacity:1;}
 <!-- Shifts -->
 <div id="panel-shifts" class="panel">
   <div class="toolbar">
-    <button class="btn btn-primary" onclick="openNewShift()" data-i18n="btn_new_shift">+ Новая смена</button>
+    <button class="btn btn-primary" onclick="openNewShift()">+ Новая смена</button>
     <input type="date" id="shift-date-from" style="width:130px">
     <input type="date" id="shift-date-to" style="width:130px">
     <select id="shift-client-filter" style="width:180px"><option value="">Все клиенты</option></select>
@@ -297,8 +296,8 @@ th.sort-desc::after{content:" ↓";opacity:1;}
 <!-- Workers -->
 <div id="panel-workers" class="panel">
   <div class="toolbar">
-    <button class="btn btn-primary" onclick="openAddWorker()" data-i18n="btn_add_worker">+ Добавить</button>
-    <button class="btn btn-outline" onclick="showWorkerPayments()" data-i18n="btn_worker_payment">💰 Оплата</button>
+    <button class="btn btn-primary" onclick="openAddWorker()">+ Добавить</button>
+    <button class="btn btn-outline" onclick="showWorkerPayments()">💰 Оплата</button>
     <button class="btn btn-outline" id="btn-worker-list" onclick="showWorkerList()" style="display:none;">📋 Список</button>
   </div>
   <div id="worker-list-view">
@@ -330,8 +329,8 @@ th.sort-desc::after{content:" ↓";opacity:1;}
 <!-- Clients -->
 <div id="panel-clients" class="panel">
   <div class="toolbar">
-    <button class="btn btn-primary" onclick="openAddClient()" data-i18n="btn_add_client">+ Добавить</button>
-    <button class="btn btn-outline" onclick="showClientPayments()" data-i18n="btn_client_payment">💰 Оплата</button>
+    <button class="btn btn-primary" onclick="openAddClient()">+ Добавить</button>
+    <button class="btn btn-outline" onclick="showClientPayments()">💰 Оплата</button>
     <button class="btn btn-outline" id="btn-client-list" onclick="showClientList()" style="display:none;">📋 Список</button>
   </div>
   <div id="client-list-view">
@@ -359,7 +358,7 @@ th.sort-desc::after{content:" ↓";opacity:1;}
 <!-- Dispatchers (owner only) -->
 <div id="panel-dispatchers" class="panel">
   <div class="toolbar">
-    <button class="btn btn-primary" onclick="openAddDispatcher()" data-i18n="btn_add_dispatcher">+ Добавить диспетчера</button>
+    <button class="btn btn-primary" onclick="openAddDispatcher()">+ Добавить диспетчера</button>
   </div>
   <table><thead><tr><th data-sort onclick="handleSort(this,&apos;dispatchers-table&apos;)">Имя</th><th data-sort onclick="handleSort(this,&apos;dispatchers-table&apos;)">Телефон</th><th data-sort onclick="handleSort(this,&apos;dispatchers-table&apos;)">Ставка ₽/ч</th><th data-sort onclick="handleSort(this,&apos;dispatchers-table&apos;)">Часы за месяц</th><th data-sort onclick="handleSort(this,&apos;dispatchers-table&apos;)">ЗП</th><th>Действия</th></tr></thead>
   <tbody id="dispatchers-table"></tbody></table>
@@ -489,7 +488,7 @@ th.sort-desc::after{content:" ↓";opacity:1;}
   <div class="form-group"><label>ФИО</label><input type="text" id="worker-name"></div>
   <div class="form-group"><label>Телефон</label><input type="tel" id="worker-phone"></div>
   <div class="form-group"><label>Пароль для входа</label><div style="display:flex;gap:6px;"><input type="text" id="worker-password" style="flex:1" placeholder="Авто"><button class="btn btn-sm btn-outline" onclick="document.getElementById('worker-password').value=String(Math.floor(100000+Math.random()*900000))">🔄</button></div></div>
-  <button class="btn btn-primary" style="width:100%" onclick="saveWorker()" data-i18n="btn_save">Сохранить</button>
+  <button class="btn btn-primary" style="width:100%" onclick="saveWorker()">Сохранить</button>
 </div></div>
 
 <div id="modal-client" class="modal"><div class="modal-content">
@@ -503,7 +502,7 @@ th.sort-desc::after{content:" ↓";opacity:1;}
     <div class="form-group"><label>Рабочему ₽/ч</label><input type="number" id="client-worker-rate" value="400"></div>
   </div>
   <div class="form-group"><label>Способ оплаты</label><select id="client-pay-method" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;"><option value="transfer">Перевод</option><option value="cash">Наличные</option><option value="invoice">Безнал</option></select></div>
-  <button class="btn btn-primary" style="width:100%" onclick="saveClient()" data-i18n="btn_save">Сохранить</button>
+  <button class="btn btn-primary" style="width:100%" onclick="saveClient()">Сохранить</button>
   <div id="client-access-info" style="display:none;margin-top:12px;padding:12px;background:#ebf8ff;border-radius:8px;font-size:14px;"></div>
 </div></div>
 
@@ -517,7 +516,7 @@ th.sort-desc::after{content:" ↓";opacity:1;}
     <div class="form-group"><label>Ставка ₽/час</label><input type="number" id="dispatcher-rate" value="7.5" step="0.5"></div>
     <div class="form-group"><label>Цель часов/мес</label><input type="number" id="dispatcher-target" value="8000"></div>
   </div>
-  <button class="btn btn-primary" style="width:100%" onclick="saveDispatcher()" data-i18n="btn_save">Сохранить</button>
+  <button class="btn btn-primary" style="width:100%" onclick="saveDispatcher()">Сохранить</button>
   <div id="dispatcher-access-info" style="display:none;margin-top:12px;padding:12px;background:#ebf8ff;border-radius:8px;font-size:14px;"></div>
 </div></div>
 
@@ -562,23 +561,14 @@ th.sort-desc::after{content:" ↓";opacity:1;}
 
 <div id="chat-modal" class="chat-modal" style="display:none">
   <div class="chat-box">
-    <div class="chat-head"><span data-i18n="heading_chat">💬 Чат по смене</span><button onclick="closeChat()">✕</button></div>
+    <div class="chat-head"><span>💬 Чат по смене</span><button onclick="closeChat()">✕</button></div>
     <div class="chat-body" id="chat-messages"><div class="chat-empty">Сообщений пока нет</div></div>
-    <div class="chat-foot"><input id="chat-input" data-i18n-placeholder="placeholder_message" placeholder="Введите сообщение..." onkeydown="if(event.key==='Enter')sendChatMsg()"><button onclick="sendChatMsg()">➤</button></div>
+    <div class="chat-foot"><input id="chat-input" placeholder="Введите сообщение..." onkeydown="if(event.key==='Enter')sendChatMsg()"><button onclick="sendChatMsg()">➤</button></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
-// ===== i18n =====
-const DEFAULT_LANG='ru';
-let currentLang=localStorage.getItem('lang')||DEFAULT_LANG;
-let translations={};
-async function loadLang(lang){try{const r=await fetch('/lang/'+lang+'.json');translations=await r.json();currentLang=lang;localStorage.setItem('lang',lang);applyTranslations();}catch(e){console.warn('Lang load error:',e);}}
-function t(key){return translations[key]||key;}
-function applyTranslations(){document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=t(el.getAttribute('data-i18n'));});document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{el.placeholder=t(el.getAttribute('data-i18n-placeholder'));});}
-function setLang(lang){loadLang(lang);}
-
 function toggleTheme(){
   const d=document.body;
   if(d.classList.contains('dark')){d.classList.remove('dark');d.classList.add('light');localStorage.setItem('dp_theme','light');}
@@ -2058,7 +2048,6 @@ async function confirmClientPayment(paymentId,assignmentId){
     if(saved&&saved.phone){document.getElementById('auth-phone').value=saved.phone;}
   }catch(e){console.error('Auto-login error:',e);}
   initPhoneMasks();
-  loadLang(currentLang);
   const ws=document.getElementById('worker-search');if(ws)ws.addEventListener('input',debounce(loadWorkers,300));
   const cs=document.getElementById('client-search');if(cs)cs.addEventListener('input',debounce(loadClients,300));
 })();

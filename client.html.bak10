@@ -110,19 +110,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <div id="auth-screen" class="auth-screen"><div class="auth-box">
   <h1>🏢 Dispatcher.PRO</h1>
-  <p class="subtitle" id="auth-subtitle" data-i18n="auth_subtitle_client">Вход в кабинет</p>
+  <p class="subtitle" id="auth-subtitle">Вход в кабинет</p>
   <div id="auth-login-form">
-    <input type="tel" id="phone-input" data-i18n-placeholder="placeholder_phone" placeholder="Номер телефона" maxlength="15">
+    <input type="tel" id="phone-input" placeholder="Номер телефона" maxlength="15">
     <div class="pw-wrap">
-      <input type="password" id="pass-input" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
+      <input type="password" id="pass-input" placeholder="Пароль">
       <span class="pw-eye" onclick="togglePw('pass-input',this)">👁</span>
     </div>
-    <button onclick="login()" data-i18n="btn_login">Войти</button>
-    <p class="link"><a href="javascript:void(0)" onclick="showReg()" data-i18n="auth_register_link">Зарегистрироваться</a> · <a href="javascript:void(0)" onclick="forgotPassword()" data-i18n="auth_forgot">Забыли пароль?</a></p>
+    <button onclick="login()">Войти</button>
+    <p class="link"><a href="javascript:void(0)" onclick="showReg()">Зарегистрироваться</a> · <a href="javascript:void(0)" onclick="forgotPassword()">Забыли пароль?</a></p>
   </div>
   <div id="auth-reg-form" style="display:none;">
-    <input type="text" id="reg-name" data-i18n-placeholder="label_company_name" placeholder="Название компании">
-    <input type="tel" id="reg-phone" data-i18n-placeholder="placeholder_phone" placeholder="Контактный телефон" maxlength="15">
+    <input type="text" id="reg-name" placeholder="Название компании">
+    <input type="tel" id="reg-phone" placeholder="Контактный телефон" maxlength="15">
     <div class="pw-wrap">
       <input type="password" id="reg-pass" placeholder="Пароль">
       <span class="pw-eye" onclick="togglePw('reg-pass',this)">👁</span>
@@ -141,8 +141,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <option value="Вилючинск">Вилючинск</option>
       </select>
     </div>
-    <button onclick="register()" data-i18n="btn_register">Зарегистрироваться</button>
-    <p class="link"><a href="javascript:void(0)" onclick="showLogin()" data-i18n="auth_login_link">Уже есть аккаунт? Войти</a></p>
+    <button onclick="register()">Зарегистрироваться</button>
+    <p class="link"><a href="javascript:void(0)" onclick="showLogin()">Уже есть аккаунт? Войти</a></p>
   </div>
   <p id="auth-error" class="auth-error"></p>
 </div></div>
@@ -150,7 +150,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="main-screen" style="display:none;"><div class="container">
   <div class="header">
     <div><h2 id="client-name">🏢</h2><p id="client-stats"></p></div>
-    <div style="display:flex;gap:8px;align-items:center;"><button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button><button id="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">🌙</button><a class="logout" href="javascript:void(0)" onclick="if(confirm(t('confirm_exit')))logout()" style="color:#fff;font-size:12px;background:rgba(255,255,255,.15);padding:6px 12px;border-radius:6px;text-decoration:none;" data-i18n="btn_logout">Выйти</a></div>
+    <div style="display:flex;gap:8px;align-items:center;"><button id="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">🌙</button><a class="logout" href="javascript:void(0)" onclick="if(confirm('Выйти?'))logout()" style="color:#fff;font-size:12px;background:rgba(255,255,255,.15);padding:6px 12px;border-radius:6px;text-decoration:none;">Выйти</a></div>
   </div>
 
   <div id="tg-banner" style="display:none;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkTelegram()">📱 Подключить уведомления в Telegram</div>
@@ -158,14 +158,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div id="max-banner" style="display:none;background:linear-gradient(135deg,#6b3fa0,#8b5cf6);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkMax()">💬 Подключить уведомления в МАКС</div>
   <div id="max-linked" style="display:none;background:#f3e8ff;color:#6b21a8;padding:10px 16px;border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px">✅ МАКС уведомления подключены</div>
 
-  <button class="btn btn-green" onclick="openNewOrderModal()" style="width:100%;margin-bottom:12px;padding:14px;font-size:16px;border-radius:10px;" data-i18n="btn_new_order">➕ Новый заказ</button>
+  <button class="btn btn-green" onclick="openNewOrderModal()" style="width:100%;margin-bottom:12px;padding:14px;font-size:16px;border-radius:10px;">➕ Новый заказ</button>
 
   <div class="tabs" id="tab-bar">
-    <div class="tab-btn active" data-tab="tab-shifts" data-i18n="tab_my_orders">📅 Мои заказы</div>
-    <div class="tab-btn" data-tab="tab-payments" data-i18n="tab_payments">💰 Платежи</div>
-    <div class="tab-btn" data-tab="tab-analytics" data-i18n="tab_analytics">📊 Аналитика</div>
-    <div class="tab-btn" data-tab="tab-help" data-i18n="tab_help">❓ Помощь</div>
-    <div class="tab-btn" data-tab="tab-subscriptions" data-i18n="tab_subscriptions">🔄 Подписки</div>
+    <div class="tab-btn active" data-tab="tab-shifts">📅 Мои заказы</div>
+    <div class="tab-btn" data-tab="tab-payments">💰 Платежи</div>
+    <div class="tab-btn" data-tab="tab-analytics">📊 Аналитика</div>
+    <div class="tab-btn" data-tab="tab-help">❓ Помощь</div>
+    <div class="tab-btn" data-tab="tab-subscriptions">🔄 Подписки</div>
   </div>
 
   <div class="tab-content" id="tab-help">
@@ -203,32 +203,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <div id="chat-modal" class="chat-modal" style="display:none">
   <div class="chat-box">
-    <div class="chat-head"><span data-i18n="heading_chat">💬 Чат по смене</span><button onclick="closeChat()">✕</button></div>
-    <div class="chat-body" id="chat-messages"><div class="chat-empty" data-i18n="empty_messages">Сообщений пока нет</div></div>
-    <div class="chat-foot"><input id="chat-input" data-i18n-placeholder="placeholder_message" placeholder="Введите сообщение..." onkeydown="if(event.key==='Enter')sendChatMsg()"><button onclick="sendChatMsg()">➤</button></div>
+    <div class="chat-head"><span>💬 Чат по смене</span><button onclick="closeChat()">✕</button></div>
+    <div class="chat-body" id="chat-messages"><div class="chat-empty">Сообщений пока нет</div></div>
+    <div class="chat-foot"><input id="chat-input" placeholder="Введите сообщение..." onkeydown="if(event.key==='Enter')sendChatMsg()"><button onclick="sendChatMsg()">➤</button></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
-// ===== i18n =====
-const DEFAULT_LANG='ru';
-let currentLang=localStorage.getItem('lang')||DEFAULT_LANG;
-let translations={};
-async function loadLang(lang){try{const r=await fetch('/lang/'+lang+'.json');translations=await r.json();currentLang=lang;localStorage.setItem('lang',lang);applyTranslations();}catch(e){console.warn('Lang load error:',e);}}
-function t(key){return translations[key]||key;}
-function applyTranslations(){document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=t(el.getAttribute('data-i18n'));});document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{el.placeholder=t(el.getAttribute('data-i18n-placeholder'));});}
-function setLang(lang){loadLang(lang);}
-// Telegram Mini App auto-login
-(function(){
-  const p=new URLSearchParams(window.location.search);
-  if(p.get('from_tg')==='1'){
-    const tid=p.get('tg_user_id');
-    if(tid&&!localStorage.getItem('token')){
-      fetch('/auth/tg-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_chat_id:tid})}).then(r=>r.json()).then(d=>{if(d.token){localStorage.setItem('token',d.token);localStorage.setItem('user',JSON.stringify(d.user));location.href=location.pathname;}}).catch(()=>{});
-    }
-  }
-})();
 function toggleTheme(){
   const d=document.body;
   if(d.classList.contains('dark')){d.classList.remove('dark');d.classList.add('light');localStorage.setItem('dp_theme','light');}
@@ -967,7 +949,6 @@ async function submitNewOrder(){
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
 initPhoneMasks();
-loadLang(currentLang);
 
 // --- Chat ---
 let _chatShiftId=null,_chatPoll=null,_chatMyId=null;

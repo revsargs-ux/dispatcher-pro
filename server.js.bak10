@@ -98,16 +98,6 @@ const server = http.createServer(async (req, res) => {
       fs.createReadStream(photoFile).pipe(res);
       return;
     }
-    // Serve language files
-    if (urlPath === '/lang/ru.json' || urlPath === '/lang/en.json') {
-      const langFile = path.join(__dirname, 'lang', urlPath.replace('/lang/', ''));
-      if (fs.existsSync(langFile)) {
-        const data = fs.readFileSync(langFile, 'utf-8');
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*' });
-        res.end(data);
-      } else { res.writeHead(404); res.end('Not found'); }
-      return;
-    }
     // Push subscription endpoint (изолированный модуль уведомлений)
     if (req.url === '/api/push-subscription') {
       return handlePushSubscription(req, res);

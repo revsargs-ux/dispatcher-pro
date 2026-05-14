@@ -101,4 +101,51 @@ async function cmdEarnings(chatId, user, sendFn) {
   );
 }
 
-module.exports = { calcEarnings, cmdShifts, cmdEarnings };
+// ============================================================
+// forwardChatNotification — notify the other party in a shift chat
+// ============================================================
+async function forwardChatNotification(shiftId, senderRole, senderId, senderName, message, sendTg, sendMax) {
+  try {
+    // Get shift details
+    const sRes = await fetch(`${config.sbUrl}/rest/v1/shifts?id=eq.${shiftId}&select=id,client_id`, { headers: sbHeaders() });
+    const shifts = await sRes.json();
+    if (!Array.isArray(shifts) || !shifts.length) return;
+    const shift = shifts[0];
+
+    const escName = (senderName || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const escMsg = (message || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const tgText = `💬 <b>${escName}</b>: ${escMsg}`;
+    const maxText = `💬 ${senderName}: ${message}`;
+
+    if (senderRole === 'worker') {
+      // Notify client
+      if (shift.client_id) {
+        const cRes = await fetch(`${config.sbUrl}/rest/v1/clients?id=eq.${shift.client_id}&select=telegram_chat_id,max_chat_id&limit=1`, { headers: sbHeaders() });
+        const clients = await cRes.json();
+        if (Array.isArray(clients) && clients[0]) {
+          const c = clients[0];
+          if (c.telegram_chat_id) sendTg(c.telegram_chat_id, tgText);
+          if (c.max_chat_id) sendMax(c.max_chat_id, maxText);
+        }
+      }
+    } else if (senderRole === 'client') {
+      // Notify all assigned workers
+      const aRes = await fetch(`${config.sbUrl}/rest/v1/shift_assignments?shift_id=eq.${shiftId}&select=worker_id`, { headers: sbHeaders() });
+      const assignments = await aRes.json();
+      if (!Array.isArray(assignments)) return;
+      for (const a of assignments) {
+        const wRes = await fetch(`${config.sbUrl}/rest/v1/workers?id=eq.${a.worker_id}&select=telegram_chat_id,max_chat_id&limit=1`, { headers: sbHeaders() });
+        const workers = await wRes.json();
+        if (Array.isArray(workers) && workers[0]) {
+          const w = workers[0];
+          if (w.telegram_chat_id) sendTg(w.telegram_chat_id, tgText);
+          if (w.max_chat_id) sendMax(w.max_chat_id, maxText);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[bot-common] forwardChatNotification error:', e.message);
+  }
+}
+
+module.exports = { calcEarnings, cmdShifts, cmdEarnings, forwardChatNotification };

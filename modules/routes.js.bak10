@@ -163,7 +163,6 @@ function createRouter() {
     if (urlPath === '/auth/refresh' && req.method === 'POST') return await authRoutes.handleAuthRefresh(req, res, cors);
     if (urlPath === '/auth/logout' && req.method === 'POST') return await authRoutes.handleAuthLogout(req, res, cors);
     if (urlPath === '/auth/verify-2fa' && req.method === 'POST') return await authRoutes.handleVerify2FA(req, res, cors);
-  if (urlPath === '/auth/tg-login' && req.method === 'POST') return await authRoutes.handleTgLogin(req, res, cors);
 
     // --- GAS webhook ---
     if (urlPath === '/api/gas-webhook' && req.method === 'POST') {

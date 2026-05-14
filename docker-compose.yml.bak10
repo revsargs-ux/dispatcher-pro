@@ -20,15 +20,12 @@ services:
       - ./worker.html:/app/worker.html:ro
       - ./owner.html:/app/owner.html:ro
       - ./client.html:/app/client.html:ro
-      - ./tg-worker.html:/app/tg-worker.html:ro
-      - ./tg-client.html:/app/tg-client.html:ro
       - ./manifest.json:/app/manifest.json:ro
       - ./sw.js:/app/sw.js:ro
       - ./push-client.js:/app/push-client.js:ro
       - ./notifications-module:/app/notifications-module:ro
       - ./bot-knowledge.md:/app/bot-knowledge.md:ro
       - ./sql-setup.html:/app/sql-setup.html:ro
-      - ./lang:/app/lang:ro
       - ./receipts:/app/receipts
       - ./data:/app/data
     networks:
