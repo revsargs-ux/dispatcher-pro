@@ -90,8 +90,6 @@ p{margin:5px 0;font-size:14px;line-height:1.5}
 
 <div class="card medium">
 <h3>2.6 Offline-режим</h3>
-<p><span class="tag p1">P1</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p>Service Worker обновлён: cache-first для статики, network-first для API, offline fallback страница. GPS-трекинг сохранён.</p>
 <p><span class="tag p2">P2</span> Service Worker кеширует статические ресурсы. "Нет подключения" вместо белого экрана. Важно для рабочих на объектах.</p>
 </div>
 
@@ -153,14 +151,11 @@ p{margin:5px 0;font-size:14px;line-height:1.5}
 
 <div class="card small">
 <h3>4.5 Migration tracking</h3>
-<p><span class="tag p2">P2</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p>Таблица schema_migrations создана. Скрипт <code>run-migrations.sh</code> показывает готовые миграции. SQL: <code>migrations/000_create_migrations_table.sql</code></p>
+<p><span class="tag p2">P2</span> Таблица schema_migrations. Скрипт для применения миграций по порядку.</p>
 </div>
 
 <div class="card small">
 <h3>4.6 notifications.json → Supabase таблица</h3>
-<p><span class="tag p2">P2</span> <b>✅ ВЫПОЛНЕНО</b></p>
-<p>Таблица app_notifications создана с RLS. SQL: <code>migrations/create-notifications-table.sql</code></p>
 <p><span class="tag p1">P1</span> JSON файл растёт бесконечно, конкурентная запись без блокировок. Перенести в БД с TTL 30 дней.</p>
 </div>
 

@@ -282,19 +282,13 @@ async function handlePostProcess(table, method, data, body, query, req) {
   try {
     // Shifts
     if (table === 'shifts' && method === 'POST' && (first.status === 'pending' || first.status === 'planned') && first.client_id) {
-      // Batch: fetch client, service_type, requirements, dispatchers in parallel
-      const [clRes, svcRes, reqsRes, dispatchers] = await Promise.all([
-        sbFetch('clients', `id=eq.${first.client_id}&select=name,city,contact&limit=1`).then(r => r.json()),
-        sbFetch('service_types', `id=eq.${first.service_type_id}&select=name&limit=1`).then(r => r.json()),
-        sbFetch('shift_requirements', `shift_id=eq.${first.id}&select=required_count`).then(r => r.json()),
-        sbFetch('users', 'role=eq.dispatcher&is_active=eq.true&select=id,telegram_chat_id,full_name,city').then(r => r.json())
-      ]);
-      const cl = clRes[0] || {};
-      const svc = svcRes[0] || {};
-      const reqs = reqsRes || [];
-      const workersCount = reqs.reduce((s, r) => s + (parseInt(r.required_count) || 0), 0);
+      const cl = ((await (await sbFetch('clients', `id=eq.${first.client_id}&select=name,city,contact&limit=1`)).json())[0] || {});
+      const svc = ((await (await sbFetch('service_types', `id=eq.${first.service_type_id}&select=name&limit=1`)).json())[0] || {});
       const orderDate = first.date ? first.date.split('-').reverse().join('.') : '—';
+      const reqs = await (await sbFetch('shift_requirements', `shift_id=eq.${first.id}&select=required_count`)).json();
+      const workersCount = (reqs || []).reduce((s, r) => s + (parseInt(r.required_count) || 0), 0);
       const orderText = `🆕 Новый заказ!\n\n🏢 Заказчик: ${cl.name || '—'}\n📅 Дата: ${orderDate}\n⏰ Время: ${first.start_time || '—'}\n📋 Услуга: ${svc.name || 'Не указан'}\n📍 Адрес: ${first.address || '—'}\n👥 Кол-во рабочих: ${workersCount || '—'}\n${first.comment ? '💬 ' + first.comment + '\n' : ''}\n⚡️ Перейдите в систему чтобы взять заказ`;
+      const dispatchers = await (await sbFetch('users', 'role=eq.dispatcher&is_active=eq.true&select=telegram_chat_id,full_name,city')).json();
       for (const d of dispatchers) {
         if (!d.telegram_chat_id) continue;
         if (cl.city && d.city && d.city !== cl.city) continue;
@@ -302,12 +296,19 @@ async function handlePostProcess(table, method, data, body, query, req) {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ chat_id: d.telegram_chat_id, text: orderText, parse_mode: 'HTML' })
         });
-        sendPushNotification({ userId: d.id, userRole: 'dispatcher', eventType: 'new_shift', priority: 'high', title: '🆕 Новый заказ', body: `${cl.name || '—'} | ${orderDate} | ${svc.name || ''}`, deepLink: '/' });
       }
-      // GAS sync — reuse cl/svc already fetched
+      // Push-уведомление диспетчерам о новом заказе
+      for (const d of dispatchers) {
+        if (d.telegram_chat_id) {
+          sendPushNotification({ userId: d.id, userRole: 'dispatcher', eventType: 'new_shift', priority: 'high', title: '🆕 Новый заказ', body: `${cl.name || '—'} | ${orderDate} | ${svc.name || ''}`, deepLink: '/' });
+        }
+      }
+      // GAS sync
+      const cl2 = ((await (await sbFetch('clients', `id=eq.${first.client_id}&select=name&limit=1`)).json())[0] || {});
+      const svc2 = ((await (await sbFetch('service_types', `id=eq.${first.service_type_id}&select=name&limit=1`)).json())[0] || {});
       syncToGoogleSheets('syncShift', {
-        shift_id: first.id, shift_date: first.date, shift_client: cl.name || '',
-        shift_service: svc.name || '', shift_start: first.start_time || '',
+        shift_id: first.id, shift_date: first.date, shift_client: cl2.name || '',
+        shift_service: svc2.name || '', shift_start: first.start_time || '',
         shift_address: first.address || '', shift_comment: first.comment || '', shift_status: first.status
       });
     }
@@ -358,11 +359,9 @@ async function handlePostProcess(table, method, data, body, query, req) {
     if (table === 'shift_assignments' && (method === 'POST' || method === 'PATCH')) {
       const a = first;
       let workerName = '';
-      let workerPhone = '';
       if (a.worker_id) {
-        const ws = ((await (await sbFetch('workers', `id=eq.${a.worker_id}&select=full_name,phone&limit=1`)).json())[0]);
+        const ws = ((await (await sbFetch('workers', `id=eq.${a.worker_id}&select=full_name&limit=1`)).json())[0]);
         workerName = ws?.full_name || '';
-        workerPhone = ws?.phone || '';
       }
       syncToGoogleSheets('syncAssignment', {
         id: a.id, shift_id: a.shift_id || '', worker_name: workerName,
@@ -371,7 +370,7 @@ async function handlePostProcess(table, method, data, body, query, req) {
         paid_amount: a.paid_amount, payment_status: a.payment_status, extra_amount: a.extra_amount
       });
       if (method === 'POST' && a.worker_id) {
-        tgNotify('workers', workerPhone,
+        tgNotify('workers', (await (await sbFetch('workers', `id=eq.${a.worker_id}&select=phone&limit=1`)).json())[0]?.phone,
           `📋 Новый заказ\n\n📅 Проверьте расписание в системе\n\n👉 https://xn----gtbdan3bddhceo9d.xn--p1ai/worker.html`);
         // Push-уведомление рабочему о назначении
         sendPushNotification({ userId: a.worker_id, userRole: 'worker', eventType: 'shift_assigned', priority: 'high', title: '📋 Вас назначили на смену', body: 'Проверьте расписание в системе', deepLink: '/worker.html' });
@@ -400,14 +399,11 @@ async function handlePostProcess(table, method, data, body, query, req) {
     // Payments
     if (table === 'payments' && (method === 'POST' || method === 'PATCH')) {
       let counterpartyName = '';
-      let paymentWorkerId = null;
       if (first.assignment_id) {
-        // Single join query: assignment -> worker
         const as = ((await (await sbFetch('shift_assignments', `id=eq.${first.assignment_id}&select=worker_id&limit=1`)).json())[0]);
         if (as?.worker_id) {
           const ws = ((await (await sbFetch('workers', `id=eq.${as.worker_id}&select=full_name&limit=1`)).json())[0]);
           counterpartyName = ws?.full_name || '';
-          paymentWorkerId = as.worker_id;
         }
       }
       syncToGoogleSheets('syncPayment', {
@@ -416,12 +412,15 @@ async function handlePostProcess(table, method, data, body, query, req) {
         method: { transfer: 'Перевод', cash: 'Наличные', invoice: 'Безнал' }[first.method] || first.method || '',
         status: first.status === 'pending_confirmation' ? 'Ожидает подтверждения' : 'Проведен', note: first.note || ''
       });
-      // Push: notify worker about new payment — reuse worker_id from above
-      if (method === 'POST' && paymentWorkerId) {
+      // Push: notify worker about new payment
+      if (method === 'POST' && first.assignment_id) {
         try {
-          const amountStr = first.amount ? `${first.amount}₽` : 'Оплата';
-          const methodStr = { transfer: 'Перевод', cash: 'Наличные', invoice: 'Безнал' }[first.method] || first.method || '';
-          sendPushNotification({ userId: paymentWorkerId, userRole: 'worker', eventType: 'payment_recorded', priority: 'high', title: '💰 Оплата проведена', body: `${amountStr} (${methodStr})`, deepLink: '/worker.html' });
+          const asgn = ((await (await sbFetch('shift_assignments', `id=eq.${first.assignment_id}&select=worker_id&limit=1`)).json())[0]);
+          if (asgn?.worker_id) {
+            const amountStr = first.amount ? `${first.amount}₽` : 'Оплата';
+            const methodStr = { transfer: 'Перевод', cash: 'Наличные', invoice: 'Безнал' }[first.method] || first.method || '';
+            sendPushNotification({ userId: asgn.worker_id, userRole: 'worker', eventType: 'payment_recorded', priority: 'high', title: '💰 Оплата проведена', body: `${amountStr} (${methodStr})`, deepLink: '/worker.html' });
+          }
         } catch (pe) { console.error('[Push] Payment notification error:', pe.message); }
       }
     }
