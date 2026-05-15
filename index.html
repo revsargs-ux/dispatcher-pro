@@ -596,7 +596,7 @@ function setupPhoneMask(input){
     let v=this.value.replace(/\D/g,'');
     if(v.length>0&&v[0]!=='7')v='7'+v;
     if(v.length>11)v=v.slice(0,11);
-    if(v.length>1)this.value='+'+v[0]+' ('+v.slice(1,4)+') '+v.slice(4,6)+'-'+v.slice(6,8)+'-'+v.slice(8);
+    if(v.length>1)this.value='+'+v[0]+' ('+v.slice(1,4)+') '+v.slice(4,7)+'-'+v.slice(7,9)+'-'+v.slice(9);
     else if(v.length===1)this.value='+'+v;
     else this.value=v;
   });
