@@ -65,7 +65,7 @@ async function handleLogin(req, res, cors) {
     const userRole = u.role || (table === 'workers' ? 'worker' : table === 'clients' ? 'client' : 'owner');
     if ((userRole === 'owner' || userRole === 'dispatcher') && u.telegram_chat_id) {
       const code = generate2FACode();
-      twoFAStore.set(u.id, { code, expires: Date.now() + 5 * 60 * 1000, token, user: { id: u.id, full_name: u.full_name || u.name, phone: u.phone || u.contact || '', role: userRole, rate_per_hour: u.rate_per_hour, monthly_target_hours: u.monthly_target_hours, is_active: u.is_active } });
+      twoFAStore.set(u.id, { code, expires: Date.now() + 5 * 60 * 1000, token, user: { id: u.id, full_name: u.full_name || u.name, phone: u.phone || u.contact || '', role: userRole, city: u.city || '', rate_per_hour: u.rate_per_hour, monthly_target_hours: u.monthly_target_hours, is_active: u.is_active } });
       try {
         await tgSendMessage(u.telegram_chat_id, `🔐 Код подтверждения входа: <code>${code}</code>\n\nДействителен 5 минут. Если это не вы — проигнорируйте.`);
       } catch (e) { console.error('[2FA] TG send error:', e.message); }
@@ -74,7 +74,7 @@ async function handleLogin(req, res, cors) {
 
     json(res, {
       ok: true, token,
-      user: { id: u.id, full_name: u.full_name || u.name, phone: u.phone || u.contact || '', role: userRole, rate_per_hour: u.rate_per_hour, monthly_target_hours: u.monthly_target_hours, is_active: u.is_active }
+      user: { id: u.id, full_name: u.full_name || u.name, phone: u.phone || u.contact || '', role: userRole, city: u.city || '', rate_per_hour: u.rate_per_hour, monthly_target_hours: u.monthly_target_hours, is_active: u.is_active }
     });
   } catch (e) { json(res, { ok: false, error: e.message }, 500, cors); }
 }
@@ -200,7 +200,7 @@ async function handleAuthMe(req, res, cors) {
     const freshToken = createToken(u.id, u.role || (table === 'workers' ? 'worker' : table === 'clients' ? 'client' : 'owner'), table);
     json(res, {
       ok: true, token: freshToken,
-      user: { id: u.id, full_name: u.full_name || u.name, phone: u.phone || u.contact || '', role: u.role, rate_per_hour: u.rate_per_hour, monthly_target_hours: u.monthly_target_hours, is_active: u.is_active }
+      user: { id: u.id, full_name: u.full_name || u.name, phone: u.phone || u.contact || '', role: u.role, city: u.city || '', rate_per_hour: u.rate_per_hour, monthly_target_hours: u.monthly_target_hours, is_active: u.is_active }
     });
   } catch (e) { json(res, { ok: false, error: e.message }, 500, cors); }
 }
@@ -263,7 +263,7 @@ async function handleTgLogin(req, res, cors) {
 
     const token = createToken(user.id, role, role === 'worker' ? 'workers' : 'clients');
     res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
-    res.end(JSON.stringify({ token, user: { id: user.id, role, full_name: user.full_name || user.name } }));
+    res.end(JSON.stringify({ token, user: { id: user.id, role, city: user.city || '', full_name: user.full_name || user.name } }));
   } catch (e) {
     console.error('[TG Login] Error:', e.message);
     res.writeHead(500, { 'Content-Type': 'application/json', ...cors });

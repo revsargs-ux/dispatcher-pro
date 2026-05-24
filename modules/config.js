@@ -8,11 +8,13 @@ const config = {
   port: parseInt(process.env.PORT || '8080', 10),
   
   // Supabase
-  sbUrl: process.env.SB_URL || 'https://YOUR-PROJECT.supabase.co',
+  sbUrl: process.env.SB_URL || '',
   sbKey: process.env.SB_KEY || '',
+  get sbKeySet() { return !!this.sbKey && this.sbKey.length > 10; },
   
   // Telegram
   tgBotToken: process.env.TG_BOT_TOKEN || '',
+  get tgBotTokenSet() { return !!this.tgBotToken && this.tgBotToken.length > 10; },
   get tgApi() { return 'https://api.telegram.org/bot' + this.tgBotToken; },
   maxBotToken: process.env.MAX_BOT_TOKEN || '',
   get maxApi() { return 'https://platform-api.max.ru'; },

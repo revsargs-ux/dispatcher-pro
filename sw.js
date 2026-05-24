@@ -1,7 +1,7 @@
 // Service Worker — Dispatcher.PRO
 // Push-уведомления + фоновый GPS-трекинг + Offline кэш
 
-const CACHE_NAME = 'dispatcher-v1';
+const CACHE_NAME = 'dispatcher-v22';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

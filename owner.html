@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>РОП — Dispatcher.PRO</title>
-<!-- manifest disabled -->
+<link rel="manifest" href="/manifest.json">
 <style>
 :root{--primary:#1a365d;--primary-light:#2c5282;--primary-dark:#0f2440;--accent:#38a169;--warning:#d69e2e;--danger:#c53030;--bg:#f7fafc;--card:#fff;--border:#e2e8f0;--text:#1a202c;--text-light:#718096;--bg-gradient-start:#0f2440;--bg-gradient-end:#1a365d;--auth-card-bg:#fff}
 @media(prefers-color-scheme:dark){:root:not(.light){--primary:#4c7cba;--primary-light:#5a8fd4;--primary-dark:#0a0f1e;--accent:#48bb78;--danger:#e53e3e;--bg:#1a1a2e;--card:#16213e;--border:#2a2a4a;--text:#e2e8f0;--text-light:#a0aec0;--bg-gradient-start:#0a0f1e;--bg-gradient-end:#1a1a2e;--auth-card-bg:#16213e}}
@@ -244,14 +244,9 @@ function setupPhoneMask(input){
   if(!input)return;
   input.addEventListener('input',function(){
     let v=this.value.replace(/\D/g,'');
+    if(v.length>0&&(v[0]==='8'))v=v.slice(1);
     if(v.length>0&&v[0]!=='7')v='7'+v;
     if(v.length>11)v=v.slice(0,11);
-    if(v.length>1)this.value='+'+v[0]+' ('+v.slice(1,4)+') '+v.slice(4,7)+'-'+v.slice(7,9)+'-'+v.slice(9);
-    else if(v.length===1)this.value='+'+v;
-    else this.value=v;
-  });
-  input.addEventListener('blur',function(){
-    let v=this.value.replace(/\D/g,'');
     this.value=v.length>=1?'+'+v:'';
   });
 }

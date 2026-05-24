@@ -108,3 +108,69 @@
   payments: 0 records
 [2026-05-14_0300] Backup done: /home/n8n/dispatcher-deploy/backups/backup_2026-05-14_0300.json.gz (4.0K)
 [2026-05-14_0300] Old backups cleaned
+[2026-05-19_0300] Starting backup...
+  users: 5 records
+  workers: 5 records
+  clients: 3 records
+  shifts: 4 records
+  shift_assignments: 8 records
+  shift_requirements: 5 records
+  service_types: 10 records
+  payments: 1 records
+[2026-05-19_0300] Backup done: /home/n8n/dispatcher-deploy/backups/backup_2026-05-19_0300.json.gz (4.0K)
+[2026-05-19_0300] Old backups cleaned
+[2026-05-20_0300] Starting backup...
+  users: 5 records
+  workers: 5 records
+  clients: 3 records
+  shifts: 4 records
+  shift_assignments: 8 records
+  shift_requirements: 5 records
+  service_types: 10 records
+  payments: 1 records
+[2026-05-20_0300] Backup done: /home/n8n/dispatcher-deploy/backups/backup_2026-05-20_0300.json.gz (4.0K)
+[2026-05-20_0300] Old backups cleaned
+[2026-05-21_0300] Starting backup...
+  users: 5 records
+  workers: 9 records
+  clients: 4 records
+  shifts: 4 records
+  shift_assignments: 8 records
+  shift_requirements: 4 records
+  service_types: 10 records
+  payments: 1 records
+[2026-05-21_0300] Backup done: /home/n8n/dispatcher-deploy/backups/backup_2026-05-21_0300.json.gz (4.0K)
+[2026-05-21_0300] Old backups cleaned
+[2026-05-22_0300] Starting backup...
+  users: 6 records
+  workers: 10 records
+  clients: 5 records
+  shifts: 4 records
+  shift_assignments: 17 records
+  shift_requirements: 4 records
+  service_types: 10 records
+  payments: 1 records
+[2026-05-22_0300] Backup done: /home/n8n/dispatcher-deploy/backups/backup_2026-05-22_0300.json.gz (8.0K)
+[2026-05-22_0300] Old backups cleaned
+[2026-05-23_0300] Starting backup...
+  users: 6 records
+  workers: 10 records
+  clients: 5 records
+  shifts: 4 records
+  shift_assignments: 17 records
+  shift_requirements: 4 records
+  service_types: 10 records
+  payments: 1 records
+[2026-05-23_0300] Backup done: /home/n8n/dispatcher-deploy/backups/backup_2026-05-23_0300.json.gz (8.0K)
+[2026-05-23_0300] Old backups cleaned
+[2026-05-24_0300] Starting backup...
+  users: 6 records
+  workers: 10 records
+  clients: 5 records
+  shifts: 4 records
+  shift_assignments: 17 records
+  shift_requirements: 4 records
+  service_types: 10 records
+  payments: 1 records
+[2026-05-24_0300] Backup done: /home/n8n/dispatcher-deploy/backups/backup_2026-05-24_0300.json.gz (8.0K)
+[2026-05-24_0300] Old backups cleaned

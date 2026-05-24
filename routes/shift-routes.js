@@ -3,7 +3,7 @@
  */
 const { readBody, json } = require('./shared');
 const { config, loadJson, saveJson } = require('../modules/config');
-const { sbFetch, sbHeaders } = require('../modules/db');
+const { sbFetch } = require('../modules/db');
 const { sendPushNotification, sendPushToRole } = require('../notifications-module/push-trigger');
 const { requireAuth } = require('../modules/auth');
 const { audit } = require('../modules/audit');
@@ -23,8 +23,13 @@ async function handlePendingOrders(req, res, cors) {
 // --- Claim order ---
 async function handleClaimOrder(req, res, cors) {
   const body = await readBody(req);
-  const { shift_id, dispatcher_id } = JSON.parse(body);
+  let parsed;
+  try { parsed = JSON.parse(body); } catch(e) { return json(res, { error: 'Invalid JSON' }, 400, cors); }
+  const { shift_id, dispatcher_id } = parsed;
   if (!shift_id || !dispatcher_id) return json(res, { error: 'Missing shift_id or dispatcher_id' }, 400, cors);
+  if (!/^[0-9a-f-]{36}$/.test(shift_id) || !/^[0-9a-f-]{36}$/.test(dispatcher_id)) {
+    return json(res, { error: 'Invalid ID format' }, 400, cors);
+  }
 
   const checkRes = await sbFetch('shifts', `id=eq.${shift_id}&select=status,client_id&limit=1`);
   const shifts = await checkRes.json();
@@ -315,11 +320,13 @@ async function handleRecurringList(req, res, cors) {
 
 async function handleRecurringCreate(req, res, cors) {
   const body = await readBody(req);
-  const parsed = JSON.parse(body);
+  let parsed;
+  try { parsed = JSON.parse(body); } catch(e) { return json(res, { error: 'Invalid JSON' }, 400, cors); }
   const { client_id, worker_id, service_type_id, day_of_week, time_start, hours, object_address, notes, created_by } = parsed;
   if (!client_id || day_of_week === undefined || !time_start) {
     return json(res, { error: 'Missing required fields' }, 400, cors);
   }
+  if (day_of_week < 0 || day_of_week > 6) return json(res, { error: 'Invalid day_of_week' }, 400, cors);
   try {
     const sbRes = await sbFetch('recurring_orders', '', {
       method: 'POST',
@@ -330,8 +337,7 @@ async function handleRecurringCreate(req, res, cors) {
         notes: notes || null,
         is_active: true,
         created_by: created_by || null
-      }),
-      headers: { ...sbHeaders(), 'Prefer': 'return=representation' }
+      })
     });
     const data = await sbRes.json();
     json(res, data, sbRes.status, cors);
@@ -339,13 +345,14 @@ async function handleRecurringCreate(req, res, cors) {
 }
 
 async function handleRecurringUpdate(req, res, cors, id) {
+  if (!/^[0-9a-f-]{36}$/.test(id)) return json(res, { error: 'Invalid ID' }, 400, cors);
   const body = await readBody(req);
-  const parsed = JSON.parse(body);
+  let parsed;
+  try { parsed = JSON.parse(body); } catch(e) { return json(res, { error: 'Invalid JSON' }, 400, cors); }
   try {
     const sbRes = await sbFetch('recurring_orders', `id=eq.${id}`, {
       method: 'PATCH',
-      body: JSON.stringify(parsed),
-      headers: { ...sbHeaders(), 'Prefer': 'return=representation' }
+      body: JSON.stringify(parsed)
     });
     const data = await sbRes.json();
     json(res, data, sbRes.status, cors);
@@ -353,6 +360,7 @@ async function handleRecurringUpdate(req, res, cors, id) {
 }
 
 async function handleRecurringDelete(req, res, cors, id) {
+  if (!/^[0-9a-f-]{36}$/.test(id)) return json(res, { error: 'Invalid ID' }, 400, cors);
   try {
     const sbRes = await sbFetch('recurring_orders', `id=eq.${id}`, {
       method: 'DELETE'
@@ -406,8 +414,7 @@ async function handleSubmitReview(req, res, cors) {
 
     const sbRes = await sbFetch('reviews', '', {
       method: 'POST',
-      body: JSON.stringify({ shift_id, worker_id, client_id: session.userId, rating, comment: comment || null }),
-      headers: { ...sbHeaders(), 'Prefer': 'return=representation' }
+      body: JSON.stringify({ shift_id, worker_id, client_id: session.userId, rating, comment: comment || null })
     });
     const data = await sbRes.json();
     json(res, data, sbRes.status, cors);

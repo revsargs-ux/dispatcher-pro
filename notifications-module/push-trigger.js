@@ -5,7 +5,7 @@
  */
 const { config } = require('../modules/config');
 
-const EDGE_FUNCTION_URL = `https://YOUR-PROJECT.supabase.co/functions/v1/send-notification`;
+const EDGE_FUNCTION_URL = `${config.sbUrl}/functions/v1/send-notification`;
 const WEBHOOK_SECRET = process.env.PUSH_SECRET || '';
 
 /**

@@ -15,3 +15,45 @@
 {"timestamp":"2026-05-14T21:42:32.720Z","action":"login_failure","details":"not found: 79999999999 (workers)","userId":"anonymous","role":"unknown","ip":"93.189.230.107"}
 {"timestamp":"2026-05-14T21:42:33.207Z","action":"register","details":"Audit Test v3 (workers)","userId":"858f35aa-2547-4c4d-a415-43cccdfa2cce","role":"workers","ip":"93.189.230.107"}
 {"timestamp":"2026-05-14T21:44:12.912Z","action":"login_success","details":"Audit Test v3 (workers)","userId":"858f35aa-2547-4c4d-a415-43cccdfa2cce","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-19T08:11:54.897Z","action":"login_failure","details":"wrong pass: Тест Диспетчер (users)","userId":"849d3de8-e682-404d-a2f7-bff9fc774aca","role":"dispatcher","ip":"109.109.165.28"}
+{"timestamp":"2026-05-19T08:12:07.410Z","action":"login_success","details":"Тест Диспетчер (users)","userId":"849d3de8-e682-404d-a2f7-bff9fc774aca","role":"dispatcher","ip":"109.109.165.28"}
+{"timestamp":"2026-05-21T01:13:08.890Z","action":"register","details":"Тест Тестов (workers)","userId":"2737ac5f-78c6-4b31-8efd-fd4fbddb1a88","role":"workers","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T01:14:37.219Z","action":"login_success","details":"Тест Тестов (workers)","userId":"2737ac5f-78c6-4b31-8efd-fd4fbddb1a88","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T01:20:17.381Z","action":"login_success","details":"Тест Тестов (workers)","userId":"2737ac5f-78c6-4b31-8efd-fd4fbddb1a88","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T01:22:42.498Z","action":"register","details":"Тест Ревик (workers)","userId":"7869f4bc-52be-42fe-ac2b-1d516713855d","role":"workers","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T01:22:54.955Z","action":"register","details":"Тест Ревик2 (workers)","userId":"cb196c58-7cfe-4a67-b16e-4ae0f3aaf8d4","role":"workers","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T01:23:03.262Z","action":"login_success","details":"Тест Ревик2 (workers)","userId":"cb196c58-7cfe-4a67-b16e-4ae0f3aaf8d4","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T01:28:22.100Z","action":"login_failure","details":"not found: 79248910259 (workers)","userId":"anonymous","role":"unknown","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T01:32:39.223Z","action":"register","details":"Яценко Андрей (workers)","userId":"a26e21b4-be64-41f6-9b40-c131fb6ebe4e","role":"workers","ip":"84.32.176.173"}
+{"timestamp":"2026-05-21T01:32:39.737Z","action":"login_success","details":"Яценко Андрей (workers)","userId":"a26e21b4-be64-41f6-9b40-c131fb6ebe4e","role":"unknown","ip":"84.32.176.173"}
+{"timestamp":"2026-05-21T01:35:07.811Z","action":"register","details":"Заказчмк Кафе (clients)","userId":"f6847cf4-28de-4058-85bb-50a746fec40d","role":"clients","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T01:35:08.213Z","action":"login_success","details":"Заказчмк Кафе (clients)","userId":"f6847cf4-28de-4058-85bb-50a746fec40d","role":"unknown","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T01:43:21.688Z","action":"data_create","details":"shifts POST","userId":"f6847cf4-28de-4058-85bb-50a746fec40d","role":"client","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T01:43:22.095Z","action":"data_create","details":"shift_requirements POST","userId":"f6847cf4-28de-4058-85bb-50a746fec40d","role":"client","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T02:04:55.776Z","action":"login_failure","details":"not found: 79991112234 (clients)","userId":"anonymous","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T02:19:27.330Z","action":"login_success","details":"Андрей (users)","userId":"559307a6-44ad-4c3a-ae25-292c4a9dc245","role":"dispatcher","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T02:30:55.385Z","action":"login_success","details":"Заказчмк Кафе (clients)","userId":"f6847cf4-28de-4058-85bb-50a746fec40d","role":"unknown","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T02:32:52.320Z","action":"data_create","details":"shifts POST","userId":"f6847cf4-28de-4058-85bb-50a746fec40d","role":"client","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T02:32:52.332Z","action":"data_create","details":"shifts POST","userId":"f6847cf4-28de-4058-85bb-50a746fec40d","role":"client","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T02:32:52.659Z","action":"data_create","details":"shift_requirements POST","userId":"f6847cf4-28de-4058-85bb-50a746fec40d","role":"client","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T02:32:52.665Z","action":"data_create","details":"shift_requirements POST","userId":"f6847cf4-28de-4058-85bb-50a746fec40d","role":"client","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T03:07:47.519Z","action":"login_success","details":"Заказчмк Кафе (clients)","userId":"f6847cf4-28de-4058-85bb-50a746fec40d","role":"unknown","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T03:08:24.268Z","action":"login_success","details":"Андрей (users)","userId":"559307a6-44ad-4c3a-ae25-292c4a9dc245","role":"dispatcher","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T03:09:32.732Z","action":"data_create","details":"shift_assignments POST","userId":"559307a6-44ad-4c3a-ae25-292c4a9dc245","role":"dispatcher","ip":"155.212.227.58"}
+{"timestamp":"2026-05-21T03:10:06.682Z","action":"data_update","details":"shift_assignments PATCH","userId":"a26e21b4-be64-41f6-9b40-c131fb6ebe4e","role":"worker","ip":"84.32.176.173"}
+{"timestamp":"2026-05-21T14:06:10.801Z","action":"register","details":"Тест Диспетчер (users)","userId":"bf1a02b8-02dd-4d54-8e0f-06b74716cff0","role":"dispatcher","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T14:06:11.408Z","action":"register","details":"Тест Исполнитель (workers)","userId":"64b651ac-8e07-4dd3-8429-52f8f99bc767","role":"workers","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T14:06:52.799Z","action":"register","details":"Тест Заказчик (clients)","userId":"fe4f5cd2-6cd8-448b-a986-62f1c339f6f7","role":"clients","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T14:07:15.605Z","action":"login_success","details":"Тест Исполнитель (workers)","userId":"64b651ac-8e07-4dd3-8429-52f8f99bc767","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T14:07:56.827Z","action":"login_success","details":"Тест Диспетчер (users)","userId":"bf1a02b8-02dd-4d54-8e0f-06b74716cff0","role":"dispatcher","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T14:07:57.061Z","action":"login_success","details":"Тест Заказчик (clients)","userId":"fe4f5cd2-6cd8-448b-a986-62f1c339f6f7","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T14:07:57.306Z","action":"login_success","details":"Тест Исполнитель (workers)","userId":"64b651ac-8e07-4dd3-8429-52f8f99bc767","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T14:09:36.549Z","action":"login_success","details":"Тест Диспетчер (users)","userId":"bf1a02b8-02dd-4d54-8e0f-06b74716cff0","role":"dispatcher","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T14:09:36.796Z","action":"login_success","details":"Тест Заказчик (clients)","userId":"fe4f5cd2-6cd8-448b-a986-62f1c339f6f7","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T14:09:37.040Z","action":"login_success","details":"Тест Исполнитель (workers)","userId":"64b651ac-8e07-4dd3-8429-52f8f99bc767","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T14:53:11.584Z","action":"login_success","details":"Тест Исполнитель (workers)","userId":"64b651ac-8e07-4dd3-8429-52f8f99bc767","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T14:56:07.834Z","action":"login_success","details":"Тест Исполнитель (workers)","userId":"64b651ac-8e07-4dd3-8429-52f8f99bc767","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-21T15:04:49.963Z","action":"login_success","details":"Тест Исполнитель (workers)","userId":"64b651ac-8e07-4dd3-8429-52f8f99bc767","role":"unknown","ip":"93.189.230.107"}
+{"timestamp":"2026-05-24T11:12:44.020Z","action":"login_failure","details":"wrong pass: Черноус Сюзанна Робертовна (users)","userId":"09e19f82-dff3-4500-aed0-fec7f68fdb81","role":"dispatcher","ip":"91.195.210.35"}
+{"timestamp":"2026-05-24T11:12:46.124Z","action":"login_failure","details":"wrong pass: Черноус Сюзанна Робертовна (users)","userId":"09e19f82-dff3-4500-aed0-fec7f68fdb81","role":"dispatcher","ip":"91.195.210.35"}
+{"timestamp":"2026-05-24T11:12:55.564Z","action":"login_failure","details":"wrong pass: Черноус Сюзанна Робертовна (users)","userId":"09e19f82-dff3-4500-aed0-fec7f68fdb81","role":"dispatcher","ip":"91.195.210.35"}

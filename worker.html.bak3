@@ -102,8 +102,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <input type="password" id="pass-input" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
       <span class="pw-eye" onclick="togglePw('pass-input',this)">👁</span>
     </div>
-    <button onclick="login()" data-i18n="btn_login" style="width:100%">Войти</button>
-
+    <button onclick="login()" data-i18n="btn_login">Войти</button>
     <p style="margin-top:8px;font-size:13px;color:var(--text-light);"><a href="javascript:void(0)" onclick="showReg()" style="color:var(--primary);" data-i18n="auth_register_link">Зарегистрироваться</a> · <a href="javascript:void(0)" onclick="forgotPassword()" style="color:var(--primary);" data-i18n="auth_forgot">Забыли пароль?</a></p>
   </div>
   <div id="auth-reg" style="display:none;">
@@ -126,7 +125,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div></div>
 
 <div id="main-screen" style="display:none;"><div class="container">
-  <div class="header" style="display:flex;justify-content:space-between;align-items:center;"><div><h2 id="worker-name">👷</h2><p id="worker-stats"></p></div><div style="display:flex;gap:6px;align-items:center;"><button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button><button id="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">🌙</button><button onclick="doLogout()" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 10px;border-radius:4px;cursor:pointer;font-size:12px;color:#fff;margin-left:4px">🚪 Выход</button></div></div>
+  <div class="header" style="display:flex;justify-content:space-between;align-items:center;"><div><h2 id="worker-name">👷</h2><p id="worker-stats"></p></div><div style="display:flex;gap:6px;align-items:center;"><button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button><button id="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">🌙</button></div></div>
   <div id="tg-banner" style="display:none;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkTelegram()">📱 Подключить уведомления в Telegram</div>
   <div id="tg-linked" style="display:none;background:#e8f5e9;color:#2e7d32;padding:10px 16px;border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px">✅ Telegram уведомления подключены</div>
   <div id="max-banner" style="display:none;background:linear-gradient(135deg,#6b3fa0,#8b5cf6);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkMax()">💬 Подключить уведомления в МАКС</div>
@@ -140,7 +139,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <p>Если вам дали телефон и пароль — введите их на экране входа. Если аккаунта ещё нет — нажмите «Зарегистрироваться», введите ФИО, телефон и придумайте пароль.</p>
       <br>
       <p><strong>2️⃣ Подключите Telegram</strong></p>
-      <p>После входа нажмите синий баннер «📱 Подключить уведомления» сверху. Откроется бот @DispatcherPRO1_bot — отправьте свой номер телефона. Теперь вы будете получать уведомления о новых сменах и оплате.</p>
+      <p>После входа нажмите синий баннер «📱 Подключить уведомления» сверху. Откроется бот @DispetcherPro_bot — отправьте свой номер телефона. Теперь вы будете получать уведомления о новых сменах и оплате.</p>
       <br>
       <p><strong>3️⃣ Приглашение на смену</strong></p>
       <p>Когда диспетчер назначает вас на смену — она появится в списке с пометкой «📞 Приглашение». Нажмите ✅ <em>Подтвердить</em> чтобы принять, или ❌ <em>Отказаться</em> если не можете. Отказаться можно не позднее чем за 3 часа до начала.</p>
@@ -329,7 +328,6 @@ async function showMain(){
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
   document.getElementById('worker-name').textContent='👷 '+(worker?.full_name||'');
-  checkTelegramStatus();checkMaxStatus();
   await render();setInterval(render,30000);
 }
 
@@ -544,8 +542,8 @@ async function checkTelegramStatus(){
 }
 function linkTelegram(){
   const ph=norm(worker.phone||'');
-  if(ph) window.open('https://t.me/DispatcherPRO1_bot?start='+ph,'_blank');
-  else window.open('https://t.me/DispatcherPRO1_bot','_blank');
+  if(ph) window.open('https://t.me/DispetcherPro_bot?start='+ph,'_blank');
+  else window.open('https://t.me/DispetcherPro_bot','_blank');
 }
 async function checkMaxStatus(){
   try{
@@ -694,22 +692,6 @@ async function uploadShiftPhoto(shiftId,input){
   input.value='';
 }
 </script>
-<script src="/push-client.js">
-function doLogout(){localStorage.removeItem('dp_token');localStorage.removeItem('dp_auth');location.href=location.pathname;}
-
-// Restore session on page load
-document.addEventListener('DOMContentLoaded',async()=>{
-  const t=localStorage.getItem('dp_token');
-  if(!t)return;
-  try{
-    const r=await fetch('/auth/me',{headers:{'Authorization':'Bearer '+t}});
-    const d=await r.json();
-    if(d&&d.user){
-      worker=d.user;
-      try{showMain()}catch(e){console.error('showMain error:',e);document.getElementById('main-screen').style.display='block';document.getElementById('auth-screen').style.display='none'}
-    }else{localStorage.removeItem('dp_token');localStorage.removeItem('dp_auth');}
-  }catch(e){console.error('restore error:',e);localStorage.removeItem('dp_token');localStorage.removeItem('dp_auth');}
-});
-</script>
+<script src="/push-client.js"></script>
 </body>
 </html>

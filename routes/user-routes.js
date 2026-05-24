@@ -15,12 +15,17 @@ function handleClientPayMethodGet(req, res, cors) {
 }
 function handleClientPayMethodPost(req, res, cors) {
   return readBody(req).then(body => {
-    const { client_id, method } = JSON.parse(body);
-    const methods = loadJson('client-pay-methods.json');
-    methods[client_id] = method;
-    saveJson('client-pay-methods.json', methods);
-    json(res, { ok: true }, 200, cors);
-  });
+    try {
+      const { client_id, method } = JSON.parse(body);
+      if (!client_id || !method) return json(res, { error: 'Missing fields' }, 400, cors);
+      const methods = loadJson('client-pay-methods.json');
+      methods[client_id] = method;
+      saveJson('client-pay-methods.json', methods);
+      json(res, { ok: true }, 200, cors);
+    } catch (e) {
+      json(res, { error: 'Invalid JSON' }, 400, cors);
+    }
+  }).catch(e => json(res, { error: 'Server error' }, 500, cors));
 }
 
 // --- Notifications ---
@@ -52,7 +57,7 @@ async function handleNotificationsDelete(req, res, cors) {
       if (userId) parts.push(`user_id=eq.${userId}`);
       if (role) parts.push(`role=eq.${role}`);
       const q = parts.join('&');
-      if (q) await sbFetch('app_notifications', q, { method: 'PATCH', body: JSON.stringify({ is_read: true }) });
+      if (q) await sbFetch('app_notifications', q, { method: 'DELETE' });
       return json(res, { ok: true }, 200, cors);
     }
   } catch (e) { console.error('[Notifs] Supabase error, falling back to JSON:', e.message); }

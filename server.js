@@ -10,6 +10,8 @@ const { createRouter, startPolling } = require('./modules/routes');
 const { handlePushSubscription } = require('./notifications-module/push-route');
 const { runGasSync } = require('./modules/gas-sync');
 const { requireAuth } = require('./modules/auth');
+const { getCorsHeaders } = require('./modules/cors');
+const { sbHeaders } = require('./modules/db');
 const VERSION = '1.0.0';
 const { startMaxPolling } = require('./modules/max-bot');
 
@@ -19,7 +21,7 @@ const { recordRequest } = require('./modules/monitoring');
 if (!fs.existsSync(config.receiptsDir)) fs.mkdirSync(config.receiptsDir, { recursive: true });
 
 // Auto-migration: add status column to payments table if missing
-const sbHeadersBase = () => ({ 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey, 'Content-Type': 'application/json' });
+const sbHeadersBase = sbHeaders;
 let _paymentStatusColExists = null; // null = unknown, true/false after check
 async function ensurePaymentStatusCol() {
   if (_paymentStatusColExists !== null) return _paymentStatusColExists;
@@ -68,6 +70,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const { filename, data: b64, shift_id } = JSON.parse(body);
         if (!filename || !b64 || !shift_id) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Missing fields' })); }
+        if (!/^[0-9a-f-]{36}$/.test(shift_id)) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Invalid shift_id' })); }
         const buf = Buffer.from(b64, 'base64');
         if (buf.length > 5 * 1024 * 1024) { res.writeHead(413, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'File too large' })); }
         const fname = shift_id + '_' + Date.now() + '_' + String(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -115,7 +118,8 @@ const server = http.createServer(async (req, res) => {
     }
     // Push subscription endpoint (изолированный модуль уведомлений)
     if (req.url === '/api/push-subscription') {
-      return handlePushSubscription(req, res);
+      const cors = getCorsHeaders(req);
+      return handlePushSubscription(req, res, cors);
     }
     await router(req, res);
   } catch (e) {
@@ -140,15 +144,7 @@ startPolling();
 startMaxPolling();
 
 // Start GAS periodic sync (every 5 minutes)
-const sbHeaders = () => ({ 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey, 'Content-Type': 'application/json' });
-const sbFetchForSync = async (table, query, opts = {}) => {
-  const headers = sbHeaders();
-  if (opts.method === 'PATCH') headers['Prefer'] = 'return=representation';
-  const url = `${config.sbUrl}/rest/v1/${table}${query ? '?' + query : ''}`;
-  const fetchOpts = { method: opts.method || 'GET', headers };
-  if (opts.body) fetchOpts.body = opts.body;
-  return fetch(url, fetchOpts);
-};
+const sbFetchForSync = require('./modules/db').sbFetch;
 
 setInterval(() => runGasSync(sbFetchForSync), 5 * 60 * 1000);
 // Run once on startup after 30 seconds
@@ -160,6 +156,7 @@ async function processRecurringOrders() {
   try {
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0=Sun
+    if (dayOfWeek < 0 || dayOfWeek > 6) return;
     // Get active recurring templates for today's day of week
     const res = await fetch(`${config.sbUrl}/rest/v1/recurring_orders?is_active=eq.true&day_of_week=eq.${dayOfWeek}&select=*`, {
       headers: sbHeaders()
