@@ -12,6 +12,10 @@ const { verifyGasSignature } = require('../modules/gas-sync');
 
 // --- Export CSV ---
 async function handleExportCsv(req, res, cors) {
+  const session = requireAuth(req);
+  if (!session || (session.role !== 'owner' && session.role !== 'dispatcher')) {
+    return json(res, { error: 'Нет доступа' }, 403, cors);
+  }
   try {
     const ms = new Date().toISOString().split('T')[0].slice(0, 8) + '01';
     const asgn = await (await sbFetch('shift_assignments',
@@ -35,15 +39,15 @@ async function handleUploadReceipt(req, res, cors) {
   const body = await readBody(req);
   try {
     const { filename, data: b64 } = JSON.parse(body);
-    if (!filename || !b64) return res.writeHead(400, cors).end('Missing fields');
+    if (!filename || !b64) { res.writeHead(400, { 'Content-Type': 'application/json', ...cors }); return res.end(JSON.stringify({ error: 'Missing fields' })); }
     const buf = Buffer.from(b64, 'base64');
-    if (buf.length > config.maxFileSize) { res.writeHead(413, cors); return res.end('File too large'); }
+    if (buf.length > config.maxFileSize) { res.writeHead(413, { 'Content-Type': 'application/json', ...cors }); return res.end(JSON.stringify({ error: 'File too large' })); }
     const fname = Date.now() + '-' + String(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
     fs.writeFileSync(path.join(config.receiptsDir, fname), buf);
     const session = requireAuth(req);
     audit('upload_receipt', fname, session?.userId, session?.role, req.headers['x-forwarded-for'] || req.socket.remoteAddress);
     json(res, { filename: fname, url: '/receipts/' + fname });
-  } catch (e) { console.error('Upload error:', e); res.writeHead(500, cors).end('Error'); }
+  } catch (e) { console.error('Upload error:', e); res.writeHead(500, { 'Content-Type': 'application/json', ...cors }); res.end(JSON.stringify({ error: 'Upload error' })); }
 }
 
 // --- Serve receipt ---
@@ -62,6 +66,7 @@ async function handleGasWebhook(req, res, cors) {
   try {
     const { table, id, data } = JSON.parse(body);
     if (!table || !id || !data) return json(res, { error: 'Missing table, id or data' }, 400, cors);
+    if (!/^[0-9a-f-]{36}$/.test(id)) return json(res, { error: 'Invalid ID format' }, 400, cors);
     const allowedTables = ['workers', 'clients', 'shifts', 'shift_assignments', 'payments', 'users'];
     if (!allowedTables.includes(table)) return json(res, { error: 'Table not allowed' }, 403, cors);
     const sbRes = await sbFetch(table, `id=eq.${id}`, { method: 'PATCH', body: JSON.stringify(data) });

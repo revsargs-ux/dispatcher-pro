@@ -217,20 +217,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="toast" id="toast"></div>
 
 <script>
-// autologin_js_added
-
-// Auto-login via URL token
-(function(){
-  const p=new URLSearchParams(window.location.search);
-  const t=p.get('token');
-  if(!t)return;
-  localStorage.setItem('dp_token',t);
-  localStorage.setItem('dp_auth',JSON.stringify({ts:Date.now()}));
-  // Redirect to clean URL — page init will find token in localStorage
-  const clean=window.location.origin+window.location.pathname;
-  window.location.replace(clean);
-})();
-
 // ===== i18n =====
 const DEFAULT_LANG='ru';
 let currentLang=localStorage.getItem('lang')||DEFAULT_LANG;
@@ -509,16 +495,7 @@ function renderShifts(shiftMap,wMap){
     const confirmed=as.filter(a=>a.invite_status!=='declined');
     const doneCount=confirmed.filter(a=>a.actual_end_time).length;
     const onShift=confirmed.filter(a=>a.actual_start_time&&!a.actual_end_time).length;
-    const workerList=confirmed.map(a=>{
-      const w=wMap[a.worker_id]||{};
-      const name=esc(w.full_name||'Рабочий');
-      let status='⏳ Ожидает';
-      if(a.actual_end_time)status='✅ Завершил';
-      else if(a.actual_start_time)status='🔧 Работает';
-      else if(a.invite_status==='confirmed')status='✅ Подтверждён';
-      return \`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,.05)"><span>\${name}</span><span style="color:var(--text-light)">\${status}</span></div>\`;
-    }).join('');
-    const workersHtml=`<div style="margin-top:6px"><div style="font-size:13px;color:var(--text-light);margin-bottom:4px">👥 ${confirmed.length} чел.${doneCount>0?' · '+doneCount+' завершено':''}${onShift>0?' · '+onShift+' на смене':''}</div>${workerList}</div>`;
+    const workersHtml=`<div style="font-size:13px;color:var(--text-light);">👥 ${confirmed.length} чел.${doneCount>0?' · '+doneCount+' завершено':''}${onShift>0?' · '+onShift+' на смене':''}</div>`;
 
     const hasDone=as.some(a=>a.actual_end_time&&!a.client_confirmed);
     const allConfirmed=as.every(a=>a.client_confirmed);

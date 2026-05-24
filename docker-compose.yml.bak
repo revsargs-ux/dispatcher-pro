@@ -8,11 +8,9 @@ services:
     environment:
       - SB_URL=https://bzozrjgfnpdhlymfuobd.supabase.co
       - SB_KEY=sb_secret_7oItz51qISepnzMSsd8wEA_6vsbQbkK
-      - TG_BOT_TOKEN=8362493681:AAGki_5MPHrG0E0jdyaiKJxucTu5nWCgxy8
-      - MAX_BOT_TOKEN=f9LHodD0cOL_gerzW5lmO757Iljbw3W37i4k2du0aZlemfir6wpeu3n5di5rpvlP5w-tPUiaxcpMfaYcURiD
+      - TG_BOT_TOKEN=8340184731:AAFlKiRAWVzKVvw3ND4aUsHzw0LL62-p8jE
       - GAS_URL=https://script.google.com/macros/s/AKfycbxAaSeSu4r9XWofF60y6BnMURQMqg8wRPr2MUhKAymh4_yQZsTe5WQr3yF5dn5CCeOj/exec
       - GAS_WEBHOOK_SECRET=dp_gas_sync_2026
-      - GEMINI_API_KEY=debb7da5d58f4471bbf01d319907c8cb.iyJ1bR3rVgkVMcFN
     volumes:
       - ./server.js:/app/server.js:ro
       - ./modules:/app/modules:ro
@@ -47,12 +45,6 @@ services:
       - "traefik.http.routers.dispatcher-tg.tls=true"
       - "traefik.http.routers.dispatcher-tg.tls.certresolver=mytlschallenge"
       - "traefik.http.routers.dispatcher-tg.service=dispatcher"
-      # Static HTML pages on bot.plus-rabochie.ru
-      - "traefik.http.routers.dispatcher-static.rule=Host(`bot.plus-rabochie.ru`) && (PathPrefix(`/worker.html`) || PathPrefix(`/owner.html`) || PathPrefix(`/client.html`) || PathPrefix(`/index.html`) || PathPrefix(`/tg-worker.html`) || PathPrefix(`/tg-client.html`) || PathPrefix(`/sw.js`) || PathPrefix(`/manifest.json`) || PathPrefix(`/push-client.js`) || PathPrefix(`/sql-setup.html`) || PathPrefix(`/auth/`) || PathPrefix(`/api/`) || PathPrefix(`/version`) || PathPrefix(`/shift-photos/`))"
-      - "traefik.http.routers.dispatcher-static.entrypoints=web,websecure"
-      - "traefik.http.routers.dispatcher-static.tls=true"
-      - "traefik.http.routers.dispatcher-static.tls.certresolver=mytlschallenge"
-      - "traefik.http.routers.dispatcher-static.service=dispatcher"
 
 networks:
   default:

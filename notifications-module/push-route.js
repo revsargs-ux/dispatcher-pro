@@ -7,49 +7,34 @@
  * Body: { endpoint, keys: { p256dh, auth }, platform }
  */
 const { config } = require('../modules/config');
+const { requireAuth } = require('../modules/auth');
 
 function handlePushSubscription(req, res, cors) {
-  // Разрешаем CORS preflight
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
   if (req.method === 'OPTIONS') {
-    res.writeHead(204);
+    res.writeHead(204, cors);
     return res.end();
   }
 
   if (req.method !== 'POST') {
-    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.writeHead(405, { 'Content-Type': 'application/json', ...cors });
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
   }
 
-  // Читаем тело запроса
   let body = '';
   req.on('data', (chunk) => { body += chunk; });
   req.on('end', async () => {
     try {
       const { endpoint, keys, platform, user_role } = JSON.parse(body);
       if (!endpoint) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, { 'Content-Type': 'application/json', ...cors });
         return res.end(JSON.stringify({ error: 'Missing endpoint' }));
       }
 
-      // Получаем user_id из сессии (Authorization header)
-      const authHeader = req.headers['authorization'] || '';
-      const token = authHeader.replace('Bearer ', '');
-      // Парсим наш JWT-токен (простой формат: base64(json).signature)
-      let userId = null;
-      try {
-        const parts = token.split('.');
-        if (parts.length >= 2) {
-          const payload = JSON.parse(Buffer.from(parts[0], 'base64').toString());
-          userId = payload.uid;
-        }
-      } catch { /* не авторизован */ }
-
+      // Verify session via JWT
+      const session = requireAuth(req);
+      const userId = session?.userId;
       if (!userId) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.writeHead(401, { 'Content-Type': 'application/json', ...cors });
         return res.end(JSON.stringify({ error: 'Unauthorized' }));
       }
 
@@ -104,11 +89,11 @@ function handlePushSubscription(req, res, cors) {
       }
 
       console.log('[PushSubscription] Saved for user:', userId);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
       res.end(JSON.stringify({ ok: true }));
     } catch (e) {
       console.error('[PushSubscription] Error:', e.message);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.writeHead(500, { 'Content-Type': 'application/json', ...cors });
       res.end(JSON.stringify({ error: 'Internal error' }));
     }
   });

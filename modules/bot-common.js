@@ -148,4 +148,114 @@ async function forwardChatNotification(shiftId, senderRole, senderId, senderName
   }
 }
 
-module.exports = { calcEarnings, cmdShifts, cmdEarnings, forwardChatNotification };
+// ============================================================
+// cmdHelp — shared (role-aware)
+// ============================================================
+function cmdHelp(chatId, user, sendFn) {
+  const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
+  const name = user.full_name || 'коллега';
+  const menus = {
+    owner: `${name}, вот что я могу для тебя показать:\n\n/shifts — все смены\n/earnings — финансы\n/orders — заказы\n/help — напомнить команды\n\nИли просто спроси — я отвечу.`,
+    dispatcher: `${name}, твои команды:\n\n/shifts — твои смены\n/earnings — отчёт по оплатам\n/help — напомнить команды\n\nСпрашивай что нужно, я подскажу.`,
+    worker: `${name}, вот что могу показать:\n\n/shifts — ближайшие смены\n/earnings — сколько заработал\n/selfemployed — как оформить самозанятость\n/help — напомнить команды\n\nИли просто спроси — отвечу.`,
+    client: `${name}, ваши команды:\n\n/orders — ваши заказы\n/help — напомнить команды\n\nИли просто спросите — я отвечу.`
+  };
+  return sendFn(chatId, menus[user.role] || menus.client);
+}
+
+// ============================================================
+// cmdOrders — shared (client only for now)
+// ============================================================
+async function cmdOrders(chatId, user, sendFn) {
+  if (user.role !== 'client' && user.role !== 'owner') {
+    return sendFn(chatId, 'Эта команда для клиентов и владельца. Если нужны данные по сменам — попробуйте /shifts.');
+  }
+  const filter = user.role === 'owner' ? '' : `client_id=eq.${user.id}&`;
+  const res = await fetch(
+    `${config.sbUrl}/rest/v1/shifts?${filter}select=id,date,start_time,address,status,comment,service_types(name)&order=date.desc&limit=10`,
+    { headers: sbHeaders() }
+  );
+  const shifts = await res.json();
+  if (!Array.isArray(shifts) || !shifts.length) {
+    return sendFn(chatId, 'Заказов пока нет.');
+  }
+  const statusEmoji = { pending: '⏳', planned: '📋', in_progress: '🔧', completed: '✅' };
+  let text = (user.role === 'owner' ? 'Все заказы:' : 'Ваши заказы:') + '\n\n';
+  for (const s of shifts) {
+    const date = s.date ? s.date.split('-').reverse().join('.') : '—';
+    text += `${statusEmoji[s.status] || '📋'} <b>${date}</b> | ${s.start_time || '—'}\n`;
+    text += `📍 ${s.address || '—'} | 📋 ${s.service_types?.name || '—'}\n\n`;
+  }
+  await sendFn(chatId, text);
+}
+
+// ============================================================
+// cmdSelfEmployed — shared
+// ============================================================
+function cmdSelfEmployed(chatId, sendFn) {
+  return sendFn(chatId,
+    '🧾 Самозанятость — обязательно для получения оплаты\n\n' +
+    '<b>Как оформить за 10 минут:</b>\n' +
+    '1. Скачай приложение «Мой налог»\n' +
+    '2. Зарегистрируйся через Госуслуги\n' +
+    '3. Готово!\n\n' +
+    '<b>Условия:</b>\n' +
+    '• Налог: 4% с физлиц, 6% с юрлиц\n' +
+    '• Лимит: 2,4 млн ₽/год\n' +
+    '• Бонус при регистрации: 10 000 ₽\n' +
+    '• Платить до 25 числа каждого месяца\n\n' +
+    '📱 https://npd.nalog.ru\n\n' +
+    'Нужна помощь — пиши диспетчеру.'
+  );
+}
+
+// ============================================================
+// askAI — shared (ZAI/BigModel with role-based access)
+// ============================================================
+async function askAI(chatId, user, question, sendFn, knowledgeBase) {
+  const apiKey = config.geminiKey;
+  if (!apiKey) {
+    return sendFn(chatId, 'Сейчас не могу ответить, попробуй чуть позже или напиши диспетчеру.');
+  }
+
+  const roleAccess = {
+    owner: 'Уровень 1 — Владелец. Вы можете отвечать на ВСЁ: финансы, ставки, маржа, все заказы, все исполнители, все клиенты, аналитика, доходы/расходы.',
+    dispatcher: 'Уровень 3 — Диспетчер. Отвечайте ТОЛЬКО про свои заказы и назначенных исполнителей. НЕ раскрывайте чужие заказы, ставки, маржу системы, ЗП других диспетчеров.',
+    worker: 'Уровень 4 — Исполнитель. Отвечайте ТОЛЬКО по данным этого исполнителя: свои смены, свой заработок, свои заказы. НЕ раскрывайте чужие ставки, заработок, данные других людей, коммерческую информацию.',
+    client: 'Уровень 4 — Клиент. Отвечайте ТОЛЬКО по его заказам и оплатам. НЕ раскрывайте данные рабочих (контакты, ставки), чужие заказы.'
+  };
+  const roleLabel = { owner: '👑 ВЛАДЕЛЕЦ', dispatcher: '📋 ДИСПЕТЧЕР', worker: '👷 ИСПОЛНИТЕЛЬ', client: '🏢 КЛИЕНТ' };
+  const roleContext = `Ты — персональный ассистент в системе Dispatcher.PRO. Веди себя как живой человек, общайся свободно и по-дружески. Никогда не упоминай что ты ИИ или бот.\n\nЧеловек: ${user.full_name}, роль: ${roleLabel[user.role] || 'пользователь'}.\n\n${roleAccess[user.role] || roleAccess.worker}\n\nВладелец системы — Ревик Саргсян, телеграм @RevikSargsyan.`;
+
+  try {
+    const response = await fetch(
+      'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+      {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'glm-4-plus',
+          messages: [{
+            role: 'user',
+            content: `${roleContext}\n\nПРАВИЛА:\n1. НЕ придумывай данные — не знаешь, скажи \"Уточню, напиши @RevikSargsyan\"\n2. НИКОГДА не называй себя ботом или ИИ — ты обычный помощник\n3. Ревик Саргсян (@RevikSargsyan) — владелец\n4. Вопрос не про работу — мягко переведи на тему\n\nСТИЛЬ: Общайся как живой человек. На \"ты\". Без официоза, шаблонов и формальностей. Отвечай informativno и дружелюбно. Если спрашивают \"что ты умеешь\" — не выдавай список команд, просто расскажи что можешь помочь со сменами, оплатой, заказами и т.д. живым языком.\n\nБаза знаний:\n${knowledgeBase}\n\nВопрос: ${question}\n\nОтветь живо и по делу.`
+          }],
+          max_tokens: 1000,
+          temperature: 0.3,
+        })
+      }
+    );
+    const data = await response.json();
+    const answer = data?.choices?.[0]?.message?.content;
+    if (answer) {
+      await sendFn(chatId, answer.slice(0, 4000));
+    } else {
+      console.error('[AI] No answer:', JSON.stringify(data).slice(0, 200));
+      await sendFn(chatId, 'Хм, не нашёл ответ. Попробуй переформулировать или напиши диспетчеру @RevikSargsyan.');
+    }
+  } catch (e) {
+    console.error('[AI] Error:', e.message);
+    await sendFn(chatId, 'Что-то пошло не так, попробуй ещё раз.');
+  }
+}
+
+module.exports = { calcEarnings, cmdShifts, cmdEarnings, cmdHelp, cmdOrders, cmdSelfEmployed, askAI, forwardChatNotification };

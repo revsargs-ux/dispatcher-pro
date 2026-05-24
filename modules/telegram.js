@@ -1,18 +1,19 @@
 /**
- * Telegram bot — notifications, user linking, commands, AI answers
+ * Telegram bot — notifications, user linking, platform adapter
+ * All shared logic is in bot-common.js
  */
 const { config } = require('./config');
 const fs = require('fs');
 const path = require('path');
+const { cmdHelp, cmdShifts, cmdEarnings, cmdOrders, cmdSelfEmployed, askAI } = require('./bot-common');
 
-// Загружаем базу знаний
 let knowledgeBase = '';
 try {
   knowledgeBase = fs.readFileSync(path.join(__dirname, '..', 'bot-knowledge.md'), 'utf8');
 } catch (e) { console.error('[TG] Knowledge base not found'); }
 
 // ============================================================
-// Отправка сообщений
+// Отправка сообщений (TG-specific)
 // ============================================================
 async function tgSendMessage(chatId, text, extra = {}) {
   try {
@@ -25,7 +26,7 @@ async function tgSendMessage(chatId, text, extra = {}) {
 }
 
 // ============================================================
-// Уведомления (существующие — НЕ трогаем)
+// Уведомления
 // ============================================================
 async function tgNotify(table, phone, text) {
   try {
@@ -56,120 +57,26 @@ async function tgNotifyRole(role, text) {
 // Определение пользователя по chatId
 // ============================================================
 async function identifyUser(chatId) {
-  // Ищем в workers (БЕЗ rate_per_hour — колонки нет!)
-  const wRes = await fetch(`${config.sbUrl}/rest/v1/workers?telegram_chat_id=eq.${chatId}&select=id,full_name,phone&limit=1`, {
-    headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
-  });
+  const headers = { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey };
+
+  const wRes = await fetch(`${config.sbUrl}/rest/v1/workers?telegram_chat_id=eq.${chatId}&select=id,full_name,phone&limit=1`, { headers });
   const workers = await wRes.json();
-  if (workers.length && !workers.code) {
-    return { role: 'worker', ...workers[0] };
-  }
+  if (Array.isArray(workers) && workers.length) return { role: 'worker', ...workers[0] };
 
-  // Ищем в clients
-  const cRes = await fetch(`${config.sbUrl}/rest/v1/clients?telegram_chat_id=eq.${chatId}&select=id,name,contact&limit=1`, {
-    headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
-  });
+  const cRes = await fetch(`${config.sbUrl}/rest/v1/clients?telegram_chat_id=eq.${chatId}&select=id,name,contact&limit=1`, { headers });
   const clients = await cRes.json();
-  if (clients.length && !clients.code) {
-    return { role: 'client', full_name: clients[0].name, ...clients[0] };
-  }
+  if (Array.isArray(clients) && clients.length) return { role: 'client', full_name: clients[0].name, ...clients[0] };
 
-  // Ищем в users
-  const uRes = await fetch(`${config.sbUrl}/rest/v1/users?telegram_chat_id=eq.${chatId}&select=id,full_name,role,phone&limit=1`, {
-    headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
-  });
+  const uRes = await fetch(`${config.sbUrl}/rest/v1/users?telegram_chat_id=eq.${chatId}&select=id,full_name,role,phone&limit=1`, { headers });
   const users = await uRes.json();
-  if (users.length && !users.code) {
-    return { ...users[0] };
-  }
+  if (Array.isArray(users) && users.length) return { ...users[0] };
 
   return null;
 }
 
 // ============================================================
-// Команды — напрямую из БД (без AI)
+// WebApp (TG-specific)
 // ============================================================
-
-async function cmdHelp(chatId, user) {
-  if (user.role === 'worker') {
-    await tgSendMessage(chatId,
-      '📋 <b>Команды для исполнителя:</b>\n\n' +
-      '/shifts — Мои ближайшие смены\n' +
-      '/earnings — Мой заработок\n' +
-      '/selfemployed — Как оформить самозанятость\n' +
-      '/help — Эта справка\n\n' +
-      '💡 Или задайте любой вопрос текстом — я отвечу!'
-    );
-  } else if (user.role === 'client') {
-    await tgSendMessage(chatId,
-      '📋 <b>Команды для клиента:</b>\n\n' +
-      '/orders — Мои заказы\n' +
-      '/help — Эта справка\n\n' +
-      '💡 Или задайте любой вопрос текстом — я отвечу!'
-    );
-  } else {
-    await tgSendMessage(chatId,
-      '📋 <b>Команды:</b>\n\n' +
-      '/help — Эта справка\n\n' +
-      '💡 Задайте любой вопрос текстом!'
-    );
-  }
-}
-
-async function cmdShifts(chatId, user) {
-  const { cmdShifts: _cmdShifts } = require('./bot-common');
-  // Wrap tgSendMessage to strip HTML for shared function compatibility
-  return _cmdShifts(chatId, user, tgSendMessage);
-}
-
-async function cmdEarnings(chatId, user) {
-  const { cmdEarnings: _cmdEarnings } = require('./bot-common');
-  return _cmdEarnings(chatId, user, tgSendMessage);
-}
-
-async function cmdOrders(chatId, user) {
-  if (user.role !== 'client') {
-    return tgSendMessage(chatId, 'Эта команда доступна только клиентам.');
-  }
-
-  const res = await fetch(
-    `${config.sbUrl}/rest/v1/shifts?client_id=eq.${user.id}&select=id,date,start_time,address,status,comment,service_types(name)&order=date.desc&limit=10`,
-    { headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey } }
-  );
-  const shifts = await res.json();
-
-  if (!shifts.length || shifts.code) {
-    return tgSendMessage(chatId, '📋 У вас нет заказов.');
-  }
-
-  let text = '📋 <b>Ваши заказы:</b>\n\n';
-  const statusEmoji = { pending: '⏳', planned: '📋', in_progress: '🔧', completed: '✅' };
-  for (const s of shifts) {
-    const date = s.date ? s.date.split('-').reverse().join('.') : '—';
-    text += `${statusEmoji[s.status] || '📋'} <b>${date}</b> | ${s.start_time || '—'}\n`;
-    text += `📍 ${s.address || '—'} | 📋 ${s.service_types?.name || '—'}\n\n`;
-  }
-  await tgSendMessage(chatId, text);
-}
-
-async function cmdSelfEmployed(chatId) {
-  await tgSendMessage(chatId,
-    '🧾 <b>Самозанятость (НПД)</b>\n\n' +
-    '⚠️ <b>Обязательно</b> для получения оплаты!\n\n' +
-    '<b>Как оформить:</b>\n' +
-    '1. Скачайте приложение «Мой налог»\n' +
-    '2. Зарегистрируйтесь через Госуслуги\n' +
-    '3. Готово — 10 минут\n\n' +
-    '<b>Условия:</b>\n' +
-    '• Налог: 4% (физлица) / 6% (юрлица)\n' +
-    '• Лимит: 2,4 млн ₽/год\n' +
-    '• Бонус при регистрации: 10 000 ₽\n' +
-    '• Платить до 25 числа следующего месяца\n\n' +
-    '📱 https://npd.nalog.ru\n\n' +
-    'Если не оформили — свяжитесь с диспетчером.'
-  );
-}
-
 async function cmdWebApp(chatId, user) {
   const role = user.role;
   let url, text, btnText;
@@ -190,75 +97,7 @@ async function cmdWebApp(chatId, user) {
 }
 
 // ============================================================
-// AI через ZAI (ZhipuAI / BigModel)
-// ============================================================
-async function askAI(chatId, user, question) {
-  const apiKey = config.geminiKey;
-  if (!apiKey) {
-    return tgSendMessage(chatId, '🤖 Функция временно недоступна. Обратитесь к диспетчеру.');
-  }
-
-  const roleContext = user.role === 'worker'
-    ? `Ты — бот Dispatcher.PRO. Сейчас пишет РАБОЧИЙ по имени ${user.full_name}. ВАЖНО: ${user.full_name} — это рабочий, НЕ диспетчер! Диспетчер/владелец системы — Ревик Саргсян (@RevikSargsyan). Отвечай ТОЛЬКО по данным этого рабочего. НЕ раскрывай чужие ставки, заработок, данные других людей.`
-    : user.role === 'client'
-    ? `Ты — бот Dispatcher.PRO. Сейчас пишет КЛИЕНТ по имени ${user.full_name}. Диспетчер/владелец системы — Ревик Саргсян (@RevikSargsyan). Отвечай ТОЛЬКО по его заказам.`
-    : `Ты — бот Dispatcher.PRO. Владелец — Ревик Саргсян. Отвечай по существу.`;
-
-  try {
-    const response = await fetch(
-      'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'glm-4-plus',
-          messages: [{
-            role: 'user',
-            content: `${roleContext}
-
-КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО:
-1. НЕ придумывай имена, телефоны, адреса, номера — если не знаешь точный ответ, скажи "Уточню у диспетчера"
-2. НЕ представься от имени человека — ты БОТ, не человек
-3. НЕ называй своё имя — ты просто бот Dispatcher.PRO
-4. Если спрашивают номер/имя диспетчера → отвечай: "Диспетчер — Ревик Саргсян, @RevikSargsyan"
-5. Если спрашиваешь что-то чего нет в базе знаний → "Уточню информацию, обратитесь к диспетчеру @RevikSargsyan"
-
-⚠️ СТРОГО: Ты бот Dispatcher.PRO. Отвечаешь ТОЛЬКО по вопросам Dispatcher.PRO (заказы, смены, оплата, самозанятость). Если спрашивают про пептиды, другие проекты или не по теме — отвечай: "Я помогаю только по вопросам Dispatcher.PRO."
-
-База знаний:
-${knowledgeBase}
-
-Вопрос пользователя: ${question}
-
-Ответь кратко и по делу на русском языке. Если не знаешь точный ответ — НЕ придумывай, скажи "Уточню у диспетчера."`
-          }],
-          max_tokens: 500,
-          temperature: 0.3,
-        })
-      }
-    );
-
-    const data = await response.json();
-    const answer = data?.choices?.[0]?.message?.content;
-
-    if (answer) {
-      const truncated = answer.length > 4000 ? answer.slice(0, 4000) + '...' : answer;
-      await tgSendMessage(chatId, truncated);
-    } else {
-      console.error('[TG] AI no answer:', JSON.stringify(data).slice(0, 200));
-      await tgSendMessage(chatId, '🤔 Не смог найти ответ. Обратитесь к диспетчеру.');
-    }
-  } catch (e) {
-    console.error('[TG] AI error:', e.message);
-    await tgSendMessage(chatId, '🤖 Ошибка. Попробуйте позже.');
-  }
-}
-
-// ============================================================
-// Привязка пользователя
+// Привязка пользователя (TG-specific)
 // ============================================================
 async function linkTgUser(chatId, phone, username) {
   try {
@@ -280,7 +119,7 @@ async function linkTgUser(chatId, phone, username) {
       }
     }
     if (!found) {
-      await tgSendMessage(chatId, '❌ Пользователь с номером +' + phone + ' не найден в Dispatcher.PRO.\nПроверьте номер или зарегистрируйтесь в системе.');
+      await tgSendMessage(chatId, `❌ Номер +${phone} не найден в системе.\nПроверь номер или зарегистрируйся на сайте.`);
       return;
     }
     await fetch(`${config.sbUrl}/rest/v1/${found.table}?id=eq.${found.id}`, {
@@ -289,27 +128,24 @@ async function linkTgUser(chatId, phone, username) {
       body: JSON.stringify({ telegram_chat_id: chatId })
     });
     const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
-    await tgSendMessage(chatId, `✅ Привязка успешна!\n\n👤 ${found.full_name}\n🏷 ${roleNames[found.role] || found.role}\n\nТеперь вы будете получать уведомления от Dispatcher.PRO.\n\n📋 Введите /help чтобы увидеть доступные команды.`);
+    await tgSendMessage(chatId, `✅ Привет, ${found.full_name}!\n\n${roleNames[found.role] || found.role}\n\nТеперь буду присылать уведомления о сменах.\nПиши /help — покажу что умею.`);
     console.log('[TG] Linked', found.full_name, '->', chatId);
   } catch (e) { console.error('[TG] Link error:', e.message); }
 }
 
 // ============================================================
-// Чат пересылка: из бота в чат смены
+// Чат пересылка
 // ============================================================
 const _tgChatFwdLimit = new Map();
 async function tryForwardChat(chatId, user, text) {
-  // Only for workers and clients
   if (user.role !== 'worker' && user.role !== 'client') return false;
 
-  // Rate limit: 1 per 2s
   const now = Date.now();
   const last = _tgChatFwdLimit.get(chatId) || 0;
   if (now - last < 2000) return false;
   _tgChatFwdLimit.set(chatId, now);
 
   try {
-    // Find active shifts for this user
     let shiftIds = [];
     if (user.role === 'worker') {
       const aRes = await fetch(`${config.sbUrl}/rest/v1/shift_assignments?worker_id=eq.${user.id}&select=shift_id`, {
@@ -319,7 +155,6 @@ async function tryForwardChat(chatId, user, text) {
       if (!Array.isArray(assignments)) return false;
       shiftIds = assignments.map(a => a.shift_id);
     } else {
-      // client
       const sRes = await fetch(`${config.sbUrl}/rest/v1/shifts?client_id=eq.${user.id}&select=id`, {
         headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
       });
@@ -329,14 +164,12 @@ async function tryForwardChat(chatId, user, text) {
     }
     if (!shiftIds.length) return false;
 
-    // Filter to active shifts only (confirmed, in_progress, planned)
     const activeRes = await fetch(`${config.sbUrl}/rest/v1/shifts?id=in.(${shiftIds.join(',')})&status=in.(confirmed,in_progress,planned)&select=id&limit=5`, {
       headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
     });
     const activeShifts = await activeRes.json();
     if (!Array.isArray(activeShifts) || !activeShifts.length) return false;
 
-    // Forward to the most recent active shift's chat
     const targetShiftId = activeShifts[0].id;
     const senderName = user.full_name || 'Неизвестный';
     const msg = {
@@ -353,14 +186,11 @@ async function tryForwardChat(chatId, user, text) {
     });
     console.log(`[TG] Chat forwarded from ${senderName} (${user.role}) to shift ${targetShiftId}`);
 
-    // Notify the other party via appropriate bot
     const { forwardChatNotification } = require('./bot-common');
     await forwardChatNotification(targetShiftId, user.role, user.id, senderName, text, tgSendMessage, async (chatId, text) => {
-      // MAX send helper
-      const { config: _cfg } = require('./config');
-      await fetch(`${_cfg.maxApi}/messages?user_id=${chatId}`, {
+      await fetch(`${config.maxApi}/messages?user_id=${chatId}`, {
         method: 'POST',
-        headers: { 'Authorization': _cfg.maxBotToken, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': config.maxBotToken, 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: text.slice(0, 4000) })
       }).catch(e => console.log('[TG] MAX notify error:', e.message));
     });
@@ -380,7 +210,6 @@ async function handleTgMessage(body) {
   const msg = body.message;
   if (!msg) return;
 
-  // Контакт (номер телефона)
   if (msg.contact && msg.contact.phone_number) {
     const chatId = String(msg.chat.id);
     const phone = msg.contact.phone_number.replace(/[-+()\s]/g, '').replace(/^8/, '7');
@@ -389,19 +218,17 @@ async function handleTgMessage(body) {
   }
 
   if (!msg.text) return;
-
   const chatId = String(msg.chat.id);
   const text = msg.text.trim();
 
-  // /start — проверяем привязку
+  // /start
   if (text === '/start' || text.startsWith('/start@')) {
     const existingUser = await identifyUser(chatId);
     if (existingUser) {
       const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
-      await tgSendMessage(chatId, `👋 С возвращением, ${existingUser.full_name}!\n\n🏷 ${roleNames[existingUser.role] || existingUser.role}\n\n📋 Введите /help чтобы увидеть команды.`);
+      await tgSendMessage(chatId, `Привет, ${existingUser.full_name}! 👋\n\n${roleNames[existingUser.role] || existingUser.role}\n\nНужна помощь — пиши /help`);
       return;
     }
-    // Не привязан
     const startPhone = text.split(' ')[1];
     if (startPhone) {
       const digits = startPhone.replace(/[-+()\s]/g, '').replace(/^8/, '7');
@@ -410,7 +237,7 @@ async function handleTgMessage(body) {
         return;
       }
     }
-    await tgSendMessage(chatId, '👋 Привет! Чтобы привязать Telegram к Dispatcher.PRO, отправь свой номер телефона:\n\n<code>+7XXXXXXXXXX</code>\n\nИли нажми кнопку ниже.', {
+    await tgSendMessage(chatId, 'Привет! 👋\nЧтобы я мог тебе помогать, привяжи номер телефона:\n\n<code>+7XXXXXXXXXX</code>\n\nИли нажми кнопку ниже.', {
       reply_markup: JSON.stringify({ keyboard: [[{ text: '📱 Отправить номер', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true })
     });
     return;
@@ -419,55 +246,27 @@ async function handleTgMessage(body) {
   // Номер телефона — привязка
   const digits = text.replace(/[-+()\s]/g, '');
   if (/^7\d{10}$/.test(digits) || /^8\d{10}$/.test(digits)) {
-    const phone = digits.replace(/^8/, '7');
-    await linkTgUser(chatId, phone, msg.from?.username || '');
+    await linkTgUser(chatId, digits.replace(/^8/, '7'), msg.from?.username || '');
     return;
   }
 
   // Определяем пользователя
   const user = await identifyUser(chatId);
   if (!user) {
-    return tgSendMessage(chatId, 'Вы не привязаны к системе. Отправьте номер телефона или нажмите /start');
+    return tgSendMessage(chatId, 'Ты не привязан к системе. Отправь номер телефона или нажми /start');
   }
 
-  // === Команды (без AI) ===
+  // === Команды ===
   const cmd = text.toLowerCase().split('@')[0];
-
-  if (cmd === '/help' || cmd === '/помощь') return await cmdHelp(chatId, user);
-  if (cmd === '/shifts' || cmd === '/смены') return await cmdShifts(chatId, user);
-  if (cmd === '/earnings' || cmd === '/заработок' || cmd === '/зарплата') return await cmdEarnings(chatId, user);
-  if (cmd === '/orders' || cmd === '/заказы') return await cmdOrders(chatId, user);
-  if (cmd === '/selfemployed' || cmd === '/самозанятость') return await cmdSelfEmployed(chatId);
   if (cmd === '/webapp' || cmd === '/app') return await cmdWebApp(chatId, user);
+  // /help, /shifts и прочие — через AI, не шаблоны
 
-  // === Распознавание текста → маппинг на команды ===
-  const lowerText = text.toLowerCase();
-  // Клиентские ключевые слова
-  const clientKeywords = ['заказ', 'мои заказ', 'мои смены', 'статус заказа', 'открытые заказ', 'какие заказ', 'смены', 'мои объект', 'мои точки'];
-  // Исполнительские ключевые слова
-  const workerKeywords = ['смен', 'график', 'что на завтра', 'что на сегодня', 'расписание', 'куда идти', 'куда ехать', 'мои смены', 'мои заказ'];
-  // Общие
-  const earningsKeywords = ['заработал', 'зарплат', 'оплат', 'сколько получил', 'мой доход', 'деньги', 'выплат'];
-  const selfemployedKeywords = ['самозанят', 'налог', 'мой налог', 'нпд', 'чек', 'оформить'];
-  const helpKeywords = ['что ты умеешь', 'помощь', 'что умеешь', 'что можешь', 'команды', 'что мне доступн'];
-
-  if (helpKeywords.some(kw => lowerText.includes(kw))) return await cmdHelp(chatId, user);
-  if (selfemployedKeywords.some(kw => lowerText.includes(kw))) return await cmdSelfEmployed(chatId);
-  if (earningsKeywords.some(kw => lowerText.includes(kw))) return await cmdEarnings(chatId, user);
-
-  // Роль-зависимые: клиент → orders, исполнитель → shifts
-  if (user.role === 'client') {
-    if (clientKeywords.some(kw => lowerText.includes(kw))) return await cmdOrders(chatId, user);
-  } else {
-    if (workerKeywords.some(kw => lowerText.includes(kw))) return await cmdShifts(chatId, user);
-  }
-
-  // === Чат пересылка: если у пользователя есть активные смены ===
+  // === Чат пересылка ===
   const chatForwarded = await tryForwardChat(chatId, user, text);
   if (chatForwarded) return;
 
-  // === Всё остальное — через AI ===
-  await askAI(chatId, user, text);
+  // === AI (из bot-common) ===
+  await askAI(chatId, user, text, tgSendMessage, knowledgeBase);
 }
 
 // ============================================================
@@ -479,7 +278,6 @@ let pollRetryCount = 0;
 
 async function startPolling() {
   if (pollingActive) return;
-  // Delete webhook to ensure polling works (fix HTTP 409 Conflict)
   try {
     const whRes = await fetch(`${config.tgApi}/deleteWebhook?drop_pending_updates=true`);
     const whData = await whRes.json();
