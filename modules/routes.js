@@ -48,7 +48,7 @@ function handleStats(req, res, cors) {
 // --- API proxy (generic Supabase) with sync + notifications ---
 async function handleApiProxy(req, res, cors, urlPath) {
   const table = urlPath.replace('/api/', '').split('/')[0];
-  const query = req.url.includes('?') ? req.url.split('?').slice(1).join('?') : '';
+  let query = req.url.includes('?') ? req.url.split('?').slice(1).join('?') : '';
   if (!table) return json(res, { error: 'Missing table' }, 400, cors);
 
   const session = requireAuth(req);
@@ -59,8 +59,32 @@ async function handleApiProxy(req, res, cors, urlPath) {
   const ownerAndClient = ['payments'];
   if (ownerOnly.includes(table) && session.role !== 'owner') return json(res, { error: 'Нет доступа' }, 403, cors);
   if (ownerAndClient.includes(table) && session.role !== 'owner' && session.role !== 'client') return json(res, { error: 'Нет доступа' }, 403, cors);
-  if (session.role === 'worker' && req.method !== 'GET' && !['shift_assignments', 'service_types'].includes(table))
+  if (session.role === 'worker' && req.method !== 'GET' && !['shift_assignments'].includes(table))
     return json(res, { error: 'Нет доступа' }, 403, cors);
+
+  // Dispatcher GET: restrict to own shifts (created_by) unless viewing specific allowed tables
+  if (session.role === 'dispatcher' && req.method === 'GET') {
+    const dispTables = ['shifts', 'shift_assignments', 'reviews', 'workers', 'clients', 'orders'];
+    if (dispTables.includes(table)) {
+      const sep = query ? '&' : '';
+      const filter = `created_by=eq.${session.userId}`;
+      query = query ? query + sep + filter : filter;
+    }
+  }
+
+  // Worker GET: restrict to own data
+  if (session.role === 'worker' && req.method === 'GET') {
+    const workerTables = ['shift_assignments', 'shifts', 'reviews'];
+    if (workerTables.includes(table)) {
+      const sep = query ? '&' : '';
+      const filter = `worker_id=eq.${session.userId}`;
+      // For shifts table, filter via shift_assignments relationship
+      if (table === 'shifts') {
+        return json(res, { error: 'Используйте shift_assignments' }, 400, cors);
+      }
+      query = query ? query + sep + filter : filter;
+    }
+  }
 
   const body = await readBody(req);
   let parsedBody = body;
@@ -116,6 +140,11 @@ async function handleApiProxy(req, res, cors, urlPath) {
 // --- Static files ---
 function handleStatic(req, res, urlPath) {
   if (urlPath === '/') urlPath = '/index.html';
+  // Block sensitive files
+  const blocked = ['.env', '.json', '.js', '.yml', '.yaml', '.toml', '.md', 'Dockerfile', '.git'];
+  if (blocked.some(ext => urlPath.endsWith(ext))) {
+    res.writeHead(403); return res.end('Forbidden');
+  }
   const filePath = path.join(config.appDir, urlPath);
   if (!filePath.startsWith(config.appDir)) { res.writeHead(403); return res.end('Forbidden'); }
   fs.readFile(filePath, (err, data) => {
