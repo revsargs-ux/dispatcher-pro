@@ -26,6 +26,18 @@ function recordRequest(endpoint, statusCode, durationMs) {
   const now = Date.now();
   totalRequests++;
 
+  // Limit endpoint count to prevent memory leak
+  if (!endpointStats[endpoint] && Object.keys(endpointStats).length > 500) {
+    // Remove oldest entries
+    const cutoff = now - 10 * 60 * 1000;
+    for (const ep in endpointStats) {
+      const s = endpointStats[ep];
+      s.requests = s.requests.filter(r => r.time >= cutoff);
+      s.errors = s.errors.filter(r => r.time >= cutoff);
+      if (s.requests.length === 0) delete endpointStats[ep];
+    }
+  }
+
   const stat = getOrCreate(endpoint);
   stat.requests.push({ time: now, duration: durationMs, status: statusCode });
 

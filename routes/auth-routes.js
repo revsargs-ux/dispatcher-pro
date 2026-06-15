@@ -225,7 +225,21 @@ async function handleAuthLogout(req, res, cors) {
 }
 
 // --- TG Mini App login (by telegram_chat_id) ---
+const _tgLoginAttempts = new Map(); // ip -> { count, resetAt }
+const TG_LOGIN_MAX = 5;
+const TG_LOGIN_WINDOW = 60 * 1000;
+
 async function handleTgLogin(req, res, cors) {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress;
+  const now = Date.now();
+  const att = _tgLoginAttempts.get(ip);
+  if (att && att.count >= TG_LOGIN_MAX && now < att.resetAt) {
+    console.log('[Auth] tg-login rate limited:', ip, 'count:', att.count);
+    return json(res, { error: 'Too many attempts' }, 429, cors);
+  }
+  if (!att || now >= att.resetAt) _tgLoginAttempts.set(ip, { count: 1, resetAt: now + TG_LOGIN_WINDOW });
+  else att.count++;
+  console.log('[Auth] tg-login attempt:', ip, 'count:', _tgLoginAttempts.get(ip)?.count);
   try {
     const body = await readBody(req);
     const { telegram_chat_id } = JSON.parse(body);

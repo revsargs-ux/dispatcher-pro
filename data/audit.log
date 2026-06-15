@@ -57,3 +57,11 @@
 {"timestamp":"2026-05-24T11:12:44.020Z","action":"login_failure","details":"wrong pass: Черноус Сюзанна Робертовна (users)","userId":"09e19f82-dff3-4500-aed0-fec7f68fdb81","role":"dispatcher","ip":"91.195.210.35"}
 {"timestamp":"2026-05-24T11:12:46.124Z","action":"login_failure","details":"wrong pass: Черноус Сюзанна Робертовна (users)","userId":"09e19f82-dff3-4500-aed0-fec7f68fdb81","role":"dispatcher","ip":"91.195.210.35"}
 {"timestamp":"2026-05-24T11:12:55.564Z","action":"login_failure","details":"wrong pass: Черноус Сюзанна Робертовна (users)","userId":"09e19f82-dff3-4500-aed0-fec7f68fdb81","role":"dispatcher","ip":"91.195.210.35"}
+{"timestamp":"2026-06-03T20:50:25.895Z","action":"login_failure","details":"wrong pass: Тест Диспетчер (users)","userId":"bf1a02b8-02dd-4d54-8e0f-06b74716cff0","role":"dispatcher","ip":"172.18.0.1"}
+{"timestamp":"2026-06-03T20:50:26.082Z","action":"login_failure","details":"wrong pass: Ревик Саргсян (users)","userId":"f1a2b0e9-60ab-4055-998c-afa54bc7a82d","role":"owner","ip":"172.18.0.1"}
+{"timestamp":"2026-06-03T20:50:49.179Z","action":"login_failure","details":"wrong pass: Тест Диспетчер (users)","userId":"bf1a02b8-02dd-4d54-8e0f-06b74716cff0","role":"dispatcher","ip":"172.18.0.1"}
+{"timestamp":"2026-06-03T21:05:03.989Z","action":"login_failure","details":"wrong pass: Тест Диспетчер (users)","userId":"849d3de8-e682-404d-a2f7-bff9fc774aca","role":"dispatcher","ip":"127.0.0.1"}
+{"timestamp":"2026-06-13T07:29:16.148Z","action":"register","details":"Тест Тестов (workers)","userId":"9dd4a99d-9336-40b2-a996-fc8b567ed5f6","role":"workers","ip":"172.18.0.1"}
+{"timestamp":"2026-06-13T07:30:08.622Z","action":"login_failure","details":"not found: 79990000099 (users)","userId":"anonymous","role":"unknown","ip":"172.18.0.1"}
+{"timestamp":"2026-06-13T07:30:22.835Z","action":"login_failure","details":"wrong pass: Ревик Саргсян (users)","userId":"f1a2b0e9-60ab-4055-998c-afa54bc7a82d","role":"owner","ip":"172.18.0.1"}
+{"timestamp":"2026-06-15T23:06:12.644Z","action":"login_success","details":"Ревик Саргсян (users)","userId":"f1a2b0e9-60ab-4055-998c-afa54bc7a82d","role":"owner","ip":"62.89.11.68"}

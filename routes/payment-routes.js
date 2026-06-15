@@ -27,8 +27,7 @@ async function handleExportCsv(req, res, cors) {
       const h = parseFloat(a.hours_worked), r = parseFloat(a.rate_per_hour) || 400, cr = parseFloat(a.client_rate_per_hour) || 520, ex = parseFloat(a.extra_amount) || 0;
       csv += `${a.shifts?.date || ''},"${wMap[a.worker_id] || ''}","${a.shifts?.clients?.name || ''}",${h},${h*r+ex},${h*cr+ex},${(cr-r)*h},${a.payment_status}\n`;
     });
-    const session = requireAuth(req);
-    audit('export', 'payments.csv', session?.userId, session?.role, req.headers['x-forwarded-for'] || req.socket.remoteAddress);
+    audit('export', 'payments.csv', session.userId, session.role, req.headers['x-forwarded-for'] || req.socket.remoteAddress);
     res.writeHead(200, { ...cors, 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename=payments.csv' });
     res.end(csv);
   } catch (e) { res.writeHead(500, cors); res.end('Export error'); }

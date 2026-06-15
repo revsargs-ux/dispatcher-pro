@@ -6,3 +6,27 @@
 {"ok":true,"result":true,"description":"Webhook was set"}[Thu May 14 03:00:15 PM UTC 2026] Container restarted (health failed)
 [Thu May 21 01:20:02 AM UTC 2026] WARNING: Health check returned 404
 {"ok":false,"error_code":401,"description":"Unauthorized"}[Thu May 21 01:20:17 AM UTC 2026] Container restarted (health failed)
+[Tue Jun  2 08:05:01 AM UTC 2026] WARNING: Health check returned 000
+[Tue Jun  2 08:05:14 AM UTC 2026] Container restarted (health failed)
+[Tue Jun  2 08:10:02 AM UTC 2026] WARNING: Health check returned 000
+[Tue Jun  2 08:10:15 AM UTC 2026] Container restarted (health failed)
+[Tue Jun  2 08:15:01 AM UTC 2026] WARNING: Health check returned 000
+[Tue Jun  2 08:15:14 AM UTC 2026] Container restarted (health failed)
+[Tue Jun  2 08:20:02 AM UTC 2026] WARNING: Health check returned 000
+[Tue Jun  2 08:20:15 AM UTC 2026] Container restarted (health failed)
+[Tue Jun  2 08:25:01 AM UTC 2026] WARNING: Health check returned 000
+[Tue Jun  2 08:25:14 AM UTC 2026] Container restarted (health failed)
+[Tue Jun  2 08:30:02 AM UTC 2026] WARNING: Health check returned 000
+[Tue Jun  2 08:30:15 AM UTC 2026] Container restarted (health failed)
+[Fri Jun  5 08:20:01 PM UTC 2026] CRITICAL: Container n8n-dispatcher-1 is not running!
+time="2026-06-05T20:20:01Z" level=warning msg="/home/n8n/.openclaw/workspace/docker-compose.dispatcher.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+ Container n8n-dispatcher-1 Creating 
+ Container n8n-dispatcher-1 Error response from daemon: Conflict. The container name "/n8n-dispatcher-1" is already in use by container "ceefa731ee3a74633d141a9120cbb53c5d17a70fb57800c90690b385d53fb818". You have to remove (or rename) that container to be able to reuse that name. 
+Error response from daemon: Conflict. The container name "/n8n-dispatcher-1" is already in use by container "ceefa731ee3a74633d141a9120cbb53c5d17a70fb57800c90690b385d53fb818". You have to remove (or rename) that container to be able to reuse that name.
+{"ok":false,"error_code":401,"description":"Unauthorized"}[Fri Jun  5 08:20:08 PM UTC 2026] Container restarted
+[Fri Jun  5 08:25:01 PM UTC 2026] CRITICAL: Container n8n-dispatcher-1 is not running!
+time="2026-06-05T20:25:02Z" level=warning msg="/home/n8n/.openclaw/workspace/docker-compose.dispatcher.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+ Container n8n-dispatcher-1 Creating 
+ Container n8n-dispatcher-1 Error response from daemon: Conflict. The container name "/n8n-dispatcher-1" is already in use by container "edf76ace799e653fe2c697465157caee61d8698d71725c5836f075d23f82f9c7". You have to remove (or rename) that container to be able to reuse that name. 
+Error response from daemon: Conflict. The container name "/n8n-dispatcher-1" is already in use by container "edf76ace799e653fe2c697465157caee61d8698d71725c5836f075d23f82f9c7". You have to remove (or rename) that container to be able to reuse that name.
+{"ok":false,"error_code":401,"description":"Unauthorized"}[Fri Jun  5 08:25:07 PM UTC 2026] Container restarted

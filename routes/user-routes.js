@@ -9,7 +9,13 @@ const { checkNotifsTable } = require('./shift-routes');
 
 // --- Client pay method ---
 function handleClientPayMethodGet(req, res, cors) {
+  const { requireAuth } = require('../modules/auth');
+  const session = requireAuth(req);
+  if (!session) return json(res, { error: 'Auth required' }, 401, cors);
   const cid = new URL('http://localhost' + req.url).searchParams.get('client_id');
+  if (session.role !== 'owner' && session.role !== 'dispatcher' && session.userId !== cid) {
+    return json(res, { error: 'Нет доступа' }, 403, cors);
+  }
   const methods = loadJson('client-pay-methods.json');
   json(res, { method: methods[cid] || 'transfer' }, 200, cors);
 }
@@ -45,7 +51,8 @@ async function handleNotificationsGet(req, res, cors) {
     }
   } catch (e) { console.error('[Notifs] Supabase error, falling back to JSON:', e.message); }
   const notifs = loadJson('notifications.json');
-  json(res, notifs, 200, cors);
+  const filtered = (session?.sub || session?.userId) ? notifs.filter(n => n.user_id === session.sub || n.user_id === session.userId) : notifs;
+  json(res, filtered, 200, cors);
 }
 async function handleNotificationsDelete(req, res, cors) {
   try {

@@ -36,7 +36,8 @@ async function maxSendMessage(userId, text, attachments) {
 async function maxNotify(table, phone, text) {
   try {
     const cleanPhone = (phone || '').replace(/[-+()\s]/g, '').replace(/^8/, '7');
-    const res = await fetch(`${config.sbUrl}/rest/v1/${table}?phone=ilike.%25${cleanPhone.slice(-10)}%25&select=max_chat_id,full_name&limit=1`, {
+    const safePhone = cleanPhone.slice(-10).replace(/[%_]/g, '');
+    const res = await fetch(`${config.sbUrl}/rest/v1/${table}?phone=ilike.%25${safePhone}%25&select=max_chat_id,full_name&limit=1`, {
       headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
     });
     const rows = await res.json();
@@ -91,7 +92,8 @@ async function linkMaxUser(chatId, phone) {
     ];
     let found = null;
     for (const cfg of searchConfigs) {
-      const res = await fetch(`${config.sbUrl}/rest/v1/${cfg.table}?${cfg.phoneCol}=ilike.%25${phone.slice(-10)}%25&select=${cfg.select}&limit=1`, {
+      const safePhone = phone.slice(-10).replace(/[%_]/g, '');
+      const res = await fetch(`${config.sbUrl}/rest/v1/${cfg.table}?${cfg.phoneCol}=ilike.%25${safePhone}%25&select=${cfg.select}&limit=1`, {
         headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
       });
       const rows = await res.json();
@@ -147,7 +149,9 @@ async function tryForwardChat(chatId, user, text) {
     }
     if (!shiftIds.length) return false;
 
-    const activeRes = await fetch(`${config.sbUrl}/rest/v1/shifts?id=in.(${shiftIds.join(',')})&status=in.(confirmed,in_progress,planned)&select=id&limit=5`, {
+    const validIds = shiftIds.filter(id => /^[0-9a-f-]{36}$/.test(id));
+    if (!validIds.length) return false;
+    const activeRes = await fetch(`${config.sbUrl}/rest/v1/shifts?id=in.(${validIds.join(',')})&status=in.(confirmed,in_progress,planned)&select=id&limit=5`, {
       headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey }
     });
     const activeShifts = await activeRes.json();

@@ -388,7 +388,9 @@ async function handleSubmitReview(req, res, cors) {
   if (session.role !== 'client') return json(res, { error: 'Только заказчик может оставить отзыв' }, 403, cors);
 
   const body = await readBody(req);
-  const { shift_id, worker_id, rating, comment } = JSON.parse(body);
+  let parsed;
+  try { parsed = JSON.parse(body); } catch(e) { return json(res, { error: 'Invalid JSON' }, 400, cors); }
+  const { shift_id, worker_id, rating, comment } = parsed;
   if (!shift_id || !worker_id || !rating) return json(res, { error: 'Missing required fields' }, 400, cors);
   if (rating < 1 || rating > 5) return json(res, { error: 'Rating must be 1-5' }, 400, cors);
 
@@ -421,6 +423,105 @@ async function handleSubmitReview(req, res, cors) {
   } catch (e) { json(res, { error: e.message }, 500, cors); }
 }
 
+// ===== CLIENT HOURS CONFIRMATION =====
+async function handleClientHoursConfirm(req, res, cors) {
+  const session = requireAuth(req);
+  if (!session) return json(res, { error: 'Требуется авторизация' }, 401, cors);
+  const body = await readBody(req);
+  try {
+    const { assignment_id, action, client_hours } = JSON.parse(body);
+    if (!assignment_id || !action) return json(res, { error: 'Нет данных' }, 400, cors);
+
+    // Получаем назначение
+    const asgns = await (await sbFetch('shift_assignments', `id=eq.${assignment_id}&select=*,shifts(date,client_id,clients(name,contact),service_types(name),created_by)`)).json();
+    if (!asgns?.length) return json(res, { error: 'Назначение не найдено' }, 404, cors);
+    const a = asgns[0];
+
+    // Проверка прав: только клиент своей смены
+    if (session.role === 'client') {
+      const shiftClientId = a.shifts?.client_id;
+      if (shiftClientId !== session.userId) return json(res, { error: 'Нет доступа' }, 403, cors);
+    } else if (!['owner', 'dispatcher'].includes(session.role)) {
+      return json(res, { error: 'Нет доступа' }, 403, cors);
+    }
+
+    const workerPhone = await (async () => {
+      const ws = await (await sbFetch('workers', `id=eq.${a.worker_id}&select=phone,full_name`)).json();
+      return ws?.[0] || {};
+    })();
+    const shiftDate = a.shifts?.date || '';
+    const svcName = a.shifts?.service_types?.name || 'Смена';
+    const clientName = a.shifts?.clients?.name || 'Клиент';
+    const dispatcherId = a.shifts?.created_by;
+
+    if (action === 'confirm') {
+      await sbFetch('shift_assignments', `id=eq.${assignment_id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ client_hours_status: 'confirmed', client_confirmed: true, client_confirmed_at: new Date().toISOString() })
+      });
+      // Уведомление рабочему
+      if (workerPhone.phone) {
+        const msg = `✅ Клиент подтвердил часы\n\n📅 ${shiftDate}\n📋 ${svcName}\n⏱ ${a.hours_worked}ч подтверждено`;
+        tgNotify('workers', workerPhone.phone, msg);
+        maxNotify('workers', workerPhone.phone, msg);
+      }
+      return json(res, { ok: true });
+
+    } else if (action === 'dispute') {
+      if (!client_hours || client_hours <= 0) return json(res, { error: 'Укажите количество часов' }, 400, cors);
+      await sbFetch('shift_assignments', `id=eq.${assignment_id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ client_hours_status: 'disputed', client_hours: parseFloat(client_hours) })
+      });
+      // Уведомление рабочему
+      if (workerPhone.phone) {
+        const msg = `⚠️ Клиент не согласен с часами\n\n📅 ${shiftDate}\n📋 ${svcName}\n⏱ Вы указали: ${a.hours_worked}ч\n🏢 Клиент указал: ${client_hours}ч\n\nДиспетчер рассмотрит спор.`;
+        tgNotify('workers', workerPhone.phone, msg);
+        maxNotify('workers', workerPhone.phone, msg);
+      }
+      // Уведомление диспетчеру
+      if (dispatcherId) {
+        const disp = await (await sbFetch('users', `id=eq.${dispatcherId}&select=phone`)).json();
+        if (disp?.[0]?.phone) {
+          const msg = `⚠️ Спор по часам\n\n🏢 ${clientName}\n📅 ${shiftDate}\n📋 ${svcName}\n👷 ${workerPhone.full_name || ''}\n⏱ Рабочий: ${a.hours_worked}ч\n🏢 Клиент: ${client_hours}ч\n\nОткройте смену для решения.`;
+          tgNotify('users', disp[0].phone, msg);
+          maxNotify('users', disp[0].phone, msg);
+        }
+      }
+      return json(res, { ok: true });
+    }
+
+    return json(res, { error: 'Неизвестное действие' }, 400, cors);
+  } catch (e) { json(res, { error: e.message }, 500, cors); }
+}
+
+// Автоподтверждение через 24ч (вызывается из server.js)
+async function autoConfirmHours() {
+  try {
+    const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const pending = await (await sbFetch('shift_assignments',
+      `client_hours_status=eq.pending&hours_submitted_at=lt.${cutoff}&hours_submitted_at=not.is.null&select=*,shifts(date,client_id,clients(name,contact),service_types(name))`
+    )).json();
+    if (!pending?.length) return;
+    for (const a of pending) {
+      await sbFetch('shift_assignments', `id=eq.${a.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ client_hours_status: 'auto_confirmed', client_confirmed: true, client_confirmed_at: new Date().toISOString() })
+      });
+      // Уведомление клиенту
+      const clientContact = a.shifts?.clients?.contact;
+      const shiftDate = a.shifts?.date || '';
+      const svcName = a.shifts?.service_types?.name || 'Смена';
+      if (clientContact) {
+        const msg = `🔔 Автоподтверждение часов\n\n📅 ${shiftDate}\n📋 ${svcName}\n⏱ ${a.hours_worked}ч\n\nВремя ответа истекло (24ч). Часы подтверждены автоматически.`;
+        tgNotify('clients', clientContact, msg);
+        maxNotify('clients', clientContact, msg);
+      }
+      console.log('[AutoConfirm] Assignment', a.id, 'auto-confirmed');
+    }
+  } catch (e) { console.error('[AutoConfirm] Error:', e.message); }
+}
+
 module.exports = {
   handlePendingOrders,
   handleClaimOrder,
@@ -431,5 +532,7 @@ module.exports = {
   handleRecurringUpdate,
   handleRecurringDelete,
   handleGetWorkerReviews,
-  handleSubmitReview
+  handleSubmitReview,
+  handleClientHoursConfirm,
+  autoConfirmHours
 };

@@ -230,6 +230,7 @@ function createRouter() {
 
     // Reviews
     if (urlPath === '/api/reviews' && req.method === 'POST') { if (!auth()) return; return await shiftRoutes.handleSubmitReview(req, res, cors); }
+    if (urlPath === '/api/client-hours-confirm' && req.method === 'POST') { if (!auth()) return; return await shiftRoutes.handleClientHoursConfirm(req, res, cors); }
     if (urlPath.match(/^\/api\/reviews\/worker\/[0-9a-f-]{36}$/) && req.method === 'GET') {
       if (!auth()) return;
       const wId = urlPath.split('/').pop();

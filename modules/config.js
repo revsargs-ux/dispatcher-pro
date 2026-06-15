@@ -63,4 +63,14 @@ function saveJson(filename, data) {
   try { fs.writeFileSync(fp, JSON.stringify(data)); } catch(e) { console.error('[Config] Cannot save', filename, e.message); }
 }
 
+// Startup validation
+if (!config.sbUrl || !config.sbUrl.startsWith('http')) {
+  console.error('[FATAL] SB_URL is required and must be a valid URL');
+  process.exit(1);
+}
+if (!config.sbKey || config.sbKey.length < 10) {
+  console.error('[FATAL] SB_KEY is required (min 10 chars)');
+  process.exit(1);
+}
+
 module.exports = { config, loadJson, saveJson };

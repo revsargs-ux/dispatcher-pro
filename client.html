@@ -520,9 +520,19 @@ function renderShifts(shiftMap,wMap){
     }).join('');
     const workersHtml=`<div style="margin-top:6px"><div style="font-size:13px;color:var(--text-light);margin-bottom:4px">👥 ${confirmed.length} чел.${doneCount>0?' · '+doneCount+' завершено':''}${onShift>0?' · '+onShift+' на смене':''}</div>${workerList}</div>`;
 
-    const hasDone=as.some(a=>a.actual_end_time&&!a.client_confirmed);
-    const allConfirmed=as.every(a=>a.client_confirmed);
-    const confirmBtn=hasDone&&!allConfirmed?`<button class="btn btn-green" onclick="confirmShift('${shift.id}')">✅ Подтвердить данные</button>`:'';
+    const hasDone=as.some(a=>a.actual_end_time&&a.hours_worked&&(a.client_hours_status==='pending'||!a.client_hours_status));
+    const allConfirmed=as.every(a=>!a.hours_worked||a.client_confirmed||a.client_hours_status==='confirmed'||a.client_hours_status==='auto_confirmed');
+    const pendingWorkers=as.filter(a=>a.hours_worked&&(a.client_hours_status==='pending'||!a.client_hours_status)&&a.actual_end_time);
+    const disputedWorkers=as.filter(a=>a.client_hours_status==='disputed');
+    const confirmedWorkersBtns=as.filter(a=>a.client_hours_status==='confirmed'||a.client_hours_status==='auto_confirmed'||a.client_confirmed);
+    const workersBtns=pendingWorkers.map(a=>{
+      const wName=esc(wMap[a.worker_id]?.full_name||'Рабочий');
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px;"><span>👷 ${wName} — <strong>${a.hours_worked||0}ч</strong></span><div style="display:flex;gap:4px;"><button class="btn btn-sm btn-green" onclick="clientConfirmHours('${a.id}','confirm')">✅ Подтвердить</button><button class="btn btn-sm btn-outline" onclick="openDisputeHours('${a.id}','${a.hours_worked||0}')">✏️ Оспорить</button></div></div>`;
+    }).join('');
+    const disputeInfo=disputedWorkers.map(a=>{const wName=esc(wMap[a.worker_id]?.full_name||'Рабочий');return `<div style="padding:4px 0;font-size:12px;color:#fc8181;">⚠️ ${wName}: вы указали ${a.client_hours||0}ч (рабочий: ${a.hours_worked||0}ч) — ожидает решения диспетчера</div>`;}).join('');
+    const confirmSummary=confirmedWorkersBtns.map(a=>{const wName=esc(wMap[a.worker_id]?.full_name||'Рабочий');const tag=a.client_hours_status==='auto_confirmed'?' (авто)':'';return `<div style="padding:2px 0;font-size:12px;color:#68d391;">✅ ${wName}: ${a.hours_worked||0}ч подтверждено${tag}</div>`;}).join('');
+    const hoursBlock=(workersBtns||disputeInfo||confirmSummary)?`<div style="margin-top:8px;padding:8px;background:rgba(0,0,0,.1);border-radius:8px;">${workersBtns}${disputeInfo}${confirmSummary}</div>`:'';
+    const confirmBtn='';
     const reviewBtn=shift.status==='completed'?`<button class="btn btn-sm" style="margin-left:4px;font-size:12px;" onclick="openReview('${shift.id}')">⭐ Оценить работу</button>`:'';
     const safeName=(shift.service_types?.name||'Смена').replace(/'/g,"\\'");
     const calBtn=`<button class="btn btn-sm" style="margin-left:4px;font-size:12px;" onclick="exportIcal('${shift.id}','${safeName}','${shift.date||''}','${shift.start_time||''}','${shift.planned_end_time||''}',this)">📅 Календарь</button>`;
@@ -541,7 +551,7 @@ function renderShifts(shiftMap,wMap){
         <span style="font-size:13px;color:var(--text-light);">${confirmedCount} подтверждено${done>0?' · '+done+' завершено':''}${working?' · '+working+' на смене':''}</span>
       </div>
       ${shiftCost>0?`<div class="amount ${shiftDebt<=0?'paid':'unpaid'}">💰 ${shiftCost.toLocaleString('ru')}₽${shiftDebt>0?' (долг: '+shiftDebt.toLocaleString('ru')+'₽)':' ✅ Оплачено'}</div>${costBreakdown}`:''}
-      ${workersHtml}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">${confirmBtn}${reviewBtn}${calBtn}</div>${lockNotice}
+      ${workersHtml}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">${reviewBtn}${calBtn}</div>${hoursBlock}${lockNotice}
       <button class="btn btn-sm" style="margin-top:6px;font-size:12px;" onclick="loadShiftPhotos('${shift.id}',this)">📸 Фото с объекта</button>
       <button class="btn btn-sm" style="margin-top:4px;font-size:12px;" onclick="openChat('${shift.id}')">💬 Чат</button>
       ${shift.status!=='completed'?`<button class="btn btn-sm" style="margin-top:4px;font-size:12px;" onclick="editClientShift('${shift.id}')">✏️ Изменить</button>`:''}
@@ -676,6 +686,33 @@ async function confirmShift(shiftId){
   if(!confirm('Подтвердить данные по завершённым сменам? После подтверждения данные заблокированы.'))return;
   await api('shift_assignments','PATCH',{client_confirmed:true},`?shift_id=eq.${shiftId}&actual_end_time=not.is.null`);
   render();
+}
+
+async function clientConfirmHours(assignmentId, action){
+  if(action==='confirm'){
+    if(!confirm('Подтвердить указанное количество часов?'))return;
+    const r=await fetch('/api/client-hours-confirm',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({assignment_id:assignmentId,action:'confirm'})});
+    const d=await r.json();
+    if(d.ok){toast('✅ Часы подтверждены');render();}
+    else toast('Ошибка: '+(d.error||''));
+  }
+}
+
+let _disputeAssignmentId=null;
+function openDisputeHours(assignmentId, workerHours){
+  _disputeAssignmentId=assignmentId;
+  document.getElementById('dispute-worker-hours').textContent=workerHours;
+  document.getElementById('dispute-client-hours').value='';
+  document.getElementById('modal-dispute').style.display='flex';
+}
+function closeDisputeModal(){document.getElementById('modal-dispute').style.display='none';}
+async function submitDispute(){
+  const h=parseFloat(document.getElementById('dispute-client-hours').value);
+  if(!h||h<=0){alert('Укажите количество часов');return;}
+  const r=await fetch('/api/client-hours-confirm',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({assignment_id:_disputeAssignmentId,action:'dispute',client_hours:h})});
+  const d=await r.json();
+  if(d.ok){toast('⚠️ Спор отправлен диспетчеру');closeDisputeModal();render();}
+  else toast('Ошибка: '+(d.error||''));
 }
 
 
@@ -1231,5 +1268,18 @@ async function fetchSuggestions(q,list,input){
   </div>
 </div>
 
+
+<!-- Модалка спора по часам -->
+<div id="modal-dispute" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:1000;justify-content:center;align-items:center;">
+  <div style="background:var(--card);border-radius:14px;padding:24px;width:90%;max-width:360px;">
+    <h3 style="margin:0 0 12px;">✏️ Оспорить часы</h3>
+    <p style="font-size:13px;color:var(--text-light);margin-bottom:16px;">Рабочий указал: <strong id="dispute-worker-hours"></strong>ч. Укажите правильное количество часов по вашему мнению:</p>
+    <div class="form-group"><label>Ваши часы</label><input type="number" id="dispute-client-hours" step="0.5" min="0.5" placeholder="Например: 6.5" style="width:100%;"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn btn-primary" style="flex:1" onclick="submitDispute()">Отправить</button>
+      <button class="btn btn-outline" style="flex:1" onclick="closeDisputeModal()">Отмена</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

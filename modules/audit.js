@@ -30,7 +30,7 @@ function trimLog() {
     fs.closeSync(fd)
     // Find first newline to align to line boundary
     const nlIdx = buf.indexOf(10) // '\n'
-    const content = nlIdx >= 0 ? buf.slice(nlIdx + 1).toString() : buf.toString()
+    const content = nlIdx >= 0 ? buf.slice(nlIdx + 1).toString('utf8') : buf.toString('utf8')
     fs.writeFileSync(LOG_PATH, content)
     console.log('[AUDIT] Log trimmed from', stat.size, 'to', content.length, 'bytes')
   } catch (e) {
