@@ -5,7 +5,7 @@ const { config } = require('./config');
 
 function getCorsHeaders(req) {
   const origin = req.headers['origin'] || '';
-  const allowed = config.allowedOrigins.includes(origin) ? origin : config.allowedOrigins[0];
+  const allowed = config.allowedOrigins.includes(origin) ? origin : '';
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',

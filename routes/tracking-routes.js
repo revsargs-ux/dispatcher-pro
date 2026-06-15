@@ -69,6 +69,7 @@ async function handleTrackingStop(req, res, cors) {
   try {
     const { session_id, worker_id } = JSON.parse(body);
     if (!session_id) return json(res, { error: 'session_id required' }, 400, cors);
+    if (worker_id && !/^[0-9a-f-]{36}$/.test(worker_id)) return json(res, { error: 'Invalid worker_id' }, 400, cors);
     await sbFetch('tracking_sessions', `id=eq.${session_id}`, { method: 'PATCH', body: JSON.stringify({ status: 'stopped', ended_at: new Date().toISOString() }) });
     if (worker_id) delete trackingSessions[worker_id];
     console.log('[Tracking] Stopped session', session_id);

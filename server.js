@@ -36,16 +36,19 @@ ensurePaymentStatusCol();
 
 // Clean old receipts daily
 setInterval(() => {
-  try {
-    const now = Date.now();
-    fs.readdirSync(config.receiptsDir).forEach(f => {
-      const stat = fs.statSync(path.join(config.receiptsDir, f));
-      if (now - stat.mtimeMs > config.receiptTtlDays * 24 * 60 * 60 * 1000) {
-        fs.unlinkSync(path.join(config.receiptsDir, f));
-        console.log('[Receipts] Deleted old file:', f);
-      }
-    });
-  } catch (e) { console.error('[Receipts] Cleanup error:', e.message); }
+  const now = Date.now();
+  const dir = config.receiptsDir;
+  fs.promises.readdir(dir).then(files => Promise.all(
+    files.map(async f => {
+      try {
+        const stat = await fs.promises.stat(path.join(dir, f));
+        if (now - stat.mtimeMs > config.receiptTtlDays * 24 * 60 * 60 * 1000) {
+          await fs.promises.unlink(path.join(dir, f));
+          console.log('[Receipts] Deleted old file:', f);
+        }
+      } catch (_) {}
+    })
+  )).catch(() => {});
 }, 24 * 60 * 60 * 1000);
 
 // Ensure shift-photos directory exists
@@ -95,11 +98,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     // Shift photo serve endpoint
+    if (urlPath.startsWith('/shift-photos/') || urlPath.includes('/shift-photos/')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Use /api/shift-photos endpoint' }));
+    }
+    // Also block direct access to data directory
+    const normalizedPath = path.normalize(urlPath);
+    if (normalizedPath.startsWith('/data/')) {
+      res.writeHead(403); return res.end('Forbidden');
+    }
+    // Shift photo serve endpoint (only via /shift-photos/ URL)
     if (urlPath.startsWith('/shift-photos/')) {
       const authSession = requireAuth(req);
-      if (!authSession) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Auth required' })); }
-      const photoFile = path.join(shiftPhotosDir, urlPath.replace('/shift-photos/', ''));
-      if (!photoFile.startsWith(shiftPhotosDir) || !fs.existsSync(photoFile)) { res.writeHead(404); return res.end('Not found'); }
       const ext = path.extname(photoFile).toLowerCase();
       const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp' }[ext] || 'application/octet-stream';
       res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'no-cache' });
@@ -145,11 +154,17 @@ startMaxPolling();
 
 // Start GAS periodic sync (every 5 minutes)
 const sbFetchForSync = require('./modules/db').sbFetch;
+const { autoConfirmHours } = require('./routes/shift-routes');
 
 setInterval(() => runGasSync(sbFetchForSync), 5 * 60 * 1000);
 // Run once on startup after 30 seconds
 setTimeout(() => runGasSync(sbFetchForSync), 30000);
 console.log('[GAS-Sync] Periodic sync enabled (every 5 min)');
+
+// Auto-confirm client hours after 24h
+setInterval(autoConfirmHours, 30 * 60 * 1000);
+setTimeout(autoConfirmHours, 60000); // first run after 1 min
+console.log('[AutoConfirm] Client hours auto-confirm enabled (every 30 min)');
 
 // ===== Recurring orders: auto-create shifts daily =====
 async function processRecurringOrders() {

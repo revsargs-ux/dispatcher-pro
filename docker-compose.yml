@@ -5,6 +5,8 @@ services:
     image: n8n-dispatcher:latest
     container_name: n8n-dispatcher-1
     restart: unless-stopped
+    ports:
+      - '3000:8080'
     environment:
       - SB_URL=https://bzozrjgfnpdhlymfuobd.supabase.co
       - SB_KEY=sb_secret_7oItz51qISepnzMSsd8wEA_6vsbQbkK
