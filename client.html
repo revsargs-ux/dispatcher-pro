@@ -1255,7 +1255,7 @@ function initAddressAutocomplete(){
 }
 async function fetchSuggestions(q,list,input){
   try{
-    const r=await fetch('https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Token cd57e4b2e13f49cfb1eb1fbed9f1d7f49ba685b1'},body:JSON.stringify({query:q,count:5})});
+    const r=await fetch('/api/geocode?q='+encodeURIComponent(q));
     const d=await r.json();
     if(!d.suggestions||!d.suggestions.length){list.classList.remove('show');return}
     list.innerHTML=d.suggestions.map(s=>`<div class="addr-item" onclick="this.closest('.addr-suggestions').previousElementSibling.value='${s.value.replace(/'/g,"\'")}';this.closest('.addr-suggestions').classList.remove('show')">${s.value}</div>`).join('');
