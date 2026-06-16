@@ -1,9 +1,10 @@
 node_modules/
-data/sessions.json
-data/.jwt_secret
-data/notifications.json
-data/client-pay-methods.json
+*.bak
 *.bak.*
-.bak.max/
-notifications-module/supabase/
-.git/
+backups/
+receipts/
+audit/
+data/
+monitor.log
+*.log
+.env
