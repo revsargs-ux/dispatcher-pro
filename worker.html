@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- BUILD NOTE: Inline JS can be minified via build step (esbuild/terser) in future optimization phase. Kept readable for maintainability. -->
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -90,6 +91,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .pw-match-label{font-size:12px;margin:-8px 0 12px;text-align:center}
 .pw-match-label.ok{color:#38a169}
 .pw-match-label.fail{color:#c53030}
+/* Spinner */
+.spinner{display:inline-block;width:20px;height:20px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.1);display:flex;align-items:center;justify-content:center;z-index:9999}
+/* Touch-friendly buttons */
+button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
+.auth-box button{min-height:48px}
+.pw-eye{min-height:44px;min-width:44px}
 </style>
 </head>
 <body>
@@ -100,7 +109,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <input type="tel" id="phone-input" data-i18n-placeholder="placeholder_phone" placeholder="Номер телефона" maxlength="15">
     <div class="pw-wrap">
       <input type="password" id="pass-input" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
-      <span class="pw-eye" onclick="togglePw('pass-input',this)">👁</span>
+      <span class="pw-eye" role="button" aria-label="Показать/скрыть пароль" onclick="togglePw('pass-input',this)">👁</span>
     </div>
     <button onclick="login()" data-i18n="btn_login" style="width:100%">Войти</button>
 
@@ -111,11 +120,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <input type="tel" id="reg-phone" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15">
     <div class="pw-wrap">
       <input type="password" id="reg-pass" placeholder="Пароль">
-      <span class="pw-eye" onclick="togglePw('reg-pass',this)">👁</span>
+      <span class="pw-eye" role="button" aria-label="Показать/скрыть пароль" onclick="togglePw('reg-pass',this)">👁</span>
     </div>
     <div class="pw-wrap">
       <input type="password" id="reg-pass2" placeholder="Повторите пароль" oninput="checkPwMatch()">
-      <span class="pw-eye" onclick="togglePw('reg-pass2',this)">👁</span>
+      <span class="pw-eye" role="button" aria-label="Показать/скрыть пароль" onclick="togglePw('reg-pass2',this)">👁</span>
     </div>
     <div id="pw-match-bar" class="pw-match" style="background:var(--border)"></div>
     <div id="pw-match-label" class="pw-match-label"></div>
@@ -126,7 +135,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div></div>
 
 <div id="main-screen" style="display:none;"><div class="container">
-  <div class="header" style="display:flex;justify-content:space-between;align-items:center;"><div><h2 id="worker-name">👷</h2><p id="worker-stats"></p></div><div style="display:flex;gap:6px;align-items:center;"><button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button><button id="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">🌙</button><button onclick="doLogout()" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 10px;border-radius:4px;cursor:pointer;font-size:12px;color:#fff;margin-left:4px">🚪 Выход</button></div></div>
+  <div class="header" style="display:flex;justify-content:space-between;align-items:center;"><div><h2 id="worker-name">👷</h2><p id="worker-stats"></p></div><div style="display:flex;gap:6px;align-items:center;"><button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button><button id="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему" style="background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">🌙</button><button onclick="doLogout()" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 10px;border-radius:4px;cursor:pointer;font-size:12px;color:#fff;margin-left:4px">🚪 Выход</button></div></div>
   <div id="tg-banner" style="display:none;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkTelegram()">📱 Подключить уведомления в Telegram</div>
   <div id="tg-linked" style="display:none;background:#e8f5e9;color:#2e7d32;padding:10px 16px;border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px">✅ Telegram уведомления подключены</div>
   <div id="max-banner" style="display:none;background:linear-gradient(135deg,#6b3fa0,#8b5cf6);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkMax()">💬 Подключить уведомления в МАКС</div>
@@ -229,10 +238,14 @@ async function api(t,m='GET',b=null,q='',_retry=false){
   const o={method:m,headers:{'Content-Type':'application/json'}};
   const tk=localStorage.getItem('dp_token');if(tk)o.headers['Authorization']='Bearer '+tk;
   if(b)o.body=JSON.stringify(b);
-  try{const r=await fetch(u,o);if(r.status===401){if(!_retry){const ref=await tryRefreshToken();if(ref)return api(t,m,b,q,true);}localStorage.removeItem('dp_token');return[];}if(!r.ok)return m==='DELETE'?false:[];if(m==='DELETE')return true;return await r.json();}catch(e){return[];}
+  try{const r=await fetch(u,o);if(r.status===401){if(!_retry){const ref=await tryRefreshToken();if(ref)return api(t,m,b,q,true);}localStorage.removeItem('dp_token');return[];}if(!r.ok){const err=await r.json().catch(()=>({}));toast('Ошибка: '+r.status+' '+(err.error||err.message||''));return m==='DELETE'?false:[];}if(m==='DELETE')return true;return await r.json();}catch(e){toast('Ошибка сети: '+e.message);return[];}
 }
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',3000);}
+function btnLoading(btn,loading){if(loading){btn._origText=btn.textContent;btn.disabled=true;btn.textContent='⏳ '+btn._origText;}else{btn.disabled=false;btn.textContent=btn._origText;}}
 function norm(p){return(p||'').replace(/[\+\-\(\)\s]/g,'').replace(/^8/,'7');}
+function validateHours(h){const n=parseFloat(h);return !isNaN(n)&&n>0&&n<=24;}
+function validateAmount(a){const n=parseFloat(a);return !isNaN(n)&&n>0;}
+function validatePhone(p){const d=(p||'').replace(/[^0-9]/g,'');return d.length===11;}
 function formatDate(d){if(!d)return'—';const p=d.split('-');return p.length===3?p[2]+'.'+p[1]+'.'+p[0]:d;}
 function formatDateKam(d){if(!d)return"—";try{const dt=new Date(d+"T00:00:00+12:00");return dt.toLocaleDateString("ru",{timeZone:"Asia/Kamchatka",day:"2-digit",month:"2-digit",year:"numeric"});}catch{return formatDisplayDate(d);}}
 function formatTimeKam(ts){if(!ts)return'—';try{return new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});}catch{return'—';}}
@@ -270,6 +283,7 @@ async function login(){
   const phone=document.getElementById('phone-input').value.trim();
   const pass=document.getElementById('pass-input').value;
   if(!phone||!pass){showErr('Введите телефон и пароль');return;}
+  if(!validatePhone(phone)){showErr('Телефон должен содержать 11 цифр');return;}
   try{
     const ph=norm(phone);
     const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'workers',phone:'+'+ph,pass:pass})});
@@ -371,7 +385,7 @@ async function render(){
     }catch(e){}
 
     const list=document.getElementById('shifts-list');
-    if(!assignments||!assignments.length){list.innerHTML='<div class="empty"><div style="font-size:48px">📭</div><p>Смен пока нет</p></div>';return;}
+    if(!assignments||!assignments.length){list.innerHTML='<div class="empty"><div style="font-size:48px">📭</div><p>Нет смен</p></div>';return;}
 
     list.innerHTML=assignments.map(a=>{
       const status=a.invite_status;
@@ -425,7 +439,7 @@ async function render(){
       let actionsHtml='';
       if(status==='invited'){
         actionsHtml=`<div class="actions">
-          <button class="btn btn-accept" onclick="respond('${a.id}','confirmed')">✅ Подтвердить</button>
+          <button class="btn btn-accept" onclick="respond('${a.id}','confirmed',this)">✅ Подтвердить</button>
           <button class="btn btn-decline" onclick="respond('${a.id}','declined')">❌ Отказаться</button>
         </div>`;
       }else if(status==='confirmed'&&!a.actual_start_time&&!clientConfirmed){
@@ -440,7 +454,7 @@ async function render(){
         let cancelBtn='';
         if(plannedStart){
           const hoursBefore=(new Date(shiftDate+'T'+plannedStart)-now)/3600000;
-          if(hoursBefore>=3){cancelBtn=`<button class="btn btn-cancel" onclick="cancelConfirmed('${a.id}','${shiftDate}','${plannedStart}')">❌ Отказаться</button>`;}
+          if(hoursBefore>=3){cancelBtn=`<button class="btn btn-cancel" onclick="cancelConfirmed('${a.id}','${shiftDate}','${plannedStart}',this)">❌ Отказаться</button>`;}
           else if(hoursBefore>0){cancelBtn=`<button class="btn btn-cancel" disabled style="opacity:.4;">❌ Отказ (< 3ч)</button>`;}
         }
         if(canStart){actionsHtml=`<button class="btn btn-work" onclick="startWork('${a.id}')">▶️ Начать работу</button>${cancelBtn}`;}
@@ -454,7 +468,7 @@ async function render(){
         actionsHtml=(actionsHtml?actionsHtml+' ':'')+`<button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" onclick="openChat('${a.shift_id}')">💬 Чат</button>`;
       }
 
-      const photosHtml=_shiftPhotos[a.shift_id]?'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">'+_shiftPhotos[a.shift_id].map(p=>`<img src="/shift-photos/${p.filename}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="window.open('/shift-photos/${p.filename}','_blank')">`).join('')+'</div>':'';
+      const photosHtml=_shiftPhotos[a.shift_id]?'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">'+_shiftPhotos[a.shift_id].map(p=>`<img src="/shift-photos/${p.filename}" alt="Фото с объекта" style="width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="window.open('/shift-photos/${p.filename}','_blank')">`).join('')+'</div>':'';
 
       return `<div class="card" id="card-${a.id}">
         <div class="date">📅 ${dateStr}</div>
@@ -470,11 +484,12 @@ async function render(){
   }catch(e){toast('Ошибка загрузки');}
 }
 
-async function respond(id,status){
+async function respond(id,status,btn){if(btn)btnLoading(btn,true);try{
+  if(status==='declined'){if(!confirm('Вы уверены? Это действие нельзя отменить.'))return;}
   try{await api('shift_assignments','PATCH',{invite_status:status},`?id=eq.${id}`);render();}
   catch(e){toast('Ошибка');}
 }
-async function startWork(id){
+async function startWork(id){try{
   // Проверяем время начала
   try{
     const asgn=(await api('shift_assignments','GET',null,`?id=eq.${id}&select=*,shifts(date,start_time,planned_end_time,address,comment,clients(name))`))[0];
@@ -494,9 +509,12 @@ async function startWork(id){
       }
     }
     
+    // PATCH actual_start_time via API
+    const res=await api('shift_assignments','PATCH',{invite_status:'in_progress',actual_start_time:now.toISOString()},`?id=eq.${id}`);
+    if(res&&!Array.isArray(res)){toast('Ошибка сохранения');return;}
     toast('✅ Смена началась!');
     render();
-  }catch(e){toast('Ошибка: '+e.message);}
+  }catch(e){toast('Ошибка: '+e.message);}finally{if(typeof btn!=='undefined'&&btn)btnLoading(btn,false);}
 }
 
 function getDistance(lat1,lon1,lat2,lon2){
@@ -506,17 +524,17 @@ function getDistance(lat1,lon1,lat2,lon2){
   const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
-async function endWork(id){
+async function endWork(id){try{
   if(!confirm('Завершить смену?'))return;
   try{
     const a=(await api('shift_assignments','GET',null,`?id=eq.${id}&select=actual_start_time`))[0];
     const end=new Date();let hours=0;
     if(a?.actual_start_time){hours=Math.round(((end-new Date(a.actual_start_time))/3600000)*10)/10;if(hours<0)hours=0;}
-    await api('shift_assignments','PATCH',{actual_end_time:end.toISOString(),hours_worked:hours},`?id=eq.${id}`);
+    await api('shift_assignments','PATCH',{invite_status:'completed',actual_end_time:end.toISOString(),hours_worked:hours},`?id=eq.${id}`);
     render();
   }catch(e){toast('Ошибка');}
 }
-async function cancelConfirmed(id,shiftDate,shiftTime){
+async function cancelConfirmed(id,shiftDate,shiftTime,btn){if(btn)btnLoading(btn,true);try{
   if(!confirm('Вы уверены? Отмена возможна только за 3 часа до начала.'))return;
   try{
     await api('shift_assignments','PATCH',{invite_status:'declined'},`?id=eq.${id}`);
@@ -634,12 +652,12 @@ loadLang(currentLang);
 let _chatShiftId=null,_chatPoll=null,_chatMyId=null;
 function openChat(shiftId){
   _chatShiftId=shiftId;_chatMyId=worker?.id;
-  document.getElementById('chat-modal').style.display='flex';
+  const m=document.getElementById('chat-modal');m.style.display='flex';m._triggerBtn=document.activeElement;
   loadChatMessages();
   _chatPoll=setInterval(loadChatMessages,5000);
 }
 function closeChat(){
-  document.getElementById('chat-modal').style.display='none';
+  const m=document.getElementById('chat-modal');m.style.display='none';if(m._triggerBtn)try{m._triggerBtn.focus();}catch(e){}
   if(_chatPoll)clearInterval(_chatPoll);_chatPoll=null;_chatShiftId=null;
 }
 async function loadChatMessages(){
@@ -659,7 +677,7 @@ async function loadChatMessages(){
     if(wasBottom)box.scrollTop=box.scrollHeight;
   }catch(e){console.error('chat load',e);}
 }
-async function sendChatMsg(){
+async function sendChatMsg(){const btn=document.getElementById("chat-send-btn");if(btn)btnLoading(btn,true);try{
   if(!_chatShiftId)return;
   const inp=document.getElementById('chat-input');
   const msg=inp.value.trim();if(!msg)return;
@@ -694,7 +712,8 @@ async function uploadShiftPhoto(shiftId,input){
   input.value='';
 }
 </script>
-<script src="/push-client.js">
+<script src="/push-client.js"></script>
+<script>
 function doLogout(){localStorage.removeItem('dp_token');localStorage.removeItem('dp_auth');location.href=location.pathname;}
 
 // Restore session on page load

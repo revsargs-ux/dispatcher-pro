@@ -18,4 +18,19 @@ function json(res, data, status = 200, cors) {
   res.end(JSON.stringify(data));
 }
 
-module.exports = { readBody, json };
+// --- Helper: extract first public IP from x-forwarded-for chain ---
+function extractPublicIp(ipRaw) {
+  if (!ipRaw) return '';
+  const ips = ipRaw.split(',').map(s => s.trim()).filter(Boolean);
+  for (const ip of ips) {
+    const clean = ip.replace(/^::ffff:/, '');
+    if (clean === '127.0.0.1' || clean === '::1' || clean === 'unknown') continue;
+    if (clean.startsWith('10.') || clean.startsWith('192.168.')) continue;
+    const m172 = clean.match(/^172\.(\d+)\./);
+    if (m172 && parseInt(m172[1]) >= 16 && parseInt(m172[1]) <= 31) continue;
+    return clean;
+  }
+  return ips[0]?.replace(/^::ffff:/, '') || '';
+}
+
+module.exports = { readBody, json, extractPublicIp };

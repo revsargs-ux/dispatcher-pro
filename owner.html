@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- BUILD NOTE: Inline JS can be minified via build step (esbuild/terser) in future optimization phase. Kept readable for maintainability. -->
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -90,6 +91,12 @@ canvas.chart{width:100%;height:200px;background:var(--card);border-radius:10px;b
   .modal-content{margin:10px;width:95%;max-height:90vh;overflow-y:auto;}
   .card{padding:12px;}
 }
+/* Spinner */
+.spinner{display:inline-block;width:20px;height:20px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.1);display:flex;align-items:center;justify-content:center;z-index:9999}
+/* Touch-friendly buttons */
+button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
 </style>
 </head>
 <body>
@@ -101,6 +108,13 @@ canvas.chart{width:100%;height:200px;background:var(--card);border-radius:10px;b
   <input type="password" id="auth-pass" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
   <button onclick="doLogin()" data-i18n="btn_login">Войти</button>
   <div class="auth-error" id="auth-error"></div>
+  <p style="text-align:center;margin-top:12px;font-size:13px;color:var(--text-light);" id="auth-hint"></p>
+  <div id="register-form" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+    <input type="text" id="reg-name" placeholder="ФИО" style="width:100%;padding:10px;margin-bottom:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);">
+    <input type="password" id="reg-pass2" placeholder="Повторите пароль" style="width:100%;padding:10px;margin-bottom:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);">
+    <button onclick="doRegister()" style="width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:6px;cursor:pointer;min-height:44px;">Зарегистрироваться</button>
+  </div>
+  <button onclick="toggleRegister()" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;padding:8px;" id="toggle-reg-btn">Нет аккаунта? Зарегистрироваться</button>
   <!-- 2FA Modal -->
   <div id="twofa-modal" style="display:none;text-align:center;margin-top:16px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--bg);">
     <p style="margin:0 0 12px;font-weight:600;">🔐 Код подтверждения отправлен в Telegram</p>
@@ -117,7 +131,7 @@ canvas.chart{width:100%;height:200px;background:var(--card);border-radius:10px;b
     <span id="user-name"></span>
     <span class="role-badge">РУКОВОДИТЕЛЬ</span>
     <button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button>
-    <button id="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#fff;padding:0 4px;">🌙</button>
+    <button id="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему" style="background:none;border:none;font-size:18px;cursor:pointer;color:#fff;padding:0 4px;">🌙</button>
     <button class="btn-logout" onclick="doLogout()" data-i18n="btn_logout">Выйти</button>
   </div>
 </div>
@@ -134,9 +148,9 @@ canvas.chart{width:100%;height:200px;background:var(--card);border-radius:10px;b
 
 <div id="panel-overview" class="panel active">
   <div class="month-nav">
-    <button onclick="changeMonth(-1)">◀</button>
+    <button onclick="changeMonth(-1)" aria-label="Предыдущий месяц">◀</button>
     <span class="month-label" id="month-label"></span>
-    <button onclick="changeMonth(1)">▶</button>
+    <button onclick="changeMonth(1)" aria-label="Следующий месяц">▶</button>
     <button class="btn btn-outline btn-sm" onclick="exportCSV()" style="margin-left:auto;" data-i18n="btn_export_csv">📥 CSV</button>
     <button class="btn btn-outline btn-sm" onclick="exportPDF()" data-i18n="btn_export_pdf">📄 PDF</button>
   </div>
@@ -146,9 +160,9 @@ canvas.chart{width:100%;height:200px;background:var(--card);border-radius:10px;b
 
 <div id="panel-analytics" class="panel">
   <div class="month-nav">
-    <button onclick="changeMonth(-1)">◀</button>
+    <button onclick="changeMonth(-1)" aria-label="Предыдущий месяц">◀</button>
     <span class="month-label" id="analytics-month"></span>
-    <button onclick="changeMonth(1)">▶</button>
+    <button onclick="changeMonth(1)" aria-label="Следующий месяц">▶</button>
   </div>
   <div class="stat-grid">
     <div class="stat-card"><div class="num" id="kpi-avg-check">—</div><div class="label">Средний чек / смена</div></div>
@@ -177,14 +191,14 @@ canvas.chart{width:100%;height:200px;background:var(--card);border-radius:10px;b
 
 <div id="panel-clients" class="panel">
   <table><thead><tr><th>Заказчик</th><th>Контакт</th><th>Часов</th><th>Выручка</th><th>Долг</th></tr></thead>
-  <tbody id="clients-table"></tbody><thead><tr><th>Заказчик</th><th>Телефон</th><th>Часы</th><th>Выручка</th><th>Долг</th><th></th></tr></thead></table>
+  <tbody id="clients-table"></tbody></table>
 </div>
 
 <div id="panel-shifts" class="panel">
   <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
     <input type="date" id="shift-from" style="padding:8px;border:1px solid var(--border);border-radius:6px;">
     <input type="date" id="shift-to" style="padding:8px;border:1px solid var(--border);border-radius:6px;">
-    <button class="btn btn-primary" onclick="loadAllShifts()">🔍</button>
+    <button class="btn btn-primary" onclick="loadAllShifts()" aria-label="Поиск">🔍</button>
   </div>
   <div id="shifts-list"></div>
 </div>
@@ -218,7 +232,7 @@ canvas.chart{width:100%;height:200px;background:var(--card);border-radius:10px;b
     <div class="form-group"><label>Ставка ₽/час</label><input type="number" id="disp-rate" value="7.5" step="0.5"></div>
     <div class="form-group"><label>Цель часов/мес</label><input type="number" id="disp-target" value="8000"></div>
   </div>
-  <button class="btn btn-primary" style="width:100%" onclick="saveDispatcher()" data-i18n="btn_save">Сохранить</button>
+  <button class="btn btn-primary" style="width:100%" onclick="saveDispatcher(this)" data-i18n="btn_save">Сохранить</button>
   <div id="disp-access-info" style="display:none;margin-top:12px;padding:12px;background:#ebf8ff;border-radius:8px;font-size:14px;"></div>
 </div></div>
 
@@ -263,14 +277,19 @@ async function tryRefreshToken(){
 setInterval(()=>tryRefreshToken(),6*60*60*1000);
 
 function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function toast(msg){const t=document.createElement('div');t.textContent=msg;t.style.cssText='position:fixed;top:70px;right:20px;background:var(--primary);color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;z-index:3000;box-shadow:0 4px 12px rgba(0,0,0,.2)';document.body.appendChild(t);setTimeout(()=>t.remove(),3000);}
+function btnLoading(btn,loading){if(loading){btn._origText=btn.textContent;btn.disabled=true;btn.textContent='⏳ '+btn._origText;}else{btn.disabled=false;btn.textContent=btn._origText;}}
 async function api(t,m='GET',b=null,q='',_retry=false){
   const u='/api/'+t+(q?(q[0]==='?'?q:'?'+q):'');
   const o={method:m,headers:{'Content-Type':'application/json'}};
   const tk=localStorage.getItem('dp_token');if(tk)o.headers['Authorization']='Bearer '+tk;
   if(b)o.body=JSON.stringify(b);
-  try{const r=await fetch(u,o);if(r.status===401){if(!_retry){const ref=await tryRefreshToken();if(ref)return api(t,m,b,q,true);}localStorage.removeItem('dp_token');localStorage.removeItem('dp_rop');if(!document.getElementById('auth-phone'))location.reload();return m==='DELETE'?false:[];}if(!r.ok)return m==='DELETE'?false:[];if(m==='DELETE')return true;return await r.json();}catch(e){return[];}
+  try{const r=await fetch(u,o);if(r.status===401){if(!_retry){const ref=await tryRefreshToken();if(ref)return api(t,m,b,q,true);}localStorage.removeItem('dp_token');localStorage.removeItem('dp_rop');if(!document.getElementById('auth-phone'))location.reload();return m==='DELETE'?false:[];}if(!r.ok){const err=await r.json().catch(()=>({}));toast('Ошибка: '+r.status+' '+(err.error||err.message||''));return m==='DELETE'?false:[];}if(m==='DELETE')return true;return await r.json();}catch(e){toast('Ошибка сети: '+e.message);return[];}
 }
 function norm(p){return(p||'').replace(/[\+\-\(\)\s]/g,'').replace(/^8/,'7');}
+function validateHours(h){const n=parseFloat(h);return !isNaN(n)&&n>0&&n<=24;}
+function validateAmount(a){const n=parseFloat(a);return !isNaN(n)&&n>0;}
+function validatePhone(p){const d=(p||'').replace(/[^0-9]/g,'');return d.length===11;}
 function fmtDate(d){if(!d)return'—';const p=d.split('-');return p.length===3?p[2]+'.'+p[1]+'.'+p[0]:d;}
 const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 
@@ -294,6 +313,8 @@ async function doLogin(){
   const rawPhone=document.getElementById('auth-phone').value.trim(),pass=document.getElementById('auth-pass').value;
   const phone=norm(rawPhone);
   if(!phone||!pass){showErr('Введите телефон и пароль');return;}
+  if(!validatePhone(phone)){showErr('Телефон должен содержать 11 цифр');return;}
+  try{
   const authRes=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',phone,pass,role:'owner'})});
   const u=await authRes.json();
   if(!u.ok){showErr(u.error||'Ошибка');return;}
@@ -306,6 +327,7 @@ async function doLogin(){
     return;
   }
   completeOwnerLogin(u);
+  }catch(e){showErr('Ошибка подключения');}
 }
 async function doVerify2FA(){
   const code=document.getElementById('twofa-code').value.trim();
@@ -325,9 +347,11 @@ function completeOwnerLogin(u){
   updateMonthLabels();loadCache();loadOverview();
 }
 function showErr(m){const e=document.getElementById('auth-error');e.textContent=m;e.style.display='block';}
+function toggleRegister(){const f=document.getElementById('register-form');const b=document.getElementById('toggle-reg-btn');if(f.style.display==='none'){f.style.display='block';b.textContent='Уже есть аккаунт? Войти';}else{f.style.display='none';b.textContent='Нет аккаунта? Зарегистрироваться';}}
+async function doRegister(){const phone=norm(document.getElementById('auth-phone').value);const pass=document.getElementById('auth-pass').value;const pass2=document.getElementById('reg-pass2').value;const name=document.getElementById('reg-name').value.trim();if(!phone||!pass||!name){showErr('Заполните все поля');return;}if(!validatePhone(phone)){showErr('Телефон: 11 цифр');return;}if(pass.length<4){showErr('Пароль минимум 4 символов');return;}if(pass!==pass2){showErr('Пароли не совпадают');return;}try{const r=await fetch('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',data:{full_name:name,phone,password:pass,role:'owner',is_active:true,city:null}})});const u=await r.json();if(!u.ok){showErr(u.error||'Ошибка регистрации');return;}completeOwnerLogin(u);}catch(e){showErr('Ошибка подключения');}}
 function doLogout(){const tk=localStorage.getItem('dp_token');if(tk)fetch('/auth/logout',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk}}).catch(()=>{});localStorage.removeItem('dp_rop');localStorage.removeItem('dp_token');location.reload();}
-function openModal(id){document.getElementById(id).classList.add('show');}
-function closeModal(id){document.getElementById(id).classList.remove('show');}
+function openModal(id){const m=document.getElementById(id);m.classList.add('show');m._triggerBtn=document.activeElement;}
+function closeModal(id){const m=document.getElementById(id);m.classList.remove('show');if(m._triggerBtn)try{m._triggerBtn.focus();}catch(e){}}
 
 document.getElementById('tabs-bar').addEventListener('click',e=>{
   const t=e.target.closest('.tab');if(!t)return;const p=t.dataset.panel;if(!p)return;
@@ -420,7 +444,7 @@ async function loadOverview(){
       const progress=target>0?Math.min(100,Math.round(data.hours/target*100)):0;
       const cls=progress>=90?'green':progress>=60?'yellow':'red';
       return`<div class="dispatcher-card">
-        <div class="dc-header"><div class="dc-name">${d.full_name}</div><span class="badge badge-${cls}">${progress}%</span></div>
+        <div class="dc-header"><div class="dc-name">${d.full_name}</div><div style="display:flex;gap:6px;align-items:center;"><button class="btn btn-sm btn-outline cpb" data-role="dispatcher" data-name="${d.full_name||''}" data-phone="${d.phone||''}">📋 Поделиться</button><span class="badge badge-${cls}">${progress}%</span></div></div>
         <div class="progress-bar" style="margin-bottom:10px;"><div class="progress-fill progress-${cls}" style="width:${progress}%;"></div></div>
         <div class="dc-stats">
           <div class="dc-stat"><div class="val" style="color:var(--primary);">${data.hours.toLocaleString('ru')}ч</div><div class="lbl">из ${target.toLocaleString('ru')}ч</div></div>
@@ -442,6 +466,8 @@ async function loadAnalytics(){
 
   // 14-day revenue chart
   drawRevenueChart();
+  // Redraw chart on window resize
+  if(!window._chartResize){window._chartResize=true;window.addEventListener('resize',debounce(()=>{if(document.getElementById('panel-analytics').classList.contains('active'))drawRevenueChart();},300));}
 
   // Top clients
   const wMap={};(cachedWorkers||[]).forEach(w=>wMap[w.id]=w.full_name);
@@ -571,8 +597,8 @@ async function loadDispatchers(){
         <div><div class="dc-name">${esc(d.full_name)}</div><div style="font-size:12px;color:var(--text-light);">${esc(d.phone)}${d.city?' · 📍'+esc(d.city):''}</div></div>
         <div style="display:flex;gap:6px;align-items:center;">
           <span class="badge ${active?'badge-green':'badge-red'}">${active?'Активен':'Отключён'}</span>
-          <button class="btn btn-sm btn-outline cpb" data-role="dispatcher" data-name="${esc(d.full_name||'')}" data-phone="${esc(d.phone||'')}">📋</button> <button class="btn btn-sm btn-outline" onclick="editDispatcher('${d.id}')">✏️</button>
-          <button class="btn btn-sm btn-outline" onclick="toggleDispatcher('${d.id}',${!active})">${active?'⏸':'▶️'}</button>
+          <button class="btn btn-sm btn-outline cpb" aria-label="Скопировать контакт" data-role="dispatcher" data-name="${esc(d.full_name||'')}" data-phone="${esc(d.phone||'')}">📋</button> <button class="btn btn-sm btn-outline" aria-label="Редактировать" onclick="editDispatcher('${d.id}')">✏️</button>
+          <button class="btn btn-sm btn-outline" aria-label="${active?'Деактивировать':'Активировать'}" onclick="toggleDispatcher('${d.id}',${!active})">${active?'⏸':'▶️'}</button>
         </div></div>
       <div class="dc-stats">
         <div class="dc-stat"><div class="val">${h.toLocaleString('ru')}ч</div><div class="lbl">Часов</div></div>
@@ -599,7 +625,9 @@ async function editDispatcher(id){
   document.getElementById('disp-target').value=d.monthly_target_hours||8000;
   document.getElementById('disp-access-info').style.display='none';openModal('modal-dispatcher');
 }
-async function saveDispatcher(){
+async function saveDispatcher(btn){
+  if(btn)btnLoading(btn,true);
+  try{
   const id=document.getElementById('disp-edit-id').value;
   const name=document.getElementById('disp-name').value.trim(),phone=document.getElementById('disp-phone').value.trim();
   const pass=document.getElementById('disp-pass').value.trim();
@@ -618,8 +646,9 @@ async function saveDispatcher(){
     info.style.display='block';
   }
   closeModal('modal-dispatcher');loadDispatchers();loadOverview();
+  }finally{if(btn)btnLoading(btn,false);}
 }
-async function toggleDispatcher(id,active){await api('users','PATCH',{is_active:active},'?id=eq.'+id);loadDispatchers();}
+async function toggleDispatcher(id,active){if(!active&&confirm){if(!confirm('Деактивировать диспетчера?'))return;}await api('users','PATCH',{is_active:active},'?id=eq.'+id);loadDispatchers();}
 
 // ===== Finances =====
 async function loadFinances(){
@@ -645,7 +674,7 @@ async function loadFinances(){
     <div class="stat-card green"><div class="num">${totalClient.toLocaleString('ru')}₽</div><div class="label">От клиентов</div></div>
     <div class="stat-card red"><div class="num">${totalWorker.toLocaleString('ru')}₽</div><div class="label">Рабочим</div></div>
     <div class="stat-card green"><div class="num">${(totalClient-totalWorker).toLocaleString('ru')}₽</div><div class="label">Маржа</div></div>`;
-  document.getElementById('finance-table').innerHTML=rows.join('')||'<tr><td colspan="9" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
+  document.getElementById('finance-table').innerHTML=rows.join('')||'<tr><td colspan="9" style="text-align:center;color:var(--text-light);padding:40px;"><div style="font-size:48px;margin-bottom:16px">📭</div><div>Нет данных</div></td></tr>';
 }
 
 // ===== Clients =====
@@ -668,7 +697,7 @@ async function loadClients(){
     const d=cMap[c.id]||{hours:0,revenue:0,debt:0};
     return`<tr><td><strong>${esc(c.name)}</strong></td><td>${esc(c.contact||'—')}</td><td>${d.hours}ч</td>
       <td>${d.revenue.toLocaleString('ru')}₽</td><td style="color:${d.debt>0?'var(--danger)':'var(--accent)'};">${d.debt.toLocaleString('ru')}₽</td><td><button class="btn btn-sm btn-outline cpb" data-role="client" data-name="${esc(c.name||'')}" data-phone="${esc(c.contact||'')}">📋</button></td></tr>`;
-  }).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
+  }).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--text-light);padding:40px;"><div style="font-size:48px;margin-bottom:16px">📭</div><div>Нет данных</div></td></tr>';
 }
 
 function inviteClient(contact,password){

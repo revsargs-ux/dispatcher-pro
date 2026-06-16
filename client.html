@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- BUILD NOTE: Inline JS can be minified via build step (esbuild/terser) in future optimization phase. Kept readable for maintainability. -->
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -33,7 +34,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .card .amount{font-size:20px;font-weight:bold;color:var(--primary);margin-top:6px}
 .card .amount.paid{color:var(--accent)}.card .amount.unpaid{color:var(--warning)}
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.stat-card{background:var(--card);border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:4px solid var(--primary);text-align:center}}
+.stat-card{background:var(--card);border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:4px solid var(--primary);text-align:center}
 .stat-card .num{font-size:22px;font-weight:700;color:var(--primary)}
 .stat-card .label{font-size:11px;color:var(--text-light)}
 .stat-card.green{border-left-color:var(--accent)}.stat-card.green .num{color:var(--accent)}
@@ -110,6 +111,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .addr-suggestions.show{display:block}
 .addr-item{padding:8px 12px;cursor:pointer;font-size:0.8rem;color:var(--text)}
 .addr-item:hover{background:var(--surface2)}
+/* Spinner */
+.spinner{display:inline-block;width:20px;height:20px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.1);display:flex;align-items:center;justify-content:center;z-index:9999}
+/* Touch-friendly buttons */
+button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
 </style>
 </head>
 <body>
@@ -121,7 +128,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <input type="tel" id="phone-input" data-i18n-placeholder="placeholder_phone" placeholder="Номер телефона" maxlength="15">
     <div class="pw-wrap">
       <input type="password" id="pass-input" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
-      <span class="pw-eye" onclick="togglePw('pass-input',this)">👁</span>
+      <span class="pw-eye" role="button" aria-label="Показать/скрыть пароль" onclick="togglePw('pass-input',this)">👁</span>
     </div>
     <button onclick="login()" data-i18n="btn_login">Войти</button>
     <p class="link"><a href="javascript:void(0)" onclick="showReg()" data-i18n="auth_register_link">Зарегистрироваться</a> · <a href="javascript:void(0)" onclick="forgotPassword()" data-i18n="auth_forgot">Забыли пароль?</a></p>
@@ -131,11 +138,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <input type="tel" id="reg-phone" data-i18n-placeholder="placeholder_phone" placeholder="Контактный телефон" maxlength="15">
     <div class="pw-wrap">
       <input type="password" id="reg-pass" placeholder="Пароль">
-      <span class="pw-eye" onclick="togglePw('reg-pass',this)">👁</span>
+      <span class="pw-eye" role="button" aria-label="Показать/скрыть пароль" onclick="togglePw('reg-pass',this)">👁</span>
     </div>
     <div class="pw-wrap">
       <input type="password" id="reg-pass2" placeholder="Повторите пароль" oninput="checkPwMatch()">
-      <span class="pw-eye" onclick="togglePw('reg-pass2',this)">👁</span>
+      <span class="pw-eye" role="button" aria-label="Показать/скрыть пароль" onclick="togglePw('reg-pass2',this)">👁</span>
     </div>
     <div id="pw-match-bar" class="pw-match" style="background:var(--border)"></div>
     <div id="pw-match-label" class="pw-match-label"></div>
@@ -156,7 +163,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="main-screen" style="display:none;"><div class="container">
   <div class="header">
     <div><h2 id="client-name">🏢</h2><p id="client-stats"></p></div>
-    <div style="display:flex;gap:8px;align-items:center;"><button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button><button id="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">🌙</button><a class="logout" href="javascript:void(0)" onclick="if(confirm(t('confirm_exit')))logout()" style="color:#fff;font-size:12px;background:rgba(255,255,255,.15);padding:6px 12px;border-radius:6px;text-decoration:none;" data-i18n="btn_logout">Выйти</a></div>
+    <div style="display:flex;gap:8px;align-items:center;"><button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button><button id="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему" style="background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">🌙</button><a class="logout" href="javascript:void(0)" onclick="if(confirm(t('confirm_exit')))logout()" style="color:#fff;font-size:12px;background:rgba(255,255,255,.15);padding:6px 12px;border-radius:6px;text-decoration:none;" data-i18n="btn_logout">Выйти</a></div>
   </div>
 
   <div id="tg-banner" style="display:none;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkTelegram()">📱 Подключить уведомления в Telegram</div>
@@ -281,14 +288,13 @@ async function api(t,m='GET',b=null,q='',_retry=false){
   const o={method:m,headers:{'Content-Type':'application/json'}};
   const tk=localStorage.getItem('dp_token');if(tk)o.headers['Authorization']='Bearer '+tk;
   if(b)o.body=JSON.stringify(b);
-  const r=await fetch(u,o);
-  if(r.status===401){if(!_retry){const ref=await tryRefreshToken();if(ref)return api(t,m,b,q,true);}localStorage.removeItem('dp_token');return[];}
-  if(!r.ok){const txt=await r.text();throw new Error('API '+m+' '+t+': '+r.status+' '+txt);}
-  if(m==='DELETE')return true;
-  return await r.json();
+  try{const r=await fetch(u,o);if(r.status===401){if(!_retry){const ref=await tryRefreshToken();if(ref)return api(t,m,b,q,true);}localStorage.removeItem('dp_token');return[];}if(!r.ok){const err=await r.json().catch(()=>({}));toast('Ошибка: '+r.status+' '+(err.error||err.message||''));return m==='DELETE'?false:[];}if(m==='DELETE')return true;return await r.json();}catch(e){toast('Ошибка сети: '+e.message);return[];}
 }
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',3000);}
+function btnLoading(btn,loading){if(loading){btn._origText=btn.textContent;btn.disabled=true;btn.textContent='⏳ '+btn._origText;}else{btn.disabled=false;btn.textContent=btn._origText;}}
 function norm(p){return(p||'').replace(/[\+\-\(\)\s]/g,'').replace(/^8/,'7');}
+function validatePhone(p){const d=(p||'').replace(/[^0-9]/g,'');return d.length===11;}
+function validateAmount(a){const n=parseFloat(a);return!isNaN(n)&&n>0;}
 function fmtDate(d){if(!d)return'—';const p=d.split('-');return p.length===3?p[2]+'.'+p[1]+'.'+p[0]:d;}
 function fmtTime(ts){if(!ts)return'—';try{return new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});}catch{return'—';}}
 const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
@@ -338,6 +344,7 @@ function submitForgot(){
 async function login(){
   const phone=document.getElementById('phone-input').value.trim(),pass=document.getElementById('pass-input').value;
   if(!phone||!pass){showErr('Введите телефон и пароль');return;}
+  if(!validatePhone(phone)){showErr('Телефон должен содержать 11 цифр');return;}
   const ph=norm(phone);
   try{
     const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'clients',phone:'+'+ph,pass:pass})});
@@ -369,6 +376,7 @@ async function register(){
   const pass=document.getElementById('reg-pass').value,pass2=document.getElementById('reg-pass2').value;
   const city=document.getElementById('reg-city')?.value||'';
   if(!name||!phone||!pass){showErr('Заполните все поля');return;}
+  if(!validatePhone(phone)){showErr('Телефон должен содержать 11 цифр');return;}
   if(pass!==pass2){showErr('Пароли не совпадают');return;}
   const ph=norm(phone);
   const existing=await api('clients','GET',null,`?contact=ilike.%25${ph.slice(-10)}%25&limit=1`);
@@ -451,7 +459,7 @@ async function render(){
       _prevClientShiftStatus[s.id]=s.status;
     });
     const shiftIds=(shifts||[]).map(s=>s.id);
-    if(!shiftIds.length){document.getElementById('client-stats').textContent='Нет смен';document.getElementById('tab-shifts').innerHTML='<div class="empty"><div style="font-size:48px">📭</div><p>Смен пока нет</p></div>';return;}
+    if(!assignments||!assignments.length){document.getElementById('client-stats').textContent='Нет смен';document.getElementById('tab-shifts').innerHTML='<div class="empty"><div style="font-size:48px;margin-bottom:16px">📭</div><p>Нет смен</p></div>';return;}
     const idList=shiftIds.map(id=>`"${id}"`).join(',');
     const assignments=await api('shift_assignments','GET',null,`?shift_id=in.(${idList})&select=*&order=created_at.desc&limit=500`);
     _allAssignments=assignments;
@@ -676,7 +684,7 @@ async function loadShiftPhotos(shiftId,btn){
     if(!r.ok){container.innerHTML='<div style="font-size:12px;color:var(--danger);">Ошибка загрузки</div>';container.style.display='block';btn.textContent='📸 Фото с объекта';return;}
     const photos=await r.json();
     if(!photos.length){container.innerHTML='<div style="font-size:12px;color:var(--text-light);">Фото пока нет</div>';container.style.display='block';btn.textContent='📸 Фото с объекта';return;}
-    container.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;">'+photos.map(p=>{const fn=esc(p.filename);return `<img src="/shift-photos/${fn}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="window.open('/shift-photos/${fn}','_blank')">`}).join('')+'</div>';
+    container.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px;">'+photos.map(p=>{const fn=esc(p.filename);return `<img src="/shift-photos/${fn}" alt="Фото с объекта" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="window.open('/shift-photos/${fn}','_blank')">`}).join('')+'</div>';
     container.style.display='block';
     btn.textContent='📸 Скрыть фото';
   }catch(e){container.innerHTML='<div style="font-size:12px;color:var(--danger);">Ошибка</div>';container.style.display='block';btn.textContent='📸 Фото с объекта';}
@@ -779,7 +787,8 @@ function updatePayTotal(){
   document.getElementById('pay-amount').value=total;
 }
 
-async function submitPayment(){
+async function submitPayment(btn){
+  if(btn)btnLoading(btn,true);
   const selected=_allPayShifts.filter(s=>s.selected);
   if(!selected.length){alert('Выберите хотя бы одну смену');return;}
   const amt=parseFloat(document.getElementById('pay-amount').value)||0;
@@ -843,6 +852,7 @@ async function submitPayment(){
     return;
   }
   render();
+  }finally{if(btn)btnLoading(btn,false);}
 }
 // ===== New Order (Заказчик) =====
 let _serviceTypes = null;
@@ -979,7 +989,9 @@ function openNewOrderModal(){
   openModal('modal-new-order');
 }
 
-async function submitNewOrder(){
+async function submitNewOrder(btn){
+  if(btn)btnLoading(btn,true);
+  try{
   const date = document.getElementById('order-date').value;
   const time = document.getElementById('order-time').value;
   const address = document.getElementById('order-address').value.trim();
@@ -987,7 +999,8 @@ async function submitNewOrder(){
 
   // Validate: at least one service selected
   const validRows = _orderServiceRows.filter(r => r.serviceId);
-  if(!date || !validRows.length){ toast('Укажите дату и хотя бы одну услугу'); return; }
+  if(!date || !validRows.length){ toast('Укажите дату и хотя бы одну услугу'); if(btn)btnLoading(btn,false); return; }
+  if(new Date(date)<new Date(new Date().toDateString())){toast('Дата не может быть в прошлом');if(btn)btnLoading(btn,false);return;}
 
   // Use first service type for the shift
   const primarySvc = validRows[0];
@@ -1022,7 +1035,7 @@ async function submitNewOrder(){
     render();
   }catch(e){
     toast('Ошибка: ' + e.message);
-  }
+  }finally{if(btn)btnLoading(btn,false);}
 }
 
 (async()=>{const ok=await autoLogin();})();
@@ -1035,12 +1048,12 @@ loadLang(currentLang);
 let _chatShiftId=null,_chatPoll=null,_chatMyId=null;
 function openChat(shiftId){
   _chatShiftId=shiftId;_chatMyId=client?.id;
-  document.getElementById('chat-modal').style.display='flex';
+  const m=document.getElementById('chat-modal');m.style.display='flex';m._triggerBtn=document.activeElement;
   loadChatMessages();
   _chatPoll=setInterval(loadChatMessages,5000);
 }
 function closeChat(){
-  document.getElementById('chat-modal').style.display='none';
+  const m=document.getElementById('chat-modal');m.style.display='none';if(m._triggerBtn)try{m._triggerBtn.focus();}catch(e){}
   if(_chatPoll)clearInterval(_chatPoll);_chatPoll=null;_chatShiftId=null;
 }
 async function loadChatMessages(){
@@ -1106,7 +1119,7 @@ async function loadClientSubscriptions(){
     </div>
     <div class="form-group" style="margin:0 0 12px;"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Адрес объекта</label><input type="text" id="order-address" placeholder="Начните вводить адрес..." autocomplete="off" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:15px;"><div id="address-suggestions" style="display:none;position:relative;margin-top:2px;"></div></div>
     <div class="form-group" style="margin:0 0 12px;"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Комментарий</label><textarea id="order-comment" rows="2" placeholder="Дополнительная информация" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:15px;resize:vertical;"></textarea></div>
-    <button class="btn btn-green" onclick="submitNewOrder()" style="width:100%;padding:14px;font-size:16px;font-weight:600;margin:8px 0 24px;border-radius:10px;">✅ Отправить заказ</button>
+    <button class="btn btn-green" onclick="submitNewOrder(this)" style="width:100%;padding:14px;font-size:16px;font-weight:600;margin:8px 0 24px;border-radius:10px;">✅ Отправить заказ</button>
   </div>
 </div></div>
 
@@ -1130,7 +1143,7 @@ async function loadClientSubscriptions(){
     <div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Чек / квитанция</label>
       <input type="file" id="pay-receipt" accept="image/*,.pdf" style="width:100%;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:13px;">
     </div>
-    <button class="btn btn-primary" onclick="submitPayment()" style="width:100%;padding:14px;font-size:16px;font-weight:600;margin:8px 0 24px;border-radius:10px;">💳 Отправить</button>
+    <button class="btn btn-primary" onclick="submitPayment(this)" style="width:100%;padding:14px;font-size:16px;font-weight:600;margin:8px 0 24px;border-radius:10px;">💳 Отправить</button>
   </div>
 </div></div>
 
@@ -1190,7 +1203,9 @@ async function submitReview(){
   }catch(e){toast('Ошибка: '+e.message);}
 }
 </script>
-<script src="/push-client.js">
+</script>
+<script src="/push-client.js"></script>
+<script>
 function editClientShift(id){
   const s=(window._myShifts||[]).find(x=>x.id===id);
   if(!s){alert('Смена не найдена');return}

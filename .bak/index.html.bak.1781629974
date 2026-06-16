@@ -1,0 +1,1857 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dispatcher.PRO</title>
+<link rel="manifest" href="/manifest.json">
+<!-- Leaflet removed: geo-tracking disabled -->
+<style>
+:root{--primary:#1a365d;--primary-light:#2c5282;--primary-dark:#0f2440;--accent:#38a169;--accent-light:#48bb78;--warning:#d69e2e;--danger:#c53030;--bg:#f7fafc;--card:#fff;--border:#e2e8f0;--text:#1a202c;--text-light:#718096;--text-muted:#a0aec0;--bg-gradient-start:#0f2440;--bg-gradient-end:#1a365d;--auth-card-bg:#fff}
+@media(prefers-color-scheme:dark){:root:not(.light){--primary:#4c7cba;--primary-light:#5a8fd4;--primary-dark:#0a0f1e;--accent:#48bb78;--accent-light:#68d391;--danger:#e53e3e;--bg:#1a1a2e;--card:#16213e;--border:#2a2a4a;--text:#e2e8f0;--text-light:#a0aec0;--text-muted:#718096;--bg-gradient-start:#0a0f1e;--bg-gradient-end:#1a1a2e;--auth-card-bg:#16213e}}
+body.dark{--primary:#4c7cba;--primary-light:#5a8fd4;--primary-dark:#0a0f1e;--accent:#48bb78;--accent-light:#68d391;--danger:#e53e3e;--bg:#1a1a2e;--card:#16213e;--border:#2a2a4a;--text:#e2e8f0;--text-light:#a0aec0;--text-muted:#718096;--bg-gradient-start:#0a0f1e;--bg-gradient-end:#1a1a2e;--auth-card-bg:#16213e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+/* Auth */
+.auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,var(--primary-dark),var(--primary))}
+.auth-box{background:var(--card);border-radius:16px;padding:40px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.auth-box h1{color:var(--primary);font-size:24px;text-align:center;margin-bottom:4px}
+.auth-box .subtitle{color:var(--text-light);text-align:center;font-size:14px;margin-bottom:24px}
+.auth-box input{width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:8px;font-size:15px;margin-bottom:12px;transition:.2s}
+.auth-box input:focus{outline:none;border-color:var(--primary)}
+.auth-box button{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:.2s}
+.auth-box button:hover{background:var(--primary-light)}
+.auth-box .link{text-align:center;margin-top:12px;font-size:13px;color:var(--text-light)}
+.auth-box .link a{color:var(--primary);font-weight:600;text-decoration:none;cursor:pointer}
+.auth-error{color:var(--danger);text-align:center;font-size:13px;margin-top:8px;display:none}
+
+/* Header */
+.header{background:var(--primary);color:#fff;padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100}
+.header h1{font-size:18px;font-weight:700;letter-spacing:.5px}
+.header .user-info{display:flex;align-items:center;gap:12px;font-size:13px}
+.header .user-info .role-badge{background:var(--accent);padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;text-transform:uppercase}
+.header .btn-logout{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;transition:.2s}
+.header .btn-logout:hover{background:rgba(255,255,255,.25)}
+
+/* Tabs */
+.tabs{display:flex;background:var(--card);border-bottom:2px solid var(--border);overflow-x:auto}
+.tab{padding:14px 18px;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap;border-bottom:3px solid transparent;color:var(--text-light);transition:.2s}
+.tab:hover{color:var(--primary)}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+
+/* Panels */
+.panel{display:none;padding:16px;max-width:1200px;margin:0 auto;position:relative}
+.panel.active{display:block}
+
+/* Stat cards */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.stat-card{background:var(--card);border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:4px solid var(--primary)}
+.stat-card .num{font-size:22px;font-weight:700;color:var(--primary)}
+.stat-card .label{font-size:12px;color:var(--text-light);margin-top:2px}
+.stat-card.accent{border-left-color:var(--accent)}
+.stat-card.accent .num{color:var(--accent)}
+.stat-card.warning{border-left-color:var(--warning)}
+.stat-card.warning .num{color:var(--warning)}
+
+/* Progress bar */
+.progress-wrap{margin:8px 0}
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;background:var(--accent);border-radius:4px;transition:.3s}
+.progress-text{font-size:11px;color:var(--text-light);margin-top:2px;text-align:right}
+
+/* Cards */
+.card{background:var(--card);border-radius:10px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}
+.card-header{padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)}
+.card-header:hover{background:var(--border)}
+.card-body{display:none;padding:12px 16px}
+.card-body.open{display:block}
+
+/* Buttons */
+.btn{padding:8px 16px;border-radius:6px;border:none;font-size:13px;font-weight:500;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:4px}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-light)}
+.btn-success{background:var(--accent);color:#fff}.btn-success:hover{background:var(--accent-light)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-outline{background:var(--card);border:1px solid var(--border);color:var(--text)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Toolbar */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.toolbar input,.toolbar select{padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px}
+
+/* Worker row */
+.worker-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.worker-row:last-child{border:none}
+.worker-name{font-weight:500}
+.worker-meta{font-size:12px;color:var(--text-light);margin-top:2px}
+.worker-actions{display:flex;gap:4px}
+
+/* Badge */
+.badge{padding:3px 8px;border-radius:10px;font-size:11px;font-weight:600;display:inline-block}
+.badge-confirmed{background:#c6f6d5;color:#276749}
+.badge-invited{background:#fefcbf;color:#975a16}
+.badge-declined{background:#fed7d7;color:#9b2c2c}
+.badge-paid{background:#c6f6d5;color:#276749}
+.badge-unpaid{background:#e2e8f0;color:#718096}
+
+/* Modal */
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+.modal.show{display:flex}
+.modal-content{background:var(--card);border-radius:12px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;padding:24px}
+.modal-content.wide{max-width:800px}
+.detail-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--border)}
+.detail-header h3{margin:0;font-size:18px;color:var(--primary)}
+.detail-header .meta{font-size:13px;color:var(--text-light);margin-top:4px}
+.detail-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;padding:12px;background:var(--bg);border-radius:8px}
+.detail-totals .t-item{text-align:center}
+.detail-totals .t-item .t-val{font-size:18px;font-weight:700;color:var(--primary)}
+.detail-totals .t-item .t-label{font-size:11px;color:var(--text-light)}
+.detail-pay-section{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.detail-pay-section input[type=number]{flex:1;min-width:120px;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:14px}
+.detail-pay-section select{padding:10px;border:2px solid var(--border);border-radius:8px;font-size:14px}
+.detail-table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+.detail-table th{text-align:left;padding:8px 6px;background:var(--bg);border-bottom:2px solid var(--border);font-weight:600;font-size:12px;color:var(--text-light)}
+.detail-table td{padding:6px;border-bottom:1px solid var(--border)}
+.detail-table tr.total-row{font-weight:700;background:var(--bg);border-top:2px solid var(--primary)}
+.detail-filters{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.detail-filters select,.detail-filters input{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-header h2{font-size:18px;color:var(--primary)}
+.close-btn{background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-light)}
+.form-group{margin-bottom:12px}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px}
+.form-row{display:flex;gap:12px}
+.form-row .form-group{flex:1}
+
+/* Table */
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+th{background:var(--primary);color:#fff;padding:10px 12px;text-align:left;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px}
+tr:last-child td{border:none}
+tr:hover{background:var(--border)}
+
+/* Loading */
+.loading{text-align:center;padding:20px;color:var(--text-light);position:absolute;left:50%;transform:translateX(-50%);z-index:10;pointer-events:none}
+
+/* Toast */
+.toast{position:fixed;top:70px;right:20px;background:var(--primary);color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;z-index:2000;display:none;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.toast.show{display:block}
+
+/* Responsive */
+@media(max-width:600px){.stat-grid{grid-template-columns:1fr 1fr}.form-row{flex-direction:column}.header h1{font-size:15px}}
+
+/* Tracking panel removed */
+
+th[data-sort]{cursor:pointer;user-select:none;white-space:nowrap;}
+th[data-sort]:hover{color:var(--accent);}
+th[data-sort]::after{content:" ↕";font-size:10px;opacity:0.5;}
+th.sort-asc::after{content:" ↑";opacity:1;}
+th.sort-desc::after{content:" ↓";opacity:1;}
+
+@media(max-width:768px){
+  table{font-size:12px;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  th,td{padding:6px 8px;white-space:nowrap;}
+  .toolbar{flex-direction:column;gap:8px;}
+  .toolbar input,.toolbar select,.toolbar button{width:100%!important;}
+  .modal-content{margin:10px;width:95%;max-height:90vh;overflow-y:auto;}
+  .card{padding:12px;}
+  .dispatcher-card .dc-stats{grid-template-columns:1fr 1fr;}
+  .stat-card{padding:12px;}
+}
+/* Chat */
+.chat-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;align-items:flex-end;justify-content:center}
+.chat-box{background:var(--card);border-radius:16px 16px 0 0;width:100%;max-width:480px;height:70vh;display:flex;flex-direction:column}
+.chat-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:16px}
+.chat-head button{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-light)}
+.chat-body{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:6px}
+.chat-msg{max-width:80%;padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.4;word-break:break-word}
+.chat-msg.me{align-self:flex-end;background:var(--primary);color:#fff;border-bottom-right-radius:4px}
+.chat-msg.other{align-self:flex-start;background:var(--border);color:var(--text);border-bottom-left-radius:4px}
+.chat-msg .chat-sender{font-size:11px;opacity:.7;margin-bottom:2px}
+.chat-msg .chat-time{font-size:10px;opacity:.6;margin-top:2px;text-align:right}
+.chat-foot{padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px}
+.chat-foot input{flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px}
+.chat-foot input:focus{outline:none;border-color:var(--primary)}
+.chat-foot button{padding:10px 18px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer}
+.chat-empty{text-align:center;color:var(--text-light);padding:40px 16px;font-size:14px}
+/* Touch-friendly buttons */
+button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
+</style>
+</head>
+<body>
+
+<!-- Auth Screen -->
+<div id="auth-screen" class="auth-screen">
+<div class="auth-box">
+  <h1>Dispatcher.PRO</h1>
+  <p class="subtitle">Система управления персоналом</p>
+  <div id="auth-login">
+    <input type="tel" id="auth-phone" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15">
+    <input type="password" id="auth-pass" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
+    <button onclick="doLogin()" data-i18n="btn_login">Войти</button>
+    <div class="link" style="margin-top:16px;">Нет аккаунта? <a onclick="showRegForm()">Зарегистрироваться</a></div>
+  </div>
+  <div id="auth-reg" style="display:none;">
+    <div class="form-group"><label>ФИО / Название</label><input type="text" id="reg-name" placeholder="Полное имя"></div>
+    <div class="form-group"><label>Телефон</label><input type="tel" id="reg-phone" placeholder="+7..." maxlength="15"></div>
+    <div class="form-group"><label>Пароль</label><input type="password" id="reg-pass" placeholder="Придумайте пароль"></div>
+    <div class="form-group"><label>Роль</label><select id="reg-role" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;"><option value="dispatcher">Диспетчер</option><option value="client">Клиент</option><option value="worker">Исполнитель</option></select></div>
+    <button onclick="doRegister()" style="margin-top:8px;">Зарегистрироваться</button>
+    <div class="link" style="margin-top:12px;">Уже есть аккаунт? <a onclick="showLoginForm()">Войти</a></div>
+  </div>
+  <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:12px;color:var(--text-light);">
+    <div>Кабинеты:</div>
+    <div style="margin-top:6px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+      <a href="https://xn----gtbdan3bddhceo9d.xn--p1ai" style="color:var(--primary);font-weight:600;text-decoration:none;">👨‍💼 Диспетчер</a>
+      <a href="https://xn----gtbdan3bddhceo9d.xn--p1ai/worker.html" style="color:var(--primary);font-weight:600;text-decoration:none;">👷 Исполнитель</a>
+      <a href="https://xn----gtbdan3bddhceo9d.xn--p1ai/client.html" style="color:var(--primary);font-weight:600;text-decoration:none;">🏢 Клиент</a>
+    </div>
+  </div>
+  <div class="auth-error" id="auth-error"></div>
+  <!-- 2FA Modal -->
+  <div id="twofa-modal" style="display:none;text-align:center;margin-top:16px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--bg);">
+    <p style="margin:0 0 12px;font-weight:600;">🔐 Код подтверждения отправлен в Telegram</p>
+    <input type="text" id="twofa-code" placeholder="6-значный код" maxlength="6" style="text-align:center;font-size:20px;letter-spacing:4px;width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;">
+    <button onclick="doVerify2FA()" style="margin-top:10px;width:100%;">Подтвердить</button>
+    <div id="twofa-error" style="color:red;margin-top:8px;font-size:13px;"></div>
+  </div>
+</div>
+</div>
+
+<!-- Main App -->
+<div id="app" style="display:none;">
+<div class="header">
+  <h1>Dispatcher.PRO</h1>
+  <div class="user-info">
+    <span id="user-name"></span>
+    <span class="role-badge" id="user-role"></span>
+    <span id="notif-count" style="display:none;background:var(--danger);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;text-align:center;line-height:20px;cursor:pointer;margin-right:4px;" onclick="showNotifications()">0</span>
+    <!-- tracking button removed -->
+    <button id="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#fff;padding:0 4px;">🌙</button>
+    <button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button>
+    <button class="btn-logout" onclick="doLogout()" data-i18n="btn_logout">Выйти</button>
+  </div>
+</div>
+
+<div class="tabs" id="tabs-bar">
+  <div class="tab active" data-panel="panel-dashboard" data-i18n="nav_dashboard">📊 Дашборд</div>
+  <div class="tab" data-panel="panel-shifts" data-i18n="nav_shifts">📅 Смены</div>
+  <div class="tab" data-panel="panel-workers" data-i18n="nav_workers">👷 Рабочие</div>
+  <div class="tab" data-panel="panel-clients" data-i18n="nav_clients">🏢 Клиенты</div>
+  <div class="tab" data-panel="panel-dispatchers" id="tab-dispatchers" style="display:none;" data-i18n="nav_dispatchers">👥 Диспетчеры</div>
+  <div class="tab" data-panel="panel-settings" data-i18n="nav_settings">⚙️ Настройки</div>
+  <div class="tab" data-panel="panel-recurring" data-i18n="nav_recurring">🔄 Подписки</div>
+</div>
+
+<!-- Dashboard -->
+<div id="panel-dashboard" class="panel active">
+  <div class="stat-grid" id="dashboard-stats"></div>
+  <div id="dashboard-motivation" style="margin-bottom:16px;"></div>
+  <h3 style="margin-bottom:8px;color:var(--primary);">📋 Смены на сегодня</h3>
+  <div class="loading" id="dashboard-loading">⏳ Загрузка...</div>
+  <div id="dashboard-shifts"></div>
+</div>
+
+<!-- Shifts -->
+<div id="panel-shifts" class="panel">
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openNewShift()" data-i18n="btn_new_shift">+ Новая смена</button>
+    <input type="date" id="shift-date-from" style="width:130px">
+    <input type="date" id="shift-date-to" style="width:130px">
+    <select id="shift-client-filter" style="width:180px"><option value="">Все клиенты</option></select>
+    <button class="btn btn-outline" onclick="loadShifts()">🔍</button>
+  </div>
+  <div class="loading" id="shifts-loading">⏳ Загрузка...</div>
+  <div id="shifts-list"></div>
+</div>
+
+<!-- Workers -->
+<div id="panel-workers" class="panel">
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openAddWorker()" data-i18n="btn_add_worker">+ Добавить</button>
+    <button class="btn btn-outline" onclick="showWorkerPayments()" data-i18n="btn_worker_payment">💰 Оплата</button>
+    <button class="btn btn-outline" id="btn-worker-list" onclick="showWorkerList()" style="display:none;">📋 Список</button>
+  </div>
+  <div id="worker-list-view">
+    <div style="padding:0 0 8px;"><button class="btn btn-sm btn-outline" onclick="copyInviteLink()" style="margin-right:8px;">📋 Ссылка-приглашение</button><input type="text" id="worker-search" placeholder="🔍 Поиск..." style="width:100%;max-width:300px" oninput=""></div>
+    <div class="loading" id="workers-loading">⏳ Загрузка...</div>
+    <table><thead><tr><th data-sort onclick="handleSort(this,&apos;workers-table&apos;)">ФИО</th><th data-sort onclick="handleSort(this,&apos;workers-table&apos;)">Телефон</th><th data-sort onclick="handleSort(this,&apos;workers-table&apos;)">Часы</th><th>Действия</th></tr></thead>
+    <tbody id="workers-table"></tbody></table>
+  </div>
+  <div id="worker-pay-view" style="display:none;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 0;align-items:center;">
+      <input type="text" id="wpay-search" placeholder="🔍 Поиск по имени..." style="flex:1;min-width:150px;" oninput="renderWorkerPayments()">
+      <select id="wpay-filter" onchange="renderWorkerPayments()" style="padding:8px;border-radius:6px;border:1px solid var(--border);">
+        <option value="all">Все</option>
+        <option value="unpaid">Не оплачено</option>
+        <option value="paid">Оплачено</option>
+      </select>
+      <select id="wpay-hours" onchange="renderWorkerPayments()" style="padding:8px;border-radius:6px;border:1px solid var(--border);">
+        <option value="all">Все часы</option>
+        <option value="1-5">1-5ч</option>
+        <option value="5-10">5-10ч</option>
+        <option value="10+">10ч+</option>
+      </select>
+    </div>
+    <table><thead><tr><th data-sort onclick="handleSort(this,&apos;wpay-table&apos;)">Рабочий</th><th data-sort onclick="handleSort(this,&apos;wpay-table&apos;)">Клиент</th><th data-sort onclick="handleSort(this,&apos;wpay-table&apos;)">Дата</th><th data-sort onclick="handleSort(this,&apos;wpay-table&apos;)">Часы</th><th data-sort onclick="handleSort(this,&apos;wpay-table&apos;)">К выплате</th><th data-sort onclick="handleSort(this,&apos;wpay-table&apos;)">Статус</th></tr></thead>
+    <tbody id="wpay-table"></tbody></table>
+  </div>
+</div>
+
+<!-- Clients -->
+<div id="panel-clients" class="panel">
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openAddClient()" data-i18n="btn_add_client">+ Добавить</button>
+    <button class="btn btn-outline" onclick="showClientPayments()" data-i18n="btn_client_payment">💰 Оплата</button>
+    <button class="btn btn-outline" id="btn-client-list" onclick="showClientList()" style="display:none;">📋 Список</button>
+  </div>
+  <div id="client-list-view">
+    <div style="padding:0 0 8px;"><input type="text" id="client-search" placeholder="🔍 Поиск..." style="width:100%;max-width:300px" oninput=""></div>
+    <div class="loading" id="clients-loading">⏳ Загрузка...</div>
+    <table><thead><tr><th data-sort onclick="handleSort(this,&apos;clients-table&apos;)">Название</th><th data-sort onclick="handleSort(this,&apos;clients-table&apos;)">Контакт</th><th data-sort onclick="handleSort(this,&apos;clients-table&apos;)">Ставка</th><th>Действия</th></tr></thead>
+    <tbody id="clients-table"></tbody></table>
+  </div>
+  <div id="client-pay-view" style="display:none;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 0;align-items:center;">
+      <input type="text" id="cpay-search" placeholder="🔍 Поиск по клиенту..." style="flex:1;min-width:150px;" oninput="renderClientPayments()">
+      <select id="cpay-filter" onchange="renderClientPayments()" style="padding:8px;border-radius:6px;border:1px solid var(--border);">
+        <option value="all">Все</option>
+        <option value="unpaid">Не оплачено</option>
+        <option value="paid">Оплачено</option>
+      </select>
+    </div>
+    <table><thead><tr><th data-sort onclick="handleSort(this,&apos;cpay-table&apos;)">Клиент</th><th data-sort onclick="handleSort(this,&apos;cpay-table&apos;)">Рабочий</th><th data-sort onclick="handleSort(this,&apos;cpay-table&apos;)">Дата</th><th data-sort onclick="handleSort(this,&apos;cpay-table&apos;)">Часы</th><th data-sort onclick="handleSort(this,&apos;cpay-table&apos;)">К оплате</th><th data-sort onclick="handleSort(this,&apos;cpay-table&apos;)">Статус</th></tr></thead>
+    <tbody id="cpay-table"></tbody></table>
+  </div>
+</div>
+
+<div id="panel-payments" class="panel" style="display:none;"></div>
+
+<!-- Dispatchers (owner only) -->
+<div id="panel-dispatchers" class="panel">
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openAddDispatcher()" data-i18n="btn_add_dispatcher">+ Добавить диспетчера</button>
+  </div>
+  <table><thead><tr><th data-sort onclick="handleSort(this,&apos;dispatchers-table&apos;)">Имя</th><th data-sort onclick="handleSort(this,&apos;dispatchers-table&apos;)">Телефон</th><th data-sort onclick="handleSort(this,&apos;dispatchers-table&apos;)">Ставка ₽/ч</th><th data-sort onclick="handleSort(this,&apos;dispatchers-table&apos;)">Часы за месяц</th><th data-sort onclick="handleSort(this,&apos;dispatchers-table&apos;)">ЗП</th><th>Действия</th></tr></thead>
+  <tbody id="dispatchers-table"></tbody></table>
+</div>
+
+<!-- Settings -->
+<div id="panel-settings" class="panel">
+  <h3 style="color:var(--primary);margin-bottom:12px;">⚙️ Настройки</h3>
+  <div class="card" style="padding:16px;">
+    <div class="form-group"><label>Ваша ставка ₽/час</label><input type="number" id="settings-rate" value="7.5" readonly style="background:var(--bg);"></div>
+    <div class="form-group"><label>Цель часов в месяц</label><input type="number" id="settings-target" value="8000" readonly style="background:var(--bg);"></div>
+    <button class="btn btn-primary" id="settings-save-btn" onclick="saveSettings()" style="display:none;">Сохранить</button>
+    <div id="settings-readonly-notice" style="font-size:12px;color:var(--text-light);margin-top:8px;">Значения устанавливаются владельцем</div>
+  </div>
+  <div class="card" style="padding:16px;margin-top:12px;">
+    <h4 style="margin:0 0 12px;">💬 Мессенджеры</h4>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a href="https://t.me/DispetcherPro_bot" target="_blank" style="text-decoration:none;padding:10px 16px;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;border-radius:8px;font-size:13px;font-weight:500;">📱 Telegram бот</a>
+      <a href="https://max.ru/id4100044993_bot" target="_blank" style="text-decoration:none;padding:10px 16px;background:linear-gradient(135deg,#6b3fa0,#8b5cf6);color:#fff;border-radius:8px;font-size:13px;font-weight:500;">💬 МАКС бот</a>
+    </div>
+  </div>
+</div>
+<!-- Recurring panel -->
+<div id="panel-recurring" class="panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <h3 style="color:var(--primary);">🔄 Подписки — повторяющиеся заказы</h3>
+    <button class="btn btn-primary" onclick="openNewRecurring()">+ Новая подписка</button>
+  </div>
+  <div id="recurring-list"></div>
+</div>
+
+</div>
+
+<!-- Modals -->
+<div id="modal-shift" class="modal"><div class="modal-content">
+  <div class="modal-header"><h2>Новая смена</h2><button class="close-btn" onclick="closeModal('modal-shift')">&times;</button></div>
+  <div id="shift-step1">
+    <div class="form-group"><label>Дата</label><input type="date" id="shift-date"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Начало</label><input type="time" id="shift-time"></div>
+      <div class="form-group"><label>Окончание</label><input type="time" id="shift-end-time"></div>
+    </div>
+    <div class="form-group"><label>Клиент</label><select id="shift-client" onchange="onShiftClientChange()"></select></div>
+    <div class="form-group"><label>Адрес</label><input type="text" id="shift-address" placeholder="Начните вводить адрес..." autocomplete="off"><div id="shift-address-suggestions" style="display:none;position:absolute;background:var(--card);border:1px solid var(--border);border-radius:6px;margin-top:2px;max-height:150px;overflow-y:auto;z-index:9999;width:calc(100% - 32px);box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div></div>
+    <!-- Map removed -->
+    <div class="form-group"><label>Услуги (количество)</label><div id="shift-services"></div><button type="button" class="btn btn-sm btn-outline" onclick="addServiceRow()" style="margin-top:6px;width:100%;">+ Добавить услугу</button><div id="service-add-dropdown" style="display:none;position:relative;"><select id="service-add-select" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:14px;"></select></div></div>
+    <div class="form-group"><label>Комментарий</label><input type="text" id="shift-comment" placeholder="Необязательно"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="createShiftStep1();this.disabled=true;setTimeout(()=>this.disabled=false,3000)">Далее → Пригласить рабочих</button>
+  </div>
+  <div id="shift-step2" style="display:none;">
+    <div style="background:#ebf8ff;border-radius:8px;padding:10px;margin-bottom:12px;">
+      <div id="invite-info" style="font-weight:600;"></div>
+      <div id="invite-services" style="font-size:13px;color:var(--text-light);margin-top:4px;"></div>
+    </div>
+    <div id="invite-by-service"></div>
+    <div style="margin-top:10px;font-size:13px;">Выбрано: <strong id="invite-selected-count">0</strong></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px;" id="send-invites-btn" onclick="doSendInvites()" disabled>📨 Отправить приглашения</button>
+  </div>
+</div></div>
+
+<div id="modal-hours" class="modal"><div class="modal-content">
+  <div class="modal-header"><h2 id="hours-title">Данные</h2><button class="close-btn" onclick="closeModal('modal-hours')">&times;</button></div>
+  <div class="form-group"><label>Время начала</label><input type="datetime-local" id="hours-start"></div>
+  <div class="form-group"><label>Время окончания</label><input type="datetime-local" id="hours-end"></div>
+  <div class="form-group"><label>Часы (авто)</label><input type="number" id="hours-input" step="0.5" min="0" readonly style="background:var(--bg)"></div>
+  <div class="form-group"><label>Доп. начисления ₽</label><input type="number" id="hours-extra" value="0"></div>
+  <button class="btn btn-primary" style="width:100%" onclick="saveHours()">Сохранить</button>
+</div></div>
+
+<div id="modal-payment" class="modal"><div class="modal-content">
+  <div class="modal-header"><h2>💰 Оплата</h2><button class="close-btn" onclick="closeModal('modal-payment')">&times;</button></div>
+  <input type="hidden" id="payment-assignment-id">
+  <div class="form-group"><label>К оплате</label><div id="payment-due" style="font-size:20px;font-weight:700;color:var(--primary);"></div></div>
+  <div class="form-group"><label>Уже оплачено</label><div id="payment-paid" style="font-size:16px;color:var(--accent);"></div></div>
+  <div class="form-group"><label>Сумма платежа ₽</label><input type="number" id="payment-amount" step="1" min="1"></div>
+  <div class="form-group"><label>Способ</label><select id="payment-method"><option value="transfer">Перевод</option><option value="cash">Наличные</option><option value="card">Карта</option></select></div>
+  <div class="form-group"><label>Примечание</label><input type="text" id="payment-note"></div>
+  <button class="btn btn-primary" style="width:100%" onclick="savePayment()">💾 Сохранить</button>
+  <div id="payment-history" style="margin-top:12px;"></div>
+</div></div>
+
+<div id="modal-worker-detail" class="modal"><div class="modal-content wide">
+  <div class="modal-header"><h2>👷 Карточка рабочего</h2><button class="close-btn" onclick="closeModal('modal-worker-detail')">&times;</button></div>
+  <div id="wd-header" class="detail-header"></div>
+  <div class="detail-filters">
+    <select id="wd-filter" onchange="renderWorkerDetailShifts()"><option value="all">Все смены</option><option value="completed">Завершённые</option><option value="inwork">В работе</option><option value="paid">Оплаченные</option><option value="unpaid">Неоплаченные</option></select>
+    <input type="text" id="wd-search" placeholder="🔍 Поиск..." oninput="renderWorkerDetailShifts()">
+  </div>
+  <table class="detail-table"><thead><tr><th>Дата</th><th>Клиент</th><th>Услуга</th><th>Часы</th><th>Начислено</th><th>Оплачено</th><th>Долг</th></tr></thead>
+  <tbody id="wd-shifts"></tbody></table>
+  <div style="margin-top:12px;padding:12px;background:var(--bg);border-radius:8px;">
+    <h4 style="margin:0 0 8px;font-size:14px;">💳 Оплата</h4>
+    <div class="detail-pay-section">
+      <input type="number" id="wd-pay-amount" placeholder="Сумма оплаты ₽" min="1" step="1">
+      <select id="wd-pay-method"><option value="transfer">Перевод</option><option value="cash">Наличные</option><option value="card">Карта</option></select>
+      <label style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:13px;padding:8px;border:2px solid var(--border);border-radius:8px;"><input type="file" id="wd-receipt" accept="image/*,.pdf" style="display:none" onchange="this.parentElement.querySelector('span').textContent=this.files[0]?this.files[0].name:'📎 Чек'"> <span>📎 Чек</span></label>
+      <button class="btn btn-success" onclick="saveWorkerDetailPayment()">💰 Оплатить</button>
+    </div>
+  </div>
+  <div id="wd-totals" class="detail-totals"></div>
+  <div style="margin-top:12px;padding:12px;background:var(--bg);border-radius:8px;">
+    <div id="wd-pay-history"></div>
+  </div>
+</div></div>
+
+<div id="modal-client-detail" class="modal"><div class="modal-content wide">
+  <div class="modal-header"><h2>🏢 Карточка клиента</h2><button class="close-btn" onclick="closeModal('modal-client-detail')">&times;</button></div>
+  <div id="cd-header" class="detail-header"></div>
+  <div class="detail-filters">
+    <select id="cd-filter" onchange="renderClientDetailShifts()"><option value="all">Все смены</option><option value="paid">Оплаченные</option><option value="unpaid">Неоплаченные</option></select>
+    <input type="text" id="cd-search" placeholder="🔍 Поиск..." oninput="renderClientDetailShifts()">
+  </div>
+  <table class="detail-table"><thead><tr><th>Дата</th><th>Услуга</th><th>Рабочие</th><th>Часы</th><th>К оплате</th><th>Оплачено</th><th>Долг</th></tr></thead>
+  <tbody id="cd-shifts"></tbody></table>
+  <div id="cd-totals" class="detail-totals"></div>
+  <h4 style="margin:12px 0 6px;font-size:14px;">💳 История платежей</h4>
+  <table class="detail-table"><thead><tr><th>Дата</th><th>Сумма</th><th>Способ</th><th>Статус</th><th>Примечание</th><th></th></tr></thead>
+  <tbody id="cd-payments"></tbody></table>
+</div></div>
+
+<div id="modal-worker" class="modal"><div class="modal-content">
+  <div class="modal-header"><h2 id="worker-modal-title">Рабочий</h2><button class="close-btn" onclick="closeModal('modal-worker')">&times;</button></div>
+  <input type="hidden" id="worker-edit-id">
+  <div class="form-group"><label>ФИО</label><input type="text" id="worker-name"></div>
+  <div class="form-group"><label>Телефон</label><input type="tel" id="worker-phone"></div>
+  <div class="form-group"><label>Пароль для входа</label><div style="display:flex;gap:6px;"><input type="text" id="worker-password" style="flex:1" placeholder="Авто"><button class="btn btn-sm btn-outline" onclick="document.getElementById('worker-password').value=String(Math.floor(100000+Math.random()*900000))">🔄</button></div></div>
+  <button class="btn btn-primary" style="width:100%" onclick="saveWorker()" data-i18n="btn_save">Сохранить</button>
+</div></div>
+
+<div id="modal-client" class="modal"><div class="modal-content">
+  <div class="modal-header"><h2 id="client-modal-title">Клиент</h2><button class="close-btn" onclick="closeModal('modal-client')">&times;</button></div>
+  <input type="hidden" id="client-edit-id">
+  <div class="form-group"><label>Название</label><input type="text" id="client-name"></div>
+  <div class="form-group"><label>Контактный телефон</label><input type="tel" id="client-contact" placeholder="+7..."></div>
+  <div class="form-group"><label>Пароль для входа</label><div style="display:flex;gap:6px;"><input type="text" id="client-password" style="flex:1" placeholder="Авто"><button class="btn btn-sm btn-outline" onclick="document.getElementById('client-password').value=String(Math.floor(100000+Math.random()*900000))">🔄</button></div></div>
+  <div class="form-row">
+    <div class="form-group"><label>Клиенту ₽/ч</label><input type="number" id="client-rate" value="520"></div>
+    <div class="form-group"><label>Рабочему ₽/ч</label><input type="number" id="client-worker-rate" value="400"></div>
+  </div>
+  <div class="form-group"><label>Способ оплаты</label><select id="client-pay-method" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;"><option value="transfer">Перевод</option><option value="cash">Наличные</option><option value="invoice">Безнал</option></select></div>
+  <button class="btn btn-primary" style="width:100%" onclick="saveClient()" data-i18n="btn_save">Сохранить</button>
+  <div id="client-access-info" style="display:none;margin-top:12px;padding:12px;background:#ebf8ff;border-radius:8px;font-size:14px;"></div>
+</div></div>
+
+<div id="modal-dispatcher" class="modal"><div class="modal-content">
+  <div class="modal-header"><h2 id="dispatcher-modal-title">Диспетчер</h2><button class="close-btn" onclick="closeModal('modal-dispatcher')">&times;</button></div>
+  <input type="hidden" id="dispatcher-edit-id">
+  <div class="form-group"><label>ФИО</label><input type="text" id="dispatcher-name"></div>
+  <div class="form-group"><label>Телефон</label><input type="tel" id="dispatcher-phone" placeholder="+7..."></div>
+  <div class="form-group"><label>Пароль</label><div style="display:flex;gap:6px;"><input type="text" id="dispatcher-password" style="flex:1"><button class="btn btn-sm btn-outline" onclick="document.getElementById('dispatcher-password').value=String(Math.floor(100000+Math.random()*900000))">🔄</button></div></div>
+  <div class="form-row">
+    <div class="form-group"><label>Ставка ₽/час</label><input type="number" id="dispatcher-rate" value="7.5" step="0.5"></div>
+    <div class="form-group"><label>Цель часов/мес</label><input type="number" id="dispatcher-target" value="8000"></div>
+  </div>
+  <button class="btn btn-primary" style="width:100%" onclick="saveDispatcher()" data-i18n="btn_save">Сохранить</button>
+  <div id="dispatcher-access-info" style="display:none;margin-top:12px;padding:12px;background:#ebf8ff;border-radius:8px;font-size:14px;"></div>
+</div></div>
+
+<!-- Tracking Panel removed -->
+
+<div id="chat-modal" class="chat-modal" style="display:none">
+  <div class="chat-box">
+    <div class="chat-head"><span data-i18n="heading_chat">💬 Чат по смене</span><button onclick="closeChat()">✕</button></div>
+    <div class="chat-body" id="chat-messages"><div class="chat-empty">Сообщений пока нет</div></div>
+    <div class="chat-foot"><input id="chat-input" data-i18n-placeholder="placeholder_message" placeholder="Введите сообщение..." onkeydown="if(event.key==='Enter')sendChatMsg()"><button onclick="sendChatMsg()">➤</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// autologin_js_added
+
+// Auto-login via URL token
+(function(){
+  const p=new URLSearchParams(window.location.search);
+  const t=p.get('token');
+  if(!t)return;
+  localStorage.setItem('dp_token',t);
+  localStorage.setItem('dp_auth',JSON.stringify({ts:Date.now()}));
+  // Redirect to clean URL — page init will find token in localStorage
+  const clean=window.location.origin+window.location.pathname;
+  window.location.replace(clean);
+})();
+
+// ===== i18n =====
+const DEFAULT_LANG='ru';
+let currentLang=localStorage.getItem('lang')||DEFAULT_LANG;
+let translations={};
+async function loadLang(lang){try{const r=await fetch('/lang/'+lang+'.json');translations=await r.json();currentLang=lang;localStorage.setItem('lang',lang);applyTranslations();}catch(e){console.warn('Lang load error:',e);}}
+function t(key){return translations[key]||key;}
+function applyTranslations(){document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=t(el.getAttribute('data-i18n'));});document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{el.placeholder=t(el.getAttribute('data-i18n-placeholder'));});}
+function setLang(lang){loadLang(lang);}
+
+function toggleTheme(){
+  const d=document.body;
+  if(d.classList.contains('dark')){d.classList.remove('dark');d.classList.add('light');localStorage.setItem('dp_theme','light');}
+  else{d.classList.remove('light');d.classList.add('dark');localStorage.removeItem('dp_theme');}
+  document.getElementById('theme-toggle').textContent=d.classList.contains('dark')?'☀️':'🌙';
+}
+(function(){const s=localStorage.getItem('dp_theme');if(s==='light')document.documentElement.classList.add('light');else if(window.matchMedia('(prefers-color-scheme:dark)').matches)document.body.classList.add('dark');if(document.body.classList.contains('dark')){document.getElementById('theme-toggle').textContent='☀️';}})();
+// Debounce utility
+function debounce(fn,ms){let t;return function(...a){clearTimeout(t);t=setTimeout(()=>fn.apply(this,a),ms);};}
+
+// Phone input mask
+function setupPhoneMask(input){
+  if(!input)return;
+  input.addEventListener('input',function(){
+    let v=this.value.replace(/\D/g,'');
+    if(v.length>0&&(v[0]==='8'))v=v.slice(1);
+    if(v.length>0&&v[0]!=='7')v='7'+v;
+    if(v.length>11)v=v.slice(0,11);
+    this.value=v.length>=1?'+'+v:'';
+  });
+}
+function initPhoneMasks(){document.querySelectorAll('input[type="tel"]').forEach(setupPhoneMask);}
+
+// API goes through server proxy - no keys in HTML
+
+
+async function tryRefreshToken(){
+  const tk=localStorage.getItem('dp_token');if(!tk)return false;
+  try{const r=await fetch('/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tk})});if(!r.ok)return false;const d=await r.json();if(d.ok&&d.token){localStorage.setItem('dp_token',d.token);return true;}}catch(e){}
+  return false;
+}
+setInterval(()=>tryRefreshToken(),6*60*60*1000);
+
+async function api(table,method='GET',body=null,query='',_retry=false){
+  const url='/api/'+table+(query?(query[0]==='?'?query:'?'+query):'');
+  const opts={method,headers:{'Content-Type':'application/json'}};
+  const tk=localStorage.getItem('dp_token');if(tk)opts.headers['Authorization']='Bearer '+tk;
+  if(body)opts.body=JSON.stringify(body);
+  try{
+    const res=await fetch(url,opts);
+    if(res.status===401){
+      if(!_retry){const refreshed=await tryRefreshToken();if(refreshed)return api(table,method,body,query,true);}
+      localStorage.removeItem('dp_token');localStorage.removeItem('dp_auth');document.getElementById('auth-screen').style.display='';document.getElementById('app').style.display='none';currentUser=null;return method==='DELETE'?false:[];
+    }
+    if(!res.ok){const err=await res.json().catch(()=>({}));console.error('API:',res.status,err);return method==='DELETE'?false:[];}
+    if(method==='DELETE')return true;
+    return await res.json();
+  }catch(e){console.error('Fetch error:',e);return[];}
+}
+
+function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function norm(p){return(p||'').replace(/[\+\-\(\)\s]/g,'').replace(/^8/,'7');}
+function formatDate(d){if(!d)return'—';const p=d.split('-');return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:d;}
+
+// ===== State =====
+let currentUser=null,editingAssignmentId=null;
+let cachedWorkers=null,cachedClients=null,cachedServiceTypes=null;
+let _inviteShiftId=null,_inviteClientId=null,_inviteRates={};
+
+// ===== Auth =====
+async function doLogin(){
+  const phone=norm(document.getElementById('auth-phone').value);
+  const pass=document.getElementById('auth-pass').value;
+  if(!phone||!pass){showAuthError('Введите телефон и пароль');return;}
+  try{
+    const authRes=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',phone,pass})});
+    const user=await authRes.json();
+    if(!user.ok){showAuthError(user.error||'Ошибка');return;}
+    // 2FA required?
+    if(user.require2FA){
+      document.getElementById('auth-error').style.display='none';
+      document.getElementById('twofa-modal').style.display='block';
+      window._2faUserId=user.userId;
+      window._2faRole=user.role;
+      document.getElementById('twofa-code').value='';
+      document.getElementById('twofa-code').focus();
+      return;
+    }
+    if(!['owner','dispatcher'].includes(user.user.role)){showAuthError('Нет доступа');return;}
+    completeLogin(user);
+  }catch(e){showAuthError('Ошибка подключения');}
+}
+async function doVerify2FA(){
+  const code=document.getElementById('twofa-code').value.trim();
+  if(!code||code.length!==6){document.getElementById('twofa-error').textContent='Введите 6-значный код';return;}
+  try{
+    const res=await fetch('/auth/verify-2fa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:window._2faUserId,code})});
+    const data=await res.json();
+    if(!data.ok){document.getElementById('twofa-error').textContent=data.error||'Неверный код';return;}
+    document.getElementById('twofa-modal').style.display='none';
+    completeLogin(data);
+  }catch(e){document.getElementById('twofa-error').textContent='Ошибка подключения';}
+}
+function completeLogin(user){
+    if(!user.user||!['owner','dispatcher'].includes(user.user.role)){showAuthError('Нет доступа');return;}
+    currentUser=user.user;
+    localStorage.setItem('dp_auth',JSON.stringify({phone:user.user.phone,id:user.user.id,full_name:user.user.full_name,role:user.user.role,rate_per_hour:user.user.rate_per_hour,monthly_target_hours:user.user.monthly_target_hours}));
+    if(user.token)localStorage.setItem('dp_token',user.token);
+    document.getElementById('auth-screen').style.display='none';
+    document.getElementById('app').style.display='block';
+    document.getElementById('user-name').textContent=user.user.full_name;
+    document.getElementById('user-role').textContent=user.user.role==='owner'?'Владелец':'Диспетчер';
+    if(user.user.role==='owner')document.getElementById('tab-dispatchers').style.display='';
+    if(user.user.role==='owner'){
+      document.getElementById('settings-rate').removeAttribute('readonly');
+      document.getElementById('settings-rate').style.background='';
+      document.getElementById('settings-target').removeAttribute('readonly');
+      document.getElementById('settings-target').style.background='';
+      document.getElementById('settings-save-btn').style.display='';
+      document.getElementById('settings-readonly-notice').style.display='none';
+    }
+    if(user.user.role==='dispatcher'){
+      document.getElementById('settings-rate').value=user.user.rate_per_hour||7.5;
+      document.getElementById('settings-target').value=user.user.monthly_target_hours||8000;
+    }
+    if(user.user.role==='owner'&&user.user.rate_per_hour){
+      document.getElementById('settings-rate').value=user.user.rate_per_hour;
+      document.getElementById('settings-target').value=user.user.monthly_target_hours||8000;
+    }
+    init();
+}
+function showAuthError(msg){const el=document.getElementById('auth-error');el.textContent=msg;el.style.display='block';}
+function showRegForm(){document.getElementById('auth-login').style.display='none';document.getElementById('auth-reg').style.display='block';document.getElementById('auth-error').style.display='none';}
+function showLoginForm(){document.getElementById('auth-login').style.display='block';document.getElementById('auth-reg').style.display='none';document.getElementById('auth-error').style.display='none';}
+async function doRegister(){
+  const name=document.getElementById('reg-name').value.trim();
+  const phone=document.getElementById('reg-phone').value.trim();
+  const pass=document.getElementById('reg-pass').value;
+  const role=document.getElementById('reg-role').value;
+  if(!name||!phone||!pass){showAuthError('Заполните все поля');return;}
+  if(pass.length<4){showAuthError('Пароль минимум 4 символа');return;}
+  try{
+    if(role==='dispatcher'){
+      const regRes=await fetch('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',data:{full_name:name,phone,password:pass,role:'dispatcher',rate_per_hour:7.5,monthly_target_hours:8000,is_active:true}})});
+      if(!regRes.ok){const err=await regRes.json().catch(()=>({}));showAuthError(err.error||'Ошибка регистрации');return;}
+      toast('Зарегистрировано! Войдите');
+      showLoginForm();
+      document.getElementById('auth-phone').value=phone;
+    }else if(role==='worker'){
+      window.location.href='https://xn----gtbdan3bddhceo9d.xn--p1ai/worker.html';
+    }else{
+      window.location.href='https://xn----gtbdan3bddhceo9d.xn--p1ai/client.html';
+    }
+  }catch(e){showAuthError('Ошибка: '+e.message);}
+}
+function doLogout(){const tk=localStorage.getItem('dp_token');if(tk)fetch('/auth/logout',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk}}).catch(()=>{});localStorage.removeItem('dp_auth');localStorage.removeItem('dp_token');currentUser=null;location.reload();}
+
+// ===== Init =====
+async function init(){
+  await loadCache();
+  populateFilters();
+  loadDashboard();
+  document.getElementById('shift-date').value=new Date().toISOString().split('T')[0];
+}
+async function loadCache(){
+  const[w,c]=await Promise.all([
+    api('workers','GET',null,'?select=id,full_name,phone,is_active,archived&order=full_name'),
+    api('clients','GET',null,'?select=id,name,contact,default_client_rate,default_worker_rate&order=name'),
+  ]);
+  cachedWorkers=w||[];cachedClients=c||[];
+  // Cache service_types in sessionStorage (1h TTL)
+  let st=null;
+  try{const cached=JSON.parse(sessionStorage.getItem('service_types')||'null');if(cached&&Date.now()-cached.ts<3600000){st=cached.data;}}catch(e){}
+  if(!st){st=await api('service_types','GET',null,'?order=name');try{sessionStorage.setItem('service_types',JSON.stringify({data:st||[],ts:Date.now()}));}catch(e){}}
+  cachedServiceTypes=st||[];checkNotifications();
+}
+function populateFilters(){
+  const sel=document.getElementById('shift-client');
+  const fsel=document.getElementById('shift-client-filter');
+  const opts=(cachedClients||[]).map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  sel.innerHTML='<option value="">Выберите клиента</option>'+opts;
+  fsel.innerHTML='<option value="">Все клиенты</option>'+opts;
+}
+
+// ===== Tabs =====
+document.getElementById('tabs-bar').addEventListener('click',e=>{
+  const tab=e.target.closest('.tab');if(!tab)return;
+  const panel=tab.dataset.panel;if(!panel)return;
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(panel).classList.add('active');
+  tab.classList.add('active');
+  const loaders={dashboard:loadDashboard,shifts:loadShifts,workers:loadWorkers,clients:loadClients,payments:loadPayments,dispatchers:loadDispatchers,settings:()=>{},recurring:loadRecurring};
+  if(loaders[panel.replace('panel-','')])loaders[panel.replace('panel-','')]();
+});
+
+// ===== Dashboard =====
+async function loadDashboard(){
+  try{
+    const today=new Date().toISOString().split('T')[0];
+    const monthStart=today.slice(0,8)+'01';
+    // Batch all dashboard queries in parallel
+    const myId=currentUser?.id;
+    let shiftQ=`?select=id,date,status,clients(name),start_time,comment&date=gte.${monthStart}&order=date.desc`;
+    if(myId){
+      if(currentUser?.role==='worker'){
+        if(myId && currentUser?.role==='worker')shiftQ+='&created_by=eq.'+myId;
+      } else if(currentUser?.city){
+        shiftQ+='&clients.city=eq.'+encodeURIComponent(currentUser.city);
+      }
+    }
+    shiftQ+='&limit=200';
+    const[shifts,myAssignments]=await Promise.all([
+      api('shifts','GET',null,shiftQ),
+      api('shift_assignments','GET',null,`?select=hours_worked,rate_per_hour,client_rate_per_hour,extra_amount,payment_status,paid_amount,invite_status,shifts!inner(date,created_by)&shifts.date=gte.${monthStart}${(myId && currentUser?.role==='worker')?'&shifts.created_by=eq.'+myId:(currentUser?.city?'&shifts.clients.city=eq.'+encodeURIComponent(currentUser.city):'')}&limit=2000`)
+    ]);
+    let totalH=0,unpaid=0,totalClientRevenue=0,activeShifts=0,confirmed=0;
+    (myAssignments||[]).forEach(a=>{
+      const h=parseFloat(a.hours_worked)||0;
+      totalH+=h;
+      if(a.payment_status!=='paid'&&h)unpaid+=h*(parseFloat(a.rate_per_hour)||400)+(parseFloat(a.extra_amount)||0)-(parseFloat(a.paid_amount)||0);
+      totalClientRevenue+=h*(parseFloat(a.client_rate_per_hour)||520);
+      if(a.invite_status==='confirmed')confirmed++;
+    });
+    activeShifts=(shifts||[]).filter(s=>s.status!=='completed').length;
+
+    const rate=currentUser.rate_per_hour||7.5;
+    const target=currentUser.monthly_target_hours||8000;
+    const mySalary=totalH*rate;
+    const progress=target>0?Math.min(100,Math.round(totalH/target*100)):0;
+
+    // Prefetch today's assignments in parallel with stats rendering
+    const todayShifts=(shifts||[]).filter(s=>s.date===today);
+    const todayIds=todayShifts.map(s=>s.id);
+    const shiftsListEl=document.getElementById('dashboard-shifts');
+    let todayAsgnPromise=Promise.resolve([]);
+    if(todayIds.length){
+      todayAsgnPromise=api('shift_assignments','GET',null,'?select=invite_status,shift_id');
+    }
+    // Render stats while todayAsgn loads
+    document.getElementById('dashboard-stats').innerHTML=`
+      <div class="stat-card"><div class="num">${totalH.toLocaleString('ru')}</div><div class="label">Часов за месяц</div></div>
+      <div class="stat-card accent"><div class="num">${mySalary.toLocaleString('ru')}₽</div><div class="label">Моя зарплата</div></div>
+      <div class="stat-card warning"><div class="num">${unpaid.toLocaleString('ru')}₽</div><div class="label">К выплате рабочим</div></div>
+      <div class="stat-card"><div class="num">${activeShifts}</div><div class="label">Активных смен</div></div>
+    `;
+    // Motivation block
+    document.getElementById('dashboard-motivation').innerHTML=`
+      <div class="card" style="padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-weight:600;color:var(--primary);">🎯 Прогресс к цели ${target.toLocaleString('ru')}ч</span>
+          <span style="font-weight:700;color:${progress>=90?'var(--accent)':progress>=60?'var(--warning)':'var(--danger)'};">${progress}%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${progress}%;"></div></div>
+        <div class="progress-text">${totalH.toLocaleString('ru')} / ${target.toLocaleString('ru')} ч · ${rate}₽/ч</div>
+        <div style="margin-top:8px;font-size:13px;color:var(--text-light);">Осталось: <strong>${Math.max(0,target-totalH).toLocaleString('ru')}ч</strong> = <strong>${Math.max(0,(target-totalH)*rate).toLocaleString('ru')}₽</strong></div>
+      </div>
+    `;
+    // Today's shifts
+    if(!todayShifts.length){shiftsListEl.innerHTML='<p style="color:var(--text-light);padding:12px;">Нет смен на сегодня</p>';return;}
+    const todayAsgn=await todayAsgnPromise;
+    const asgnByShift={};
+    todayAsgn.forEach(a=>{if(!asgnByShift[a.shift_id])asgnByShift[a.shift_id]={c:0,i:0};asgnByShift[a.shift_id].c++;if(a.invite_status==='confirmed')asgnByShift[a.shift_id].i++;});
+    shiftsListEl.innerHTML=todayShifts.map(s=>{
+      const a=asgnByShift[s.id]||{c:0,i:0};
+      return `<div class="card"><div class="card-header"><div><strong>${esc(s.clients?.name)||"\u2014"}</strong><div style="font-size:12px;color:var(--text-light);">${s.start_time||''}</div></div><div><span class="badge badge-${s.status==='completed'?'confirmed':'invited'}">${s.status==='completed'?'Завершено':'Активно'}</span></div></div></div>`;
+    }).join('');
+  }finally{hideLoading('dashboard-loading');}
+}
+
+// ===== Shifts =====
+async function loadShifts(){
+  try{
+    const fromEl=document.getElementById('shift-date-from'),toEl=document.getElementById('shift-date-to');
+    if(!fromEl.value)fromEl.value=new Date().toISOString().split('T')[0];
+    const from=fromEl.value,to=toEl.value,clientId=document.getElementById('shift-client-filter').value;
+    let sq='?select=*,clients(name)&order=date.desc';
+    if(from)sq+='&date=gte.'+from;if(to)sq+='&date=lte.'+to;
+    if(clientId)sq+='&client_id=eq.'+clientId;
+    // Filter by current dispatcher
+    const myId=currentUser?.id;
+    if(myId && currentUser?.role==='worker')sq+='&created_by=eq.'+myId;
+    sq+='&limit=200';
+    const[shifts,requirements]=await Promise.all([
+      api('shifts','GET',null,sq),
+      api('shift_requirements','GET',null,'?select=shift_id,service_type_id,required_count')
+    ]);
+    const wMap={};(cachedWorkers||[]).forEach(w=>wMap[w.id]=w.full_name);
+    const reqMap={};(requirements||[]).forEach(r=>{if(!reqMap[r.shift_id])reqMap[r.shift_id]=[];reqMap[r.shift_id].push(r);});
+    const shiftIds=(shifts||[]).map(s=>s.id);
+    let assignments=[];
+    if(shiftIds.length){assignments=await api('shift_assignments','GET',null,'?select=*&shift_id=in.('+shiftIds.map(id=>'"'+id+'"').join(',')+')');}
+    const asgnMap={};(assignments||[]).forEach(a=>{if(!asgnMap[a.shift_id])asgnMap[a.shift_id]=[];asgnMap[a.shift_id].push(a);});
+    // Auto-deactivate over-confirmed
+    for(const shift of shifts||[]){
+      const reqs=reqMap[shift.id]||[];
+      const totalReq=reqs.reduce((s,r)=>s+r.required_count,0);
+      const asgns=asgnMap[shift.id]||[];
+      const conf=asgns.filter(a=>a.invite_status==='confirmed').length;
+      if(conf>=totalReq&&totalReq>0){
+        const toDeact=asgns.filter(a=>a.invite_status==='invited');
+        for(const a of toDeact)await api('shift_assignments','PATCH',{invite_status:'declined'},'?id=eq.'+a.id);
+      }
+    }
+    // Sort: active first
+    const sorted=(shifts||[]).sort((a,b)=>{if(a.status==='completed'&&b.status!=='completed')return 1;if(a.status!=='completed'&&b.status==='completed')return -1;return 0;});
+    const container=document.getElementById('shifts-list');
+    if(!sorted.length){container.innerHTML='<p style="text-align:center;padding:40px;color:var(--text-light);">Нет смен</p>';return;}
+    let completedHeader=false;
+    container.innerHTML=sorted.map(shift=>{
+      const reqs=reqMap[shift.id]||[];
+      const asgns=asgnMap[shift.id]||[];
+      const confCount=asgns.filter(a=>a.invite_status==='confirmed').length;
+      const invitedCount=asgns.filter(a=>a.invite_status==='invited').length;
+      const declinedCount=asgns.filter(a=>a.invite_status==='declined').length;
+      const totalReq=reqs.reduce((s,r)=>s+r.required_count,0);
+      const servicesHtml=reqs.map(r=>{const st=(cachedServiceTypes||[]).find(t=>t.id===r.service_type_id);return(st?.name||'?')+': '+r.required_count+' чел';}).join(' · ')||'—';
+      let countCls='badge-declined';
+      if(confCount>=totalReq&&totalReq>0)countCls='badge-confirmed';
+      else if(confCount>0)countCls='badge-invited';
+      const confirmedWorkers=asgns.filter(a=>a.invite_status==='confirmed');
+      const workersHtml=confirmedWorkers.map(a=>{
+        const name=wMap[a.worker_id]||'—';
+        const h=parseFloat(a.hours_worked)||0;
+        const r=parseFloat(a.rate_per_hour)||400,cr=parseFloat(a.client_rate_per_hour)||520,ex=parseFloat(a.extra_amount)||0;
+        const startT=a.actual_start_time?new Date(a.actual_start_time).toLocaleString('ru'):'—';
+        const endT=a.actual_end_time?new Date(a.actual_end_time).toLocaleString('ru'):'—';
+        const hoursStatus=a.client_hours_status||'pending';
+        const clientConfirmed=a.client_confirmed;
+        const paidAmt=parseFloat(a.paid_amount)||0;
+        const clientTotal=h*cr+ex;
+        const payLabel=paidAmt>=clientTotal&&clientTotal>0?'✅ Оплачено':paidAmt>0?`Частично ${paidAmt.toLocaleString('ru')}₽`:'Не оплачено';
+        // Статус подтверждения клиентом
+        let confirmBadge='';
+        if(h>0){
+          if(hoursStatus==='confirmed'||hoursStatus==='auto_confirmed')confirmBadge='<span style="color:#38a169;font-size:11px;"> ✅ Клиент подтвердил'+(hoursStatus==='auto_confirmed'?' (авто)':'')+'</span>';
+          else if(hoursStatus==='disputed')confirmBadge=`<span style="color:#c53030;font-size:11px;"> ⚠️ Спор: клиент указал ${a.client_hours||0}ч</span>`;
+          else if(hoursStatus==='pending')confirmBadge='<span style="color:#d69e2e;font-size:11px;"> ⏳ Ожидает подтверждения</span>';
+        }
+        const actions=[];
+        actions.push(`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();openHours('${a.id}')">⏱</button>`);
+        if(h>0&&(hoursStatus==='pending'||hoursStatus==='disputed')){actions.push(`<button class="btn btn-sm btn-outline" title="Подтвердить принудительно" onclick="event.stopPropagation();clientConfirm('${a.id}')">🏢✅</button>`);}
+        if(h>0&&(hoursStatus==='confirmed'||hoursStatus==='auto_confirmed'||clientConfirmed))actions.push(`<button class="btn btn-sm btn-success" onclick="event.stopPropagation();openPayment('${a.id}')">💰</button>`);
+        return `<div class="worker-row"><div><div class="worker-name">${name}</div><div class="worker-meta">Начало: ${startT} · Окончание: ${endT} · <strong>${h}ч</strong>${h?' · '+((h*r)+ex).toLocaleString('ru')+'₽':''}${confirmBadge}</div><div class="worker-meta">${payLabel}</div></div><div class="worker-actions">${actions.join('')}</div></div>`;
+async function clientConfirm(id){
+  await fetch('/api/client-hours-confirm',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({assignment_id:id,action:'confirm'})});
+  loadShifts();
+  toast('Часы подтверждены.');
+}
+
+// ===== Payments =====
+async function openPayment(id){
+  document.getElementById('payment-assignment-id').value=id;
+  const a=(await api('shift_assignments','GET',null,'?id=eq.'+id))[0];
+  if(!a)return;
+  const h=parseFloat(a.hours_worked)||0,cr=parseFloat(a.client_rate_per_hour)||520,ex=parseFloat(a.extra_amount)||0;
+  const total=h*cr+ex;const paid=parseFloat(a.paid_amount)||0;
+  document.getElementById('payment-due').textContent=total.toLocaleString('ru')+'₽';
+  document.getElementById('payment-paid').textContent=paid.toLocaleString('ru')+'₽';
+  document.getElementById('payment-amount').value=Math.round(total-paid);
+  const hist=await api('payments','GET',null,'?assignment_id=eq.'+id+'&order=created_at.desc');
+  const el=document.getElementById('payment-history');
+  if(hist&&hist.length){
+    el.innerHTML='<div style="font-weight:600;margin-bottom:6px;">📋 История</div>'+hist.map(p=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>${parseFloat(p.amount).toLocaleString('ru')}₽ · ${p.method==='cash'?'наличные':p.method==='card'?'карта':'перевод'}</span><span style="color:var(--text-light);">${new Date(p.created_at).toLocaleDateString('ru')}</span></div>`).join('');
+  }else el.innerHTML='';
+  openModal('modal-payment');
+}
+async function savePayment(){
+  const id=document.getElementById('payment-assignment-id').value;
+  const amount=parseFloat(document.getElementById('payment-amount').value);
+  if(!amount||amount<=0){alert('Введите сумму');return;}
+  const method=document.getElementById('payment-method').value;
+  const note=document.getElementById('payment-note').value||null;
+  await api('payments','POST',{assignment_id:id,amount,method,note});
+  const a=(await api('shift_assignments','GET',null,'?id=eq.'+id))[0];
+  const totalPaid=(parseFloat(a.paid_amount)||0)+amount;
+  const h=parseFloat(a.hours_worked)||0,cr=parseFloat(a.client_rate_per_hour)||520,ex=parseFloat(a.extra_amount)||0;
+  const total=h*cr+ex;
+  const patch={paid_amount:totalPaid};
+  if(totalPaid>=total)patch.payment_status='paid';
+  await api('shift_assignments','PATCH',patch,'?id=eq.'+id);
+  closeModal('modal-payment');loadShifts();loadDashboard();
+}
+
+// ===== Workers CRUD =====
+async function loadWorkers(){
+  try{
+    const search=(document.getElementById('worker-search')?.value||'').toLowerCase();
+    let q='?is_active=eq.true&archived=eq.false&order=full_name&limit=200';
+    if(search)q+=`&full_name=ilike.*${encodeURIComponent(search)}*`;
+    const workers=await api('workers','GET',null,q);
+    const asgn=await api('shift_assignments','GET',null,'?select=worker_id,hours_worked');
+    const hMap={};asgn.forEach(a=>hMap[a.worker_id]=(hMap[a.worker_id]||0)+(parseFloat(a.hours_worked)||0));
+    // Load ratings
+    const ratingsMap={};
+    try{const rRes=await api('reviews','GET',null,'?select=worker_id,rating&limit=5000');if(Array.isArray(rRes)){rRes.forEach(r=>{if(!ratingsMap[r.worker_id])ratingsMap[r.worker_id]={sum:0,count:0};ratingsMap[r.worker_id].sum+=r.rating;ratingsMap[r.worker_id].count++;});}}catch(e){}
+    document.getElementById('workers-table').innerHTML=(workers||[]).map(w=>{
+      const rat=ratingsMap[w.id];
+      const ratingHtml=rat?`<span style="color:#f59e0b;">⭐ ${(rat.sum/rat.count).toFixed(1)}</span> <span style="font-size:11px;color:var(--text-light);">(${rat.count})</span>`:'';
+      return`<tr style="cursor:pointer" onclick="openWorkerDetail('${w.id}')"><td>${esc(w.full_name)} ${ratingHtml}</td><td>${esc(w.phone)||"\u2014"}</td><td>${hMap[w.id]||0}ч</td>\n      <td style="white-space:nowrap;" onclick="event.stopPropagation()"><button class="btn btn-sm btn-outline cpb" data-role="worker" data-name="${esc(w.full_name)||""}" data-phone="${esc(w.phone)||""}">📋</button> <button class="btn btn-sm btn-outline" onclick="editWorker('${w.id}')">✏️</button></td></tr>`;
+    }).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
+  }finally{hideLoading('workers-loading');}
+}
+function openAddWorker(){
+  document.getElementById('worker-edit-id').value='';
+  document.getElementById('worker-modal-title').textContent='Добавить рабочего';
+  document.getElementById('worker-name').value='';
+  document.getElementById('worker-phone').value='';
+  document.getElementById('worker-password').value='';
+  openModal('modal-worker');
+}
+async function editWorker(id){
+  const w=(await api('workers','GET',null,'?id=eq.'+id))[0];if(!w)return;
+  document.getElementById('worker-edit-id').value=id;
+  document.getElementById('worker-modal-title').textContent='Редактировать';
+  document.getElementById('worker-name').value=w.full_name;
+  document.getElementById('worker-phone').value=w.phone||'';
+  document.getElementById('worker-password').value='';
+  document.getElementById('worker-password').placeholder='Оставьте пустым чтобы не менять';
+  openModal('modal-worker');
+}
+async function saveWorker(){
+  const editId=document.getElementById('worker-edit-id').value;
+  const full_name=document.getElementById('worker-name').value.trim();
+  const phone=document.getElementById('worker-phone').value.trim();
+  const pass=document.getElementById('worker-password').value.trim();
+  if(!full_name){alert('Введите ФИО');return;}
+  if(editId){
+    const patch={full_name,phone};
+    if(pass)patch.password=pass;
+    await api('workers','PATCH',patch,'?id=eq.'+editId);
+  }else{
+    await api('workers','POST',{full_name,phone,password:pass||String(Math.floor(100000+Math.random()*900000)),is_active:true,archived:false});
+  }
+  closeModal('modal-worker');loadWorkers();loadCache();
+}
+
+// ===== Clients CRUD =====
+async function loadClients(){
+  try{
+    const search=(document.getElementById('client-search')?.value||'').toLowerCase();
+    let q='?archived=eq.false&order=name&limit=200';
+    if(search)q+=`&name=ilike.*${encodeURIComponent(search)}*`;
+    const clients=await api('clients','GET',null,q);
+    document.getElementById('clients-table').innerHTML=(clients||[]).map(c=>`<tr style="cursor:pointer" onclick="openClientDetail('${c.id}')"><td>${esc(c.name)}</td><td>${esc(c.contact)||"\u2014"}</td><td>${c.default_client_rate||520}/${c.default_worker_rate||400}₽</td>
+      <td style="white-space:nowrap;" onclick="event.stopPropagation()"><button class="btn btn-sm btn-outline cpb" data-role="client" data-name="${esc(c.name)||""}" data-phone="${esc(c.contact)||""}">📋</button> <button class="btn btn-sm btn-outline" onclick="editClient('${c.id}')">✏️</button></td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
+  }finally{hideLoading('clients-loading');}
+}
+function openAddClient(){
+  document.getElementById('client-edit-id').value='';
+  document.getElementById('client-modal-title').textContent='Добавить клиента';
+  document.getElementById('client-name').value='';
+  document.getElementById('client-contact').value='';
+  document.getElementById('client-rate').value=520;
+  document.getElementById('client-worker-rate').value=400;
+  document.getElementById('client-access-info').style.display='none';
+  openModal('modal-client');
+}
+async function editClient(id){
+  const c=(await api('clients','GET',null,'?id=eq.'+id))[0];if(!c)return;
+  document.getElementById('client-edit-id').value=id;
+  document.getElementById('client-modal-title').textContent='Редактировать';
+  document.getElementById('client-name').value=c.name;
+  document.getElementById('client-contact').value=c.contact||'';
+  document.getElementById('client-rate').value=c.default_client_rate||520;
+  document.getElementById('client-worker-rate').value=c.default_worker_rate||400;
+  document.getElementById('client-password').value='';
+  document.getElementById('client-password').placeholder='Оставьте пустым чтобы не менять';
+  document.getElementById('client-access-info').style.display='none';
+  fetch('/api/client-pay-method?client_id='+id,{headers:{'Authorization':'Bearer '+localStorage.getItem('dp_token')}}).then(r=>r.json()).then(d=>{document.getElementById('client-pay-method').value=d.method||'transfer';});
+  openModal('modal-client');
+}
+async function saveClient(){
+  const editId=document.getElementById('client-edit-id').value;
+  const name=document.getElementById('client-name').value.trim();
+  const contact=document.getElementById('client-contact').value.trim();
+  const cr=parseFloat(document.getElementById('client-rate').value)||520;
+  const wr=parseFloat(document.getElementById('client-worker-rate').value)||400;
+  if(!name){alert('Введите название');return;}
+  const infoEl=document.getElementById('client-access-info');
+  if(editId){
+    const patch={name,default_client_rate:cr,default_worker_rate:wr};
+    const editPass=document.getElementById('client-password').value.trim();
+    if(editPass)patch.password=editPass;
+    await api('clients','PATCH',patch,'?id=eq.'+editId);
+    fetch('/api/client-pay-method',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({client_id:editId,method:document.getElementById('client-pay-method').value})});
+    infoEl.style.display='none';
+  }else{
+    const genPass=document.getElementById('client-password').value.trim()||String(Math.floor(100000+Math.random()*900000));
+    await api('clients','POST',{name,contact,default_client_rate:cr,default_worker_rate:wr,archived:false,password:genPass});
+    if(contact){
+      const link='https://xn----gtbdan3bddhceo9d.xn--p1ai/client.html';
+      infoEl.innerHTML=`<div style="font-weight:600;margin-bottom:6px;">📋 Данные для клиента:</div><div>📱 ${esc(contact)}</div><div>🔑 ${esc(genPass)}</div><div>🔗 ${esc(link)}</div><button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="copyText('Кабинет клиента\\nТелефон: ${esc(contact)}\\nПароль: ${esc(genPass)}\\nСсылка: ${esc(link)}')">📋 Скопировать</button>`;
+      infoEl.style.display='block';
+    }
+  }
+  closeModal('modal-client');loadClients();loadCache();populateFilters();
+}
+
+// ===== Dispatchers (owner only) =====
+async function loadDispatchers(){
+  if(currentUser.role!=='owner')return;
+  const dispatchers=await api('users','GET',null,"?role=eq.dispatcher&order=full_name");
+  const monthStart=new Date().toISOString().split('T')[0].slice(0,8)+'01';
+  let rows='';
+  for(const d of dispatchers||[]){
+    const asgn=await api('shift_assignments','GET',null,`?select=hours_worked&shifts!inner(date,created_by)&shifts.date=gte.${monthStart}&shifts.created_by=eq.${d.id}`);
+    const totalH=asgn.reduce((s,a)=>s+(parseFloat(a.hours_worked)||0),0);
+    const rate=parseFloat(d.rate_per_hour)||7.5;
+    const salary=Math.round(totalH*rate);
+    rows+=`<tr><td>${esc(d.full_name)}</td><td>${esc(d.phone)}</td><td>${rate}₽</td><td>${totalH.toLocaleString('ru')}ч</td><td><strong>${salary.toLocaleString('ru')}₽</strong></td>
+      <td style="white-space:nowrap;"><button class="btn btn-sm btn-outline cpb" data-role="dispatcher" data-name="${esc(d.full_name)||''}" data-phone="${esc(d.phone)||''}">📋</button> <button class="btn btn-sm btn-outline" onclick="editDispatcher('${d.id}')">✏️</button></td></tr>`;
+  }
+  document.getElementById('dispatchers-table').innerHTML=rows||'<tr><td colspan="6" style="text-align:center;color:var(--text-light);">Нет диспетчеров</td></tr>';
+}
+function openAddDispatcher(){
+  document.getElementById('dispatcher-edit-id').value='';
+  document.getElementById('dispatcher-modal-title').textContent='Добавить диспетчера';
+  document.getElementById('dispatcher-name').value='';
+  document.getElementById('dispatcher-phone').value='';
+  document.getElementById('dispatcher-password').value='';
+  document.getElementById('dispatcher-rate').value=7.5;
+  document.getElementById('dispatcher-target').value=8000;
+  document.getElementById('dispatcher-access-info').style.display='none';
+  openModal('modal-dispatcher');
+}
+async function editDispatcher(id){
+  const d=(await api('users','GET',null,'?id=eq.'+id))[0];if(!d)return;
+  document.getElementById('dispatcher-edit-id').value=id;
+  document.getElementById('dispatcher-modal-title').textContent='Редактировать';
+  document.getElementById('dispatcher-name').value=d.full_name;
+  document.getElementById('dispatcher-phone').value=d.phone;
+  document.getElementById('dispatcher-password').value=(d.password&&d.password.startsWith('$2'))?'':(d.password||'');
+  document.getElementById('dispatcher-rate').value=d.rate_per_hour||7.5;
+  document.getElementById('dispatcher-target').value=d.monthly_target_hours||8000;
+  document.getElementById('dispatcher-access-info').style.display='none';
+  openModal('modal-dispatcher');
+}
+async function saveDispatcher(){
+  const editId=document.getElementById('dispatcher-edit-id').value;
+  const full_name=document.getElementById('dispatcher-name').value.trim();
+  const phone=document.getElementById('dispatcher-phone').value.trim();
+  const pass=document.getElementById('dispatcher-password').value.trim();
+  const rate=parseFloat(document.getElementById('dispatcher-rate').value)||7.5;
+  const target=parseFloat(document.getElementById('dispatcher-target').value)||8000;
+  if(!full_name||!phone){alert('Заполните все поля');return;}
+  const infoEl=document.getElementById('dispatcher-access-info');
+  if(editId){
+    const patch={full_name,phone,rate_per_hour:rate,monthly_target_hours:target,is_active:true};
+    if(pass)patch.password=pass;
+    await api('users','PATCH',patch,'?id=eq.'+editId);
+    infoEl.style.display='none';
+  }else{
+    const genPass=document.getElementById('dispatcher-password').value.trim()||String(Math.floor(100000+Math.random()*900000));
+    await api('users','POST',{full_name,phone,password:genPass,role:'dispatcher',rate_per_hour:rate,monthly_target_hours:target,is_active:true});
+    const link='https://xn----gtbdan3bddhceo9d.xn--p1ai';
+    infoEl.innerHTML=`<div style="font-weight:600;margin-bottom:6px;">📋 Данные для диспетчера:</div><div>📱 ${esc(phone)}</div><div>🔑 ${esc(genPass)}</div><div>🔗 ${esc(link)}</div><button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="copyText('Кабинет диспетчера\\nТелефон: ${esc(phone)}\\nПароль: ${esc(genPass)}\\nСсылка: ${esc(link)}')">📋 Скопировать</button>`;
+    infoEl.style.display='block';
+  }
+  closeModal('modal-dispatcher');loadDispatchers();
+}
+
+// ===== Payments tab =====
+// ===== Worker Payments =====
+let _wpayData=[];
+function showWorkerPayments(){
+  document.getElementById('worker-list-view').style.display='none';
+  document.getElementById('worker-pay-view').style.display='block';
+  document.getElementById('btn-worker-list').style.display='inline-flex';
+  loadWorkerPayments();
+}
+function showWorkerList(){
+  document.getElementById('worker-list-view').style.display='block';
+  document.getElementById('worker-pay-view').style.display='none';
+  document.getElementById('btn-worker-list').style.display='none';
+}
+async function loadWorkerPayments(){
+  const monthStart=new Date().toISOString().split('T')[0].slice(0,8)+'01';
+  const assignments=await api('shift_assignments','GET',null,`?select=hours_worked,rate_per_hour,extra_amount,payment_status,paid_amount,worker_id,shifts!inner(date,client_id,clients(name))&shifts.date=gte.${monthStart}&limit=2000`);
+  _wpayData=(assignments||[]).filter(a=>parseFloat(a.hours_worked)>0);
+  // Load payments for verify buttons
+  const asgnIds=_wpayData.map(a=>a.id);
+  if(asgnIds.length){const allPays=await api('payments','GET',null,`?assignment_id=in.(${asgnIds.map(id=>'"'+id+'"').join(',')})&select=*&order=created_at.desc`);window._payMap={};(allPays||[]).forEach(p=>{if(!_payMap[p.assignment_id])_payMap[p.assignment_id]=[];_payMap[p.assignment_id].push(p);});}
+  renderWorkerPayments();
+}
+function renderWorkerPayments(){
+  const search=(document.getElementById('wpay-search')?.value||'').toLowerCase();
+  const filter=document.getElementById('wpay-filter')?.value||'all';
+  const hoursF=document.getElementById('wpay-hours')?.value||'all';
+  const wMap={};(cachedWorkers||[]).forEach(w=>wMap[w.id]=w.full_name);
+  let data=_wpayData;
+  if(search)data=data.filter(a=>(wMap[a.worker_id]||'').toLowerCase().includes(search));
+  if(filter==='paid')data=data.filter(a=>a.payment_status==='paid');
+  if(filter==='unpaid')data=data.filter(a=>a.payment_status!=='paid');
+  if(hoursF==='1-5')data=data.filter(a=>parseFloat(a.hours_worked)>=1&&parseFloat(a.hours_worked)<=5);
+  if(hoursF==='5-10')data=data.filter(a=>parseFloat(a.hours_worked)>5&&parseFloat(a.hours_worked)<=10);
+  if(hoursF==='10+')data=data.filter(a=>parseFloat(a.hours_worked)>10);
+  document.getElementById('wpay-table').innerHTML=data.map(a=>{
+    const h=parseFloat(a.hours_worked),r=parseFloat(a.rate_per_hour)||400,ex=parseFloat(a.extra_amount)||0;
+    const total=(h*r)+ex;
+    const paid=a.payment_status==='paid';
+    return`<tr><td>${esc(wMap[a.worker_id])||'—'}</td><td>${esc(a.shifts?.clients?.name)||"\u2014"}</td><td>${formatDate(a.shifts?.date)}</td>
+      <td>${h}ч</td><td>${total.toLocaleString('ru')}₽</td>
+      <td><span class="badge ${paid?'badge-paid':'badge-unpaid'}">${paid?'Оплачено':'Не оплачено'}</span>${_payBtn(a)}</td></tr>`;
+  }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
+}
+
+function _payBtn(a){
+  const pays=(window._payMap||{})[a.id]||[];
+  if(!pays.length)return '';
+  const p=pays[pays.length-1];
+  const hasReceipt=p.note&&p.note.startsWith('receipt:');
+  const icon=hasReceipt?'📎':'💰';
+  const safeNote=esc((p.note||'').replace(/'/g,"\\'"));
+  return ` <button class=\"btn btn-sm btn-outline\" onclick=\"openVerify('${p.id}','${a.id}',${p.amount},'${esc(p.method)}','${safeNote}')\">${icon}</button>`;
+}
+
+// ===== Client Payments =====
+let _cpayData=[];
+function showClientPayments(){
+  document.getElementById('client-list-view').style.display='none';
+  document.getElementById('client-pay-view').style.display='block';
+  document.getElementById('btn-client-list').style.display='inline-flex';
+  loadClientPayments();
+}
+function showClientList(){
+  document.getElementById('client-list-view').style.display='block';
+  document.getElementById('client-pay-view').style.display='none';
+  document.getElementById('btn-client-list').style.display='none';
+}
+async function loadClientPayments(){
+  const monthStart=new Date().toISOString().split('T')[0].slice(0,8)+'01';
+  const assignments=await api('shift_assignments','GET',null,`?select=hours_worked,client_rate_per_hour,extra_amount,payment_status,paid_amount,worker_id,shifts!inner(date,client_id,clients(name))&shifts.date=gte.${monthStart}&limit=2000`);
+  _cpayData=(assignments||[]).filter(a=>parseFloat(a.hours_worked)>0);
+  renderClientPayments();
+}
+function renderClientPayments(){
+  const search=(document.getElementById('cpay-search')?.value||'').toLowerCase();
+  const filter=document.getElementById('cpay-filter')?.value||'all';
+  const wMap={};(cachedWorkers||[]).forEach(w=>wMap[w.id]=w.full_name);
+  let data=_cpayData;
+  if(search)data=data.filter(a=>(a.shifts?.clients?.name||'').toLowerCase().includes(search));
+  if(filter==='paid')data=data.filter(a=>a.payment_status==='paid');
+  if(filter==='unpaid')data=data.filter(a=>a.payment_status!=='paid');
+  document.getElementById('cpay-table').innerHTML=data.map(a=>{
+    const h=parseFloat(a.hours_worked),cr=parseFloat(a.client_rate_per_hour)||520,ex=parseFloat(a.extra_amount)||0;
+    const total=(h*cr)+ex;
+    const paid=a.payment_status==='paid';
+    return`<tr><td>${esc(a.shifts?.clients?.name)||"\u2014"}</td><td>${esc(wMap[a.worker_id])||'—'}</td><td>${formatDate(a.shifts?.date)}</td>
+      <td>${h}ч</td><td>${total.toLocaleString('ru')}₽</td>
+      <td><span class="badge ${paid?'badge-paid':'badge-unpaid'}">${paid?'Оплачено':'Не оплачено'}</span>${paid?'':" <button class=\"btn btn-sm btn-primary\" onclick=\"openPay('${a.id}',"+total+",'"+esc(a.shifts?.clients?.name||'')+"')\">💰</button>"}</td></tr>`;
+  }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
+}
+
+async function loadPayments(){
+  showLoading('payments-loading');
+  try{
+    const monthStart=new Date().toISOString().split('T')[0].slice(0,8)+'01';
+    let q=`?select=hours_worked,rate_per_hour,client_rate_per_hour,extra_amount,payment_status,paid_amount,worker_id,shifts!inner(date,client_id,created_by,clients(name))&shifts.date=gte.${monthStart}`;
+    const myId=currentUser?.id;
+    if(myId && currentUser?.role==='worker')q+='&shifts.created_by=eq.'+myId;
+    q+='&order=created_at.desc&limit=200';
+    const assignments=await api('shift_assignments','GET',null,q);
+    const wMap={};(cachedWorkers||[]).forEach(w=>wMap[w.id]=w.full_name);
+    document.getElementById('payments-table').innerHTML=(assignments||[]).filter(a=>parseFloat(a.hours_worked)>0).map(a=>{
+      const h=parseFloat(a.hours_worked),r=parseFloat(a.rate_per_hour)||400,cr=parseFloat(a.client_rate_per_hour)||520,ex=parseFloat(a.extra_amount)||0;
+      return `<tr><td>${formatDate(a.shifts?.date)}</td><td>${wMap[a.worker_id]||'—'}</td><td>${esc(a.shifts?.clients?.name)||"\u2014"}</td>
+        <td>${h}ч</td><td>${((h*r)+ex).toLocaleString('ru')}₽</td><td>${(h*cr).toLocaleString('ru')}₽</td>
+        <td><span class="badge ${a.payment_status==='paid'?'badge-paid':'badge-unpaid'}">${a.payment_status==='paid'?'Оплачено':'Не оплачено'}</span></td></tr>`;
+    }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
+  }finally{hideLoading('payments-loading');}
+}
+
+// ===== Settings =====
+async function saveSettings(){
+  const rate=parseFloat(document.getElementById('settings-rate').value)||7.5;
+  const target=parseFloat(document.getElementById('settings-target').value)||8000;
+  await api('users','PATCH',{rate_per_hour:rate,monthly_target_hours:target},'?id=eq.'+currentUser.id);
+  currentUser.rate_per_hour=rate;currentUser.monthly_target_hours=target;
+  toast('Настройки сохранены');loadDashboard();
+}
+
+// ===== Helpers =====
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+function showLoading(id){const el=document.getElementById(id);if(el){el.style.display='block';el.style.opacity='0.6';}}
+function hideLoading(id){const el=document.getElementById(id);if(el){el.style.display='none';el.style.opacity='1';}}
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3000);}
+function copyText(text){if(navigator.clipboard){navigator.clipboard.writeText(text);}else{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);}alert('Скопировано!');}
+
+
+function sortTable(tableId,colIndex,dir){
+  const table=document.getElementById(tableId);if(!table)return;
+  const rows=Array.from(table.querySelectorAll('tr'));
+  rows.sort((a,b)=>{
+    let va=a.cells[colIndex]?.textContent?.trim()||'';
+    let vb=b.cells[colIndex]?.textContent?.trim()||'';
+    const na=parseFloat(va.replace(/[^0-9.-]/g,''));
+    const nb=parseFloat(vb.replace(/[^0-9.-]/g,''));
+    if(!isNaN(na)&&!isNaN(nb)){return dir==='asc'?na-nb:nb-na;}
+    return dir==='asc'?va.localeCompare(vb,'ru'):vb.localeCompare(va,'ru');
+  });
+  rows.forEach(r=>table.appendChild(r));
+}
+function handleSort(th,tableId){
+  const headers=th.parentElement.querySelectorAll('th');
+  const colIndex=Array.from(headers).indexOf(th);
+  const wasAsc=th.classList.contains('sort-asc');
+  headers.forEach(h=>{h.classList.remove('sort-asc','sort-desc');});
+  const dir=wasAsc?'desc':'asc';
+  th.classList.add('sort-'+dir);
+  sortTable(tableId,colIndex,dir);
+}
+function copyCred(){var el=document.getElementById('cred-text');if(!el)return;el.focus();el.select();el.setSelectionRange(0,99999);var ok=document.execCommand('copy');if(ok){toast('📋 Скопировано!');}else{toast('Нажмите Ctrl+C');}}
+function shareCred(){var el=document.getElementById('cred-text');if(navigator.share){navigator.share({title:'Данные для входа',text:el.value}).catch(function(){});}else{el.focus();el.select();el.setSelectionRange(0,99999);toast('Нажмите Ctrl+C');}}
+document.addEventListener('click',function(e){var b=e.target.closest('.cpb');if(!b)return;var r=b.dataset.role,p=b.dataset.phone,n=b.dataset.name||'';var L={worker:'https://xn----gtbdan3bddhceo9d.xn--p1ai/worker.html',dispatcher:'https://xn----gtbdan3bddhceo9d.xn--p1ai',client:'https://xn----gtbdan3bddhceo9d.xn--p1ai/client.html'};var t=n+'\nТелефон: '+p+'\nСсылка: '+L[r];document.getElementById('cred-text').value=t;openModal('modal-credentials');setTimeout(function(){var el=document.getElementById('cred-text');el.focus();el.select();el.setSelectionRange(0,99999);},100);});
+
+let _payAsgnId=null,_payMaxAmount=0;
+function openPay(asgnId,amount,workerName){
+  _payAsgnId=asgnId;_payMaxAmount=amount;
+  document.getElementById('pay-info').textContent=workerName+' — к выплате: '+amount.toLocaleString('ru')+'₽';
+  document.getElementById('pay-amount').value=amount;
+  document.getElementById('pay-amount').max=amount;
+  openModal('modal-pay');
+}
+async function confirmPay(){
+  if(!_payAsgnId)return;
+  const amt=parseFloat(document.getElementById('pay-amount').value)||0;
+  const method=document.getElementById('pay-method').value;
+  if(amt<=0){alert('Введите сумму');return;}
+  const status=amt>=_payMaxAmount?'paid':'unpaid';
+  await api('shift_assignments','PATCH',{payment_status:status,paid_amount:amt,payment_method:method},'?id=eq.'+_payAsgnId);
+  // Also create payment record
+  await api('payments','POST',{assignment_id:_payAsgnId,amount:amt,method:method});
+  closeModal('modal-pay');
+  toast('Оплата '+amt.toLocaleString('ru')+'₽ записана');
+  // Refresh whichever view is active
+  if(document.getElementById('worker-pay-view').style.display!=='none')loadWorkerPayments();
+  else if(document.getElementById('client-pay-view').style.display!=='none')loadClientPayments();
+  else loadDashboard();
+}
+
+let _massHoursShiftId=null;
+function openMassHours(shiftId,workers,shiftDate){
+  _massHoursShiftId=shiftId;
+  const startEl=document.getElementById('mass-start-time');
+  const endEl=document.getElementById('mass-end-time');
+  if(shiftDate){startEl.value=shiftDate+'T09:00';endEl.value='';}
+  else{startEl.value='';endEl.value='';}
+  const list=document.getElementById('mass-hours-list');
+  list.innerHTML=workers.map(w=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--border);">
+      <span style="flex:1;font-weight:500;">${esc(w.name)}</span>
+      <input type="number" id="mh-${w.id}" value="${w.hours||0}" step="0.5" min="0" max="24" oninput="if(this.value>24)this.value=24;if(this.value<0)this.value=0;" style="width:80px;padding:8px;border:2px solid var(--border);border-radius:8px;text-align:center;">
+      <span>ч</span>
+    </div>
+  `).join('');
+  openModal('modal-mass-hours');
+}
+function calcAllMassHours(){
+  const s=document.getElementById('mass-start-time').value;
+  const e=document.getElementById('mass-end-time').value;
+  if(!s||!e)return;
+  const h=Math.round(((new Date(e)-new Date(s))/3600000)*10)/10;
+  if(h<=0)return;
+  document.querySelectorAll('[id^="mh-"]').forEach(inp=>{inp.value=h;});
+}
+async function saveMassHours(){
+  if(!_massHoursShiftId)return;
+  const asgns=await api('shift_assignments','GET',null,`?shift_id=eq.${_massHoursShiftId}&invite_status=eq.confirmed&select=id,worker_id,hours_worked`);
+  const s=document.getElementById('mass-start-time').value||null;
+  const e=document.getElementById('mass-end-time').value||null;
+  // Use bulk-hours API endpoint instead of individual PATCH calls
+  const items=asgns.map(a=>{
+    const inp=document.getElementById('mh-'+a.id);
+    if(!inp)return null;
+    const h=parseFloat(inp.value)||0;
+    const item={assignment_id:a.id,hours_worked:h};
+    if(s)item.actual_start_time=new Date(s).toISOString();
+    if(e)item.actual_end_time=new Date(e).toISOString();
+    return item;
+  }).filter(Boolean);
+  if(items.length){
+    try{
+      const r=await fetch('/api/bulk-hours',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({items})});
+      if(!r.ok){toast('Ошибка сохранения часов');return;}
+    }catch(e){toast('Ошибка сети');return;}
+  }
+  closeModal('modal-mass-hours');loadShifts();loadDashboard();toast('Часы сохранены');
+}
+
+async function reassignWorkers(shiftId){
+  if(!confirm('Перенабрать рабочих для этой смены? Текущие неподтвердившие получат отказ, новые получат приглашение.'))return;
+  try{
+    const r=await fetch('/api/reassign-workers',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({shift_id:shiftId})});
+    if(!r.ok){const d=await r.json().catch(()=>({}));toast('Ошибка: '+(d.error||r.status));return;}
+    toast('✅ Рабочие перенабраны');
+    loadShifts();
+  }catch(e){toast('Ошибка сети');}
+}
+
+let _verifyPaymentId=null,_verifyAsgnId=null;
+function openVerify(paymentId,asgnId,amount,method,note){
+  _verifyPaymentId=paymentId;_verifyAsgnId=asgnId;
+  document.getElementById('verify-info').innerHTML=`
+    <div><strong>Сумма:</strong> ${esc(amount)}₽</div>
+    <div><strong>Способ:</strong> ${method==='transfer'?'Перевод':method==='invoice'?'Безналичный':method==='cash'?'Наличные':esc(method)}</div>
+  `;
+  // Show receipt if available
+  const receiptEl=document.getElementById('verify-receipt');
+  if(note&&note.startsWith('receipt:')){
+    const url=note.replace('receipt:','');
+    if(url.endsWith('.pdf')){
+      receiptEl.innerHTML=`<a href="${esc(url)}" target="_blank" style="color:var(--primary);">📄 Открыть PDF чек</a>`;
+    }else{
+      receiptEl.innerHTML=`<img src="${esc(url)}" style="max-width:100%;max-height:300px;border-radius:8px;cursor:pointer;" onclick="window.open('${esc(url)}')">`;
+    }
+  }else{
+    receiptEl.innerHTML='<div style="color:var(--text-light);">Чек не загружен</div>';
+  }
+  openModal('modal-verify');
+}
+async function verifyPayment(approve){
+  if(!_verifyPaymentId)return;
+  if(approve){
+    // Payment already recorded, just close
+    closeModal('modal-verify');
+    toast('Оплата подтверждена');
+    loadDashboard();
+  }else{
+    // Delete the payment and reset paid_amount
+    await api('payments','DELETE',null,'?id=eq.'+_verifyPaymentId);
+    const a=(await api('shift_assignments','GET',null,'?id=eq.'+_verifyAsgnId+'&select=paid_amount'))[0];
+    // Keep other payments' total
+    const remaining=await api('payments','GET',null,'?assignment_id=eq.'+_verifyAsgnId+'&select=amount');
+    const total=(remaining||[]).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+    await api('shift_assignments','PATCH',{paid_amount:total,payment_status:total>0?'unpaid':'unpaid'},'?id=eq.'+_verifyAsgnId);
+    closeModal('modal-verify');
+    toast('Оплата отклонена');
+    loadDashboard();
+  }
+}
+
+async function checkNotifications(){
+  try{
+    const token=localStorage.getItem('dp_token');
+    const r=await fetch('/api/notifications/new-workers',{headers:{'Authorization':'Bearer '+token}});const notifs=await r.json();
+    const cnt=notifs.length;const el=document.getElementById('notif-count');
+    if(!el)return;
+    if(cnt>0){el.textContent=cnt;el.style.display='block';}else{el.style.display='none';}
+  }catch(e){}
+}
+async function showNotifications(){
+  const token=localStorage.getItem('dp_token');
+  const r=await fetch('/api/notifications/new-workers',{headers:{'Authorization':'Bearer '+token}});const notifs=await r.json();
+  if(!notifs.length){toast('Нет новых регистраций');return;}
+  const html='<div style="max-height:300px;overflow-y:auto;">'+notifs.map(n=>
+    '<div style="padding:10px;border-bottom:1px solid var(--border);"><div style="font-weight:600;">'+esc(n.name)+'</div><div style="font-size:12px;color:var(--text-light);">'+esc(n.phone)+' · '+formatDate(n.date.split('T')[0])+'</div></div>'
+  ).join('')+'</div>';
+  document.getElementById('notif-content').innerHTML=html;
+  openModal('modal-notif');
+  await fetch('/api/notifications/new-workers',{method:'DELETE',headers:{'Authorization':'Bearer '+token}});
+  document.getElementById('notif-count').style.display='none';
+}
+function copyInviteLink(){
+  const url=location.origin+'/worker.html?invite=1';
+  navigator.clipboard.writeText(url).then(()=>toast('Ссылка скопирована: '+url));
+}
+// ===== Worker Detail Card =====
+let _wdWorkerId=null,_wdShifts=[];
+async function openWorkerDetail(workerId){
+  _wdWorkerId=workerId;
+  const w=(await api('workers','GET',null,'?id=eq.'+workerId))[0];if(!w)return;
+  document.getElementById('wd-header').innerHTML=`<div><h3>${esc(w.full_name)}</h3><div class="meta">📱 ${esc(w.phone)||'—'}</div></div><button class="btn btn-sm btn-outline" onclick=\"editWorker('${workerId}')\">✏️</button>`;
+  // Load all assignments for this worker
+  const asgn=await api('shift_assignments','GET',null,`?select=hours_worked,rate_per_hour,client_rate_per_hour,extra_amount,payment_status,paid_amount,shifts!inner(date,client_id,clients(name),service_types(name))&worker_id=eq.${workerId}&limit=2000`);
+  _wdShifts=(asgn||[]).filter(a=>parseFloat(a.hours_worked)>0);
+  // Load all payments for this worker's assignments
+  const asgnIds=_wdShifts.map(a=>a.id);
+  if(asgnIds.length){
+    const pays=await api('payments','GET',null,`?assignment_id=in.(${asgnIds.map(id=>'"'+id+'"').join(',')})&order=created_at.desc`);
+    window._wdPayMap={};(pays||[]).forEach(p=>{if(!_wdPayMap[p.assignment_id])_wdPayMap[p.assignment_id]=[];_wdPayMap[p.assignment_id].push(p);});
+  }else{window._wdPayMap={};}
+  document.getElementById('wd-filter').value='all';
+  document.getElementById('wd-search').value='';
+  document.getElementById('wd-pay-amount').value='';
+  renderWorkerDetailShifts();
+  renderWorkerPaymentHistory();
+  openModal('modal-worker-detail');
+}
+function renderWorkerDetailShifts(){
+  const filter=document.getElementById('wd-filter').value;
+  const search=(document.getElementById('wd-search')?.value||'').toLowerCase();
+  let data=_wdShifts;
+  if(search)data=data.filter(a=>(a.shifts?.clients?.name||'').toLowerCase().includes(search)||(a.shifts?.service_types?.name||'').toLowerCase().includes(search));
+  if(filter==='paid')data=data.filter(a=>a.payment_status==='paid');
+  if(filter==='unpaid')data=data.filter(a=>a.payment_status!=='paid'&&parseFloat(a.hours_worked)>0);
+  if(filter==='completed')data=data.filter(a=>parseFloat(a.hours_worked)>0);
+  if(filter==='inwork')data=data.filter(a=>parseFloat(a.hours_worked)===0);
+  let totalH=0,totalEarned=0,totalPaid=0;
+  const rows=data.map(a=>{
+    const h=parseFloat(a.hours_worked)||0,r=parseFloat(a.rate_per_hour)||400,ex=parseFloat(a.extra_amount)||0;
+    const earned=(h*r)+ex;
+    const paid=parseFloat(a.paid_amount)||0;
+    const debt=earned-paid;
+    totalH+=h;totalEarned+=earned;totalPaid+=paid;
+    return`<tr><td>${formatDate(a.shifts?.date)}</td><td>${esc(a.shifts?.clients?.name)||"\u2014"}</td><td>${esc(a.shifts?.service_types?.name)||"\u2014"}</td><td>${h}</td><td>${Math.round(earned).toLocaleString('ru')}\u20bd</td><td>${Math.round(paid).toLocaleString('ru')}\u20bd</td><td style="color:${debt>0?'var(--danger)':'var(--accent)'}">${Math.round(debt).toLocaleString('ru')}\u20bd</td></tr>`;
+  });
+  const totalDebt=totalEarned-totalPaid;
+  rows.push(`<tr class="total-row"><td colspan="3">ИТОГО</td><td>${totalH}</td><td>${Math.round(totalEarned).toLocaleString('ru')}\u20bd</td><td>${Math.round(totalPaid).toLocaleString('ru')}\u20bd</td><td style="color:${totalDebt>0?'var(--danger)':'var(--accent)'}">${Math.round(totalDebt).toLocaleString('ru')}\u20bd</td></tr>`);
+  document.getElementById('wd-shifts').innerHTML=rows.join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-light);">Нет смен</td></tr>';
+  document.getElementById('wd-totals').innerHTML=`<div class="t-item"><div class="t-val">${totalH}</div><div class="t-label">Всего часов</div></div><div class="t-item"><div class="t-val">${Math.round(totalEarned).toLocaleString('ru')}\u20bd</div><div class="t-label">Начислено</div></div><div class="t-item"><div class="t-val" style="color:var(--accent)">${Math.round(totalPaid).toLocaleString('ru')}\u20bd</div><div class="t-label">Оплачено</div></div><div class="t-item"><div class="t-val" style="color:${totalDebt>0?'var(--danger)':'var(--accent)'}">${Math.round(totalDebt).toLocaleString('ru')}\u20bd</div><div class="t-label">Долг</div></div>`;
+}
+async function renderWorkerPaymentHistory(){
+  const el=document.getElementById('wd-pay-history');
+  if(!_wdWorkerId){el.innerHTML='';return;}
+  // Load payments for ALL assignments of this worker
+  const asgnIds=_wdShifts.map(a=>a.id);
+  let allPayments=[];
+  if(asgnIds.length){
+    const pays=await api('payments','GET',null,`?order=created_at.desc&limit=100`);
+    // Filter payments that belong to this worker's assignments (or have null assignment but recent)
+    allPayments=(pays||[]).filter(p=>asgnIds.includes(p.assignment_id)||(!p.assignment_id));
+  }
+  if(!allPayments.length){el.innerHTML='<div style="color:var(--text-light);font-size:13px;padding:4px;">Нет истории выплат</div>';return;}
+  let html='<div style="font-size:13px;font-weight:600;margin-bottom:4px;">📋 История выплат</div><table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr style="color:var(--text-light);"><th>Дата</th><th>Сумма</th><th>Способ</th><th>Чек</th></tr></thead><tbody>';
+  for(const p of allPayments){
+    const dt=p.created_at?new Date(p.created_at).toLocaleString('ru'):'—';
+    const methodNames={transfer:'Перевод',cash:'Наличные',card:'Карта'};
+    const mLabel=methodNames[p.method]||p.method||'—';
+    const receipt=p.note&&p.note.startsWith('receipt:')?'<a href="'+p.note.replace('receipt:','')+'" target="_blank" style="color:var(--primary);">📄</a>':'—';
+    html+=`<tr style="border-bottom:1px solid var(--border);"><td>${dt}</td><td>${parseFloat(p.amount).toLocaleString('ru')}₽</td><td>${mLabel}</td><td>${receipt}</td></tr>`;
+  }
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
+async function saveWorkerDetailPayment(){
+  if(!_wdWorkerId)return;
+  const amount=parseFloat(document.getElementById('wd-pay-amount').value)||0;
+  if(amount<=0){alert('Введите сумму');return;}
+  const method=document.getElementById('wd-pay-method').value;
+  const fileInput=document.getElementById('wd-receipt');
+  const unpaid=_wdShifts.filter(a=>a.payment_status!=='paid').sort((a,b)=>(a.shifts?.date||'').localeCompare(b.shifts?.date||''));
+  if(!unpaid.length){alert('Нет неоплаченных смен');return;}
+  // Upload receipt first if provided
+  let receiptUrl='';
+  if(fileInput.files.length>0){
+    try{
+      const file=fileInput.files[0];
+      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
+      const upRes=await fetch('/upload-receipt',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({filename:file.name,data:b64})});
+      const upData=await upRes.json();
+      if(upData.url)receiptUrl=upData.url;
+    }catch(e){console.error('Receipt upload failed:',e);}
+  }
+  let remaining=amount;
+  for(const a of unpaid){
+    if(remaining<=0)break;
+    const h=parseFloat(a.hours_worked)||0,r=parseFloat(a.rate_per_hour)||400,ex=parseFloat(a.extra_amount)||0;
+    const total=(h*r)+ex;
+    const paid=parseFloat(a.paid_amount)||0;
+    const debt=Math.round(total-paid);
+    const pay=Math.min(remaining,debt);
+    if(pay<=0)continue;
+    const newPaid=paid+pay;
+    const status=newPaid>=total?'paid':'unpaid';
+    await api('shift_assignments','PATCH',{paid_amount:newPaid,payment_status:status},'?id=eq.'+a.id);
+    await api('payments','POST',{assignment_id:a.id,amount:pay,method,note:receiptUrl?'receipt:'+receiptUrl:null});
+    remaining-=pay;
+  }
+  toast('Оплата '+amount.toLocaleString('ru')+'₽ записана');
+  await openWorkerDetail(_wdWorkerId);
+  loadDashboard();
+}
+
+// ===== Client Detail Card =====
+let _cdClientId=null,_cdShifts=[],_cdPayments=[];
+async function openClientDetail(clientId){
+  _cdClientId=clientId;
+  const c=(await api('clients','GET',null,'?id=eq.'+clientId))[0];if(!c)return;
+  document.getElementById('cd-header').innerHTML=`<div><h3>${esc(c.name)}</h3><div class="meta">📱 ${esc(c.contact)||'—'} · Ставка: ${c.default_client_rate||520}/${c.default_worker_rate||400}\u20bd</div></div><button class="btn btn-sm btn-outline" onclick=\"editClient('${clientId}')\">✏️</button>`;
+  // Load all assignments for this client
+  const asgn=await api('shift_assignments','GET',null,`?select=hours_worked,rate_per_hour,client_rate_per_hour,extra_amount,payment_status,paid_amount,worker_id,shifts!inner(date,client_id,clients(name),service_types(name))&shifts.client_id=eq.${clientId}&limit=2000`);
+  _cdShifts=(asgn||[]).filter(a=>parseFloat(a.hours_worked)>0);
+  // Load payments history
+  const asgnIds=_cdShifts.map(a=>a.id);
+  if(asgnIds.length){
+    const pays=await api('payments','GET',null,`?assignment_id=in.(${asgnIds.map(id=>'"'+id+'"').join(',')})&order=created_at.desc`);
+    _cdPayments=pays||[];
+  }else{_cdPayments=[];}
+  document.getElementById('cd-filter').value='all';
+  document.getElementById('cd-search').value='';
+  renderClientDetailShifts();
+  renderClientDetailPayments();
+  openModal('modal-client-detail');
+}
+function renderClientDetailShifts(){
+  const filter=document.getElementById('cd-filter').value;
+  const search=(document.getElementById('cd-search')?.value||'').toLowerCase();
+  const wMap={};(cachedWorkers||[]).forEach(w=>wMap[w.id]=w.full_name);
+  let data=_cdShifts;
+  if(search)data=data.filter(a=>(wMap[a.worker_id]||'').toLowerCase().includes(search)||(a.shifts?.service_types?.name||'').toLowerCase().includes(search));
+  if(filter==='paid')data=data.filter(a=>a.payment_status==='paid');
+  if(filter==='unpaid')data=data.filter(a=>a.payment_status!=='paid');
+  // Group by shift date+service to avoid duplicates (multiple workers per shift)
+  const shiftMap={};
+  data.forEach(a=>{
+    const key=a.shifts?.date+'_'+(a.shifts?.service_type||'');
+    if(!shiftMap[key])shiftMap[key]={date:a.shifts?.date,service:a.shifts?.service_types?.name,workers:[],totalH:0,totalDue:0,totalPaid:0};
+    const h=parseFloat(a.hours_worked)||0,cr=parseFloat(a.client_rate_per_hour)||520,ex=parseFloat(a.extra_amount)||0;
+    const due=(h*cr)+ex;
+    const paid=parseFloat(a.paid_amount)||0;
+    shiftMap[key].workers.push(wMap[a.worker_id]||'—');
+    shiftMap[key].totalH+=h;
+    shiftMap[key].totalDue+=due;
+    shiftMap[key].totalPaid+=paid;
+  });
+  const groups=Object.values(shiftMap);
+  let totalServices=groups.length,totalAmount=0,totalPaid=0;
+  const rows=groups.map(g=>{
+    totalAmount+=g.totalDue;totalPaid+=g.totalPaid;
+    const debt=g.totalDue-g.totalPaid;
+    return`<tr><td>${formatDate(g.date)}</td><td>${esc(g.service)||"\u2014"}</td><td>${g.workers.join(', ')}</td><td>${g.totalH}</td><td>${Math.round(g.totalDue).toLocaleString('ru')}\u20bd</td><td>${Math.round(g.totalPaid).toLocaleString('ru')}\u20bd</td><td style="color:${debt>0?'var(--danger)':'var(--accent)'}">${Math.round(debt).toLocaleString('ru')}\u20bd</td></tr>`;
+  });
+  const totalDebt=totalAmount-totalPaid;
+  rows.push(`<tr class="total-row"><td colspan="3">ИТОГО (${totalServices} услуг)</td><td></td><td>${Math.round(totalAmount).toLocaleString('ru')}\u20bd</td><td>${Math.round(totalPaid).toLocaleString('ru')}\u20bd</td><td style="color:${totalDebt>0?'var(--danger)':'var(--accent)'}">${Math.round(totalDebt).toLocaleString('ru')}\u20bd</td></tr>`);
+  document.getElementById('cd-shifts').innerHTML=rows.join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-light);">Нет смен</td></tr>';
+  document.getElementById('cd-totals').innerHTML=`<div class="t-item"><div class="t-val">${totalServices}</div><div class="t-label">Услуг</div></div><div class="t-item"><div class="t-val">${Math.round(totalAmount).toLocaleString('ru')}\u20bd</div><div class="t-label">Сумма</div></div><div class="t-item"><div class="t-val" style="color:var(--accent)">${Math.round(totalPaid).toLocaleString('ru')}\u20bd</div><div class="t-label">Оплачено</div></div><div class="t-item"><div class="t-val" style="color:${totalDebt>0?'var(--danger)':'var(--accent)'}">${Math.round(totalDebt).toLocaleString('ru')}\u20bd</div><div class="t-label">Долг</div></div>`;
+}
+function renderClientDetailPayments(){
+  const rows=(_cdPayments||[]).map(p=>{
+    const isPending=p.status==='pending_confirmation';
+    const noteHtml=p.note&&p.note.startsWith('receipt:')?'<a href="'+p.note.replace('receipt:','')+'" target="_blank" style="font-size:12px;">📎 Чек</a>':esc(p.note||'');
+    const statusBadge=isPending?'<span style="color:var(--warning);font-size:12px;">⏳ Ожидает</span>':'<span style="color:var(--accent);font-size:12px;">✅ Подтверждён</span>';
+    const confirmBtn=isPending?"<button class=\"btn btn-sm btn-success\" onclick=\"confirmClientPayment('"+p.id+"','"+p.assignment_id+"')\" style=\"padding:3px 8px;font-size:11px;\">✓ Подтвердить</button>":'';
+    return`<tr style="${isPending?'background:var(--bg);':''}"><td>${formatDate((p.created_at||'').split('T')[0])}</td><td>${(parseFloat(p.amount)||0).toLocaleString('ru')}\u20bd</td><td>${p.method==='transfer'?'Перевод':p.method==='cash'?'Наличные':p.method==='card'?'Карта':p.method==='invoice'?'Безнал':p.method||'—'}</td><td>${statusBadge}</td><td>${noteHtml}</td><td>${confirmBtn}</td></tr>`;
+  });
+  document.getElementById('cd-payments').innerHTML=rows.join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-light);">Нет платежей</td></tr>';
+}
+async function confirmClientPayment(paymentId,assignmentId){
+  if(!confirm('Подтвердить оплату?'))return;
+  await api('payments','PATCH',{status:'paid'},'?id=eq.'+paymentId);
+  const asgn=_cdShifts.find(a=>a.id===assignmentId);
+  if(asgn){
+    const h=parseFloat(asgn.hours_worked)||0,cr=parseFloat(asgn.client_rate_per_hour)||520,ex=parseFloat(asgn.extra_amount)||0;
+    const total=Math.round((h*cr)+ex);
+    await api('shift_assignments','PATCH',{paid_amount:total,payment_status:'paid'},'?id=eq.'+assignmentId);
+  }
+  toast('Оплата подтверждена ✓');
+  await openClientDetail(_cdClientId);
+  loadDashboard();
+}
+
+// ===== Auto-login via saved token =====
+(async()=>{
+  try{
+    const token=localStorage.getItem('dp_token');
+    if(token){
+      const r=await fetch('/auth/me',{headers:{'Authorization':'Bearer '+token}});
+      if(r.ok){
+        const d=await r.json();
+        if(d.ok&&d.user&&['owner','dispatcher'].includes(d.user.role)){
+          currentUser=d.user;
+          if(d.token)localStorage.setItem('dp_token',d.token);
+          localStorage.setItem('dp_auth',JSON.stringify({phone:d.user.phone,id:d.user.id,full_name:d.user.full_name,role:d.user.role,rate_per_hour:d.user.rate_per_hour,monthly_target_hours:d.user.monthly_target_hours}));
+          document.getElementById('auth-screen').style.display='none';
+          document.getElementById('app').style.display='block';
+          document.getElementById('user-name').textContent=d.user.full_name||d.user.phone;
+          document.getElementById('user-role').textContent=d.user.role==='owner'?'Владелец':'Диспетчер';
+          if(d.user.role==='owner')document.getElementById('tab-dispatchers').style.display='';
+          if(d.user.role==='owner'){
+            document.getElementById('settings-rate').value=d.user.rate_per_hour||7.5;
+            document.getElementById('settings-target').value=d.user.monthly_target_hours||8000;
+            document.getElementById('settings-rate').removeAttribute('readonly');
+            document.getElementById('settings-rate').style.background='';
+            document.getElementById('settings-target').removeAttribute('readonly');
+            document.getElementById('settings-target').style.background='';
+            document.getElementById('settings-save-btn').style.display='';
+            document.getElementById('settings-readonly-notice').style.display='none';
+          }
+          if(d.user.role==='dispatcher'){
+            document.getElementById('settings-rate').value=d.user.rate_per_hour||7.5;
+            document.getElementById('settings-target').value=d.user.monthly_target_hours||8000;
+          }
+          await init();
+          return;
+        }
+      }
+      localStorage.removeItem('dp_token');
+      localStorage.removeItem('dp_auth');
+    }
+    const saved=JSON.parse(localStorage.getItem('dp_auth')||'null');
+    if(saved&&saved.phone){document.getElementById('auth-phone').value=saved.phone;}
+  }catch(e){console.error('Auto-login error:',e);}
+  initPhoneMasks();
+  loadLang(currentLang);
+  const ws=document.getElementById('worker-search');if(ws)ws.addEventListener('input',debounce(loadWorkers,300));
+  const cs=document.getElementById('client-search');if(cs)cs.addEventListener('input',debounce(loadClients,300));
+})();
+// ===== GPS Tracking removed =====
+// ===== Shift Map removed =====
+
+
+// PWA
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
+// Real-time polling every 30s
+setInterval(()=>{if(currentUser&&document.visibilityState==='visible')loadDashboard();},30000);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
+
+// ===== Recurring orders / subscriptions =====
+const DAY_NAMES = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+
+async function loadRecurring() {
+  const list = await api('recurring','GET',null,'?select=*,clients(id,name),workers(id,full_name),service_types(id,name)&is_active=eq.true&order=created_at.desc&limit=100');
+  const el = document.getElementById('recurring-list');
+  if (!el) return;
+  if (!Array.isArray(list) || !list.length) {
+    el.innerHTML = '<div class="card" style="padding:16px;text-align:center;color:var(--text-light);">Нет активных подписок</div>';
+    return;
+  }
+  el.innerHTML = list.map(r => `<div class="card" style="padding:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <strong>${esc(r.clients?.name) || '—'}</strong>
+        <div style="font-size:12px;color:var(--text-light);">${DAY_NAMES[r.day_of_week] || '?'} · ${r.time_start || '—'} · ${r.hours || 4}ч ${r.service_types?.name ? '· '+esc(r.service_types.name) : ''}</div>
+        ${r.workers?.full_name ? '<div style="font-size:12px;">👷 '+esc(r.workers.full_name)+'</div>' : ''}
+        ${r.object_address ? '<div style="font-size:12px;">📍 '+esc(r.object_address)+'</div>' : ''}
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-sm btn-outline" onclick="toggleRecurring('${r.id}',false)">⏸ Пауза</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteRecurring('${r.id}')">🗑</button>
+      </div>
+    </div>
+  </div>`).join('');
+}
+
+function openNewRecurring() {
+  // Populate dropdowns
+  const cSel = document.getElementById('rec-client');
+  const wSel = document.getElementById('rec-worker');
+  const sSel = document.getElementById('rec-service');
+  cSel.innerHTML = (cachedClients||[]).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  wSel.innerHTML = '<option value="">— не указан —</option>' + (cachedWorkers||[]).map(w => `<option value="${w.id}">${esc(w.full_name)}</option>`).join('');
+  sSel.innerHTML = '<option value="">— не указана —</option>' + (cachedServiceTypes||[]).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  ['rec-address','rec-notes'].forEach(id => document.getElementById(id).value = '');
+  openModal('modal-recurring');
+}
+
+async function saveRecurring() {
+  const client_id = document.getElementById('rec-client').value;
+  const worker_id = document.getElementById('rec-worker').value || null;
+  const service_type_id = document.getElementById('rec-service').value || null;
+  const day_of_week = parseInt(document.getElementById('rec-day').value);
+  const time_start = document.getElementById('rec-time').value;
+  const hours = parseFloat(document.getElementById('rec-hours').value) || 4;
+  const object_address = document.getElementById('rec-address').value || null;
+  const notes = document.getElementById('rec-notes').value || null;
+  if (!client_id) return alert('Выберите клиента');
+  await api('recurring','POST',{client_id,worker_id,service_type_id,day_of_week,time_start,hours,object_address,notes,created_by:window.currentUser?.id});
+  closeModal('modal-recurring');
+  loadRecurring();
+}
+
+async function toggleRecurring(id,active) {
+  await api('recurring','PATCH',{is_active:active},'?id=eq.'+id);
+  loadRecurring();
+}
+
+async function deleteRecurring(id) {
+  if (!confirm('Удалить подписку?')) return;
+  await api('recurring','DELETE',null,'?id=eq.'+id);
+  loadRecurring();
+}
+
+// --- Chat ---
+let _chatShiftId=null,_chatPoll=null;
+function openChat(shiftId){
+  _chatShiftId=shiftId;
+  document.getElementById('chat-modal').style.display='flex';
+  loadChatMessages();
+  _chatPoll=setInterval(loadChatMessages,5000);
+}
+function closeChat(){
+  document.getElementById('chat-modal').style.display='none';
+  if(_chatPoll)clearInterval(_chatPoll);_chatPoll=null;_chatShiftId=null;
+}
+async function loadChatMessages(){
+  if(!_chatShiftId)return;
+  try{
+    const r=await fetch('/api/chat/'+_chatShiftId,{headers:{'Authorization':'Bearer '+localStorage.getItem('dp_token')}});
+    const msgs=await r.json();
+    if(!Array.isArray(msgs))return;
+    const box=document.getElementById('chat-messages');
+    const wasBottom=box.scrollTop+box.clientHeight>=box.scrollHeight-50;
+    if(!msgs.length){box.innerHTML='<div class="chat-empty">Сообщений пока нет</div>';return;}
+    box.innerHTML=msgs.map(m=>{
+      const mine=m.sender_role==='dispatcher';
+      const t=m.created_at?new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}):'';
+      return `<div class="chat-msg ${mine?'me':'other'}"><div class="chat-sender">${mine?'Вы':esc(m.sender_name||'')}</div>${esc(m.message)}<div class="chat-time">${t}</div></div>`;
+    }).join('');
+    if(wasBottom)box.scrollTop=box.scrollHeight;
+  }catch(e){console.error('chat load',e);}
+}
+async function sendChatMsg(){
+  if(!_chatShiftId)return;
+  const inp=document.getElementById('chat-input');
+  const msg=inp.value.trim();if(!msg)return;
+  inp.value='';
+  try{
+    await fetch('/api/chat/'+_chatShiftId,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({message:msg})});
+    loadChatMessages();
+  }catch(e){toast('Ошибка отправки');}
+}
+</script>
+
+<div id="modal-pay" class="modal"><div class="modal-content">
+  <div class="modal-header"><h2>💰 Оплата</h2><button class="close-btn" onclick="closeModal('modal-pay')">&times;</button></div>
+  <div id="pay-info" style="padding:8px 0;font-weight:600;"></div>
+  <div class="form-group"><label>Сумма</label><input type="number" id="pay-amount" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px;"></div>
+  <div class="form-group"><label>Способ</label><select id="pay-method" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px;">
+    <option value="cash">Наличные</option><option value="card">Карта</option><option value="transfer">Перевод</option>
+  </select></div>
+  <button class="btn btn-primary" onclick="confirmPay()" style="width:100%;margin-top:12px;">Оплатить</button>
+</div></div>
+
+<div id="modal-mass-hours" class="modal"><div class="modal-content">
+  <div class="modal-header"><h2>⏱ Ввести часы всем</h2><button class="close-btn" onclick="closeModal('modal-mass-hours')">&times;</button></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;padding:12px;background:var(--card);border-radius:8px;">
+    <div class="form-group" style="margin:0"><label>Начало</label><input type="datetime-local" id="mass-start-time" onchange="calcAllMassHours()"></div>
+    <div class="form-group" style="margin:0"><label>Окончание</label><input type="datetime-local" id="mass-end-time" onchange="calcAllMassHours()"></div>
+  </div>
+  <div id="mass-hours-list" style="max-height:50vh;overflow-y:auto;"></div>
+  <div style="display:flex;gap:8px;margin-top:12px;">
+    <button class="btn btn-primary" style="flex:1;" onclick="saveMassHours()">Сохранить все</button>
+    <button class="btn btn-outline" style="flex:1;" onclick="reassignWorkers(_massHoursShiftId)">🔄 Перенабрать рабочих</button>
+  </div>
+</div></div>
+
+<div id="modal-verify" class="modal"><div class="modal-content">
+  <div class="modal-header"><h2>🔍 Проверка оплаты</h2><button class="close-btn" onclick="closeModal('modal-verify')">&times;</button></div>
+  <div id="verify-info" style="padding:8px 0;"></div>
+  <div id="verify-receipt" style="margin:8px 0;"></div>
+  <div style="display:flex;gap:8px;margin-top:12px;">
+    <button class="btn btn-success" onclick="verifyPayment(true)" style="flex:1;">✅ Подтвердить</button>
+    <button class="btn btn-danger" onclick="verifyPayment(false)" style="flex:1;">❌ Отклонить</button>
+  </div>
+</div></div>
+<div id="modal-notif" class="modal"><div class="modal-content" style="max-width:400px;">
+  <div class="modal-header"><h2>🔔 Новые регистрации</h2><button class="close-btn" onclick="closeModal('modal-notif')">&times;</button></div>
+  <div id="notif-content"></div>
+</div></div>
+<div id="modal-credentials" class="modal"><div class="modal-content" style="max-width:420px;">
+      <div class="modal-header"><h2>📋 Данные для входа</h2><button class="close-btn" onclick="closeModal('modal-credentials')">&times;</button></div>
+      <textarea id="cred-text" readonly onclick="this.select()" style="width:100%;height:110px;padding:14px;background:var(--bg);border:2px solid var(--border);border-radius:8px;font-size:15px;line-height:1.7;resize:none;font-family:monospace;color:var(--text);"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-primary" style="flex:1;padding:12px;" onclick="copyCred()">📋 Скопировать</button>
+        <button class="btn btn-outline" style="flex:1;padding:12px;" onclick="shareCred()">📤 Поделиться</button>
+      </div>
+    </div></div>
+<!-- Shift Map Modal removed -->
+
+<!-- Recurring modal -->
+<div id="modal-recurring" class="modal"><div class="modal-content" style="max-width:500px;">
+  <div class="modal-header"><h2>🔄 Новая подписка</h2><button class="close-btn" onclick="closeModal('modal-recurring')">&times;</button></div>
+  <div class="form-group"><label>Клиент</label><select id="rec-client"></select></div>
+  <div class="form-group"><label>Рабочий (необязательно)</label><select id="rec-worker"></select></div>
+  <div class="form-group"><label>Услуга</label><select id="rec-service"></select></div>
+  <div class="form-row">
+    <div class="form-group"><label>День недели</label>
+      <select id="rec-day"><option value="1">Пн</option><option value="2">Вт</option><option value="3">Ср</option><option value="4">Чт</option><option value="5">Пт</option><option value="6">Сб</option><option value="0">Вс</option></select>
+    </div>
+    <div class="form-group"><label>Время начала</label><input type="time" id="rec-time" value="08:00"></div>
+    <div class="form-group"><label>Часов</label><input type="number" id="rec-hours" value="4" min="1" max="24"></div>
+  </div>
+  <div class="form-group"><label>Адрес</label><input type="text" id="rec-address"></div>
+  <div class="form-group"><label>Заметки</label><input type="text" id="rec-notes"></div>
+  <button class="btn btn-primary" style="width:100%" onclick="saveRecurring()">Создать подписку</button>
+</div></div>
+
+<script src="/push-client.js">
+function editShift(id){
+  const s=window._shiftsCache?.find(x=>x.id===id);
+  if(!s)return;
+  document.getElementById('edit-shift-id').value=id;
+  document.getElementById('edit-shift-date').value=s.date||'';
+  document.getElementById('edit-shift-time').value=s.start_time||'';
+  document.getElementById('edit-shift-end-time').value=s.end_time||'';
+  document.getElementById('edit-shift-address').value=s.address||'';
+  document.getElementById('edit-shift-comment').value=s.comment||'';
+  document.getElementById('modal-edit-shift').style.display='flex';
+}
+function closeEditShift(){document.getElementById('modal-edit-shift').style.display='none'}
+async function saveShiftEdit(){
+  const id=document.getElementById('edit-shift-id').value;
+  const body={
+    date:document.getElementById('edit-shift-date').value,
+    start_time:document.getElementById('edit-shift-time').value,
+    end_time:document.getElementById('edit-shift-end-time').value,
+    address:document.getElementById('edit-shift-address').value,
+    comment:document.getElementById('edit-shift-comment').value
+  };
+  if(!body.date){alert('Укажите дату');return}
+  const r=await api('shifts','PATCH',body,'?id=eq.'+id);
+  if(r.error){alert('Ошибка: '+r.error);return}
+  closeEditShift();
+  loadShifts();
+  toast('Смена обновлена');
+}
+
+async function claimShift(id){
+  if(!confirm('Принять этот заказ?'))return;
+  const r=await api('shifts','PATCH',{status:'planned',dispatcher_id:currentUser?.id},'?id=eq.'+id);
+  if(r.error){alert('Ошибка: '+r.error);return}
+  toast('Заказ принят!');
+  loadShifts();
+}
+</script>
+
+<!-- Edit Shift Modal -->
+<div class="modal" id="modal-edit-shift" onclick="if(event.target===this)closeEditShift()">
+  <div class="modal-content" style="max-width:500px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3>✏️ Редактировать смену</h3>
+      <button class="btn btn-sm" onclick="closeEditShift()">✕</button>
+    </div>
+    <input type="hidden" id="edit-shift-id">
+    <div class="form-group"><label>Дата</label><input type="date" id="edit-shift-date"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Начало</label><input type="time" id="edit-shift-time"></div>
+      <div class="form-group"><label>Окончание</label><input type="time" id="edit-shift-end-time"></div>
+    </div>
+    <div class="form-group"><label>Адрес</label><input type="text" id="edit-shift-address"></div>
+    <div class="form-group"><label>Комментарий</label><input type="text" id="edit-shift-comment"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveShiftEdit()">💾 Сохранить</button>
+  </div>
+</div>
+
+</body>
+</html>

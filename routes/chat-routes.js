@@ -111,10 +111,23 @@ async function handleChatGet(req, res, cors, urlPath) {
   }
 }
 
+// Chat rate limit: userId -> { count, resetAt }
+const chatRateLimit = new Map();
+const CHAT_MAX = 10; // max messages per window
+const CHAT_WINDOW = 60 * 1000; // 1 minute
+
 // --- POST /api/chat/:shift_id — send message ---
 async function handleChatPost(req, res, cors, urlPath) {
   const session = requireAuth(req);
   if (!session) return json(res, { error: 'Требуется авторизация' }, 401, cors);
+
+  // Rate limit: max 10 messages per minute per user
+  const now = Date.now();
+  const rl = chatRateLimit.get(session.userId) || { count: 0, resetAt: now + CHAT_WINDOW };
+  if (now > rl.resetAt) { rl.count = 0; rl.resetAt = now + CHAT_WINDOW; }
+  rl.count++;
+  chatRateLimit.set(session.userId, rl);
+  if (rl.count > CHAT_MAX) return json(res, { error: 'Слишком много сообщений. Подождите минуту.' }, 429, cors);
 
   const parts = urlPath.split('/');
   const shiftId = parts[3];
@@ -138,16 +151,24 @@ async function handleChatPost(req, res, cors, urlPath) {
   if (!message) return json(res, { error: 'Пустое сообщение' }, 400, cors);
   if (message.length > 2000) return json(res, { error: 'Сообщение слишком длинное' }, 400, cors);
 
-  // Get sender name
-  let senderName = session.role === 'owner' ? 'Диспетчер' : session.fullName || 'Неизвестный';
-  if (session.role === 'owner' || session.role === 'dispatcher') {
-    // Try to get from users table
-    try {
+  // Get sender name — fetch from appropriate table based on role
+  let senderName = 'Неизвестный';
+  try {
+    if (session.role === 'owner' || session.role === 'dispatcher') {
       const ur = await sbFetch('users', `id=eq.${session.userId}&select=full_name&limit=1`);
       const ud = await ur.json();
       if (Array.isArray(ud) && ud[0]?.full_name) senderName = ud[0].full_name;
-    } catch (e) {}
-  }
+      else senderName = 'Диспетчер';
+    } else if (session.role === 'worker') {
+      const wr = await sbFetch('workers', `id=eq.${session.userId}&select=full_name&limit=1`);
+      const wd = await wr.json();
+      if (Array.isArray(wd) && wd[0]?.full_name) senderName = wd[0].full_name;
+    } else if (session.role === 'client') {
+      const cr = await sbFetch('clients', `id=eq.${session.userId}&select=name&limit=1`);
+      const cd = await cr.json();
+      if (Array.isArray(cd) && cd[0]?.name) senderName = cd[0].name;
+    }
+  } catch (e) { console.error('[Chat] sender name fetch error:', e.message); }
 
   try {
     const msg = {

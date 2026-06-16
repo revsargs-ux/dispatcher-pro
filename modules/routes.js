@@ -21,7 +21,8 @@ const userRoutes = require('../routes/user-routes');
 const paymentRoutes = require('../routes/payment-routes');
 const trackingRoutes = require('../routes/tracking-routes');
 const chatRoutes = require('../routes/chat-routes');
-const { readBody, json } = require('../routes/shared');
+const featureRoutes = require('../routes/feature-routes');
+const { readBody, json, extractPublicIp } = require('../routes/shared');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'application/js',
@@ -46,34 +47,76 @@ function handleStats(req, res, cors) {
 }
 
 // --- API proxy (generic Supabase) with sync + notifications ---
+const ALLOWED_TABLES = new Set(['users','workers','clients','shifts','shift_assignments','service_types','payments','recurring_orders']);
+
 async function handleApiProxy(req, res, cors, urlPath) {
   const table = urlPath.replace('/api/', '').split('/')[0];
   let query = req.url.includes('?') ? req.url.split('?').slice(1).join('?') : '';
   if (!table) return json(res, { error: 'Missing table' }, 400, cors);
+  if (!ALLOWED_TABLES.has(table)) return json(res, { error: 'Forbidden table' }, 403, cors);
+
+  // Query validation
+  if (query.match(/select=\*/)) query = query.replace(/select=\*/, 'select=id');
+  if (!query.match(/limit=/)) query += '&limit=50';
 
   const session = requireAuth(req);
   if (!session) return json(res, { error: 'Требуется авторизация', code: 'AUTH_REQUIRED' }, 401, cors);
 
   // Role-based access
-  const ownerOnly = ['users'];
-  const ownerAndClient = ['payments'];
-  if (ownerOnly.includes(table) && session.role !== 'owner') return json(res, { error: 'Нет доступа' }, 403, cors);
-  if (ownerAndClient.includes(table) && session.role !== 'owner' && session.role !== 'client') return json(res, { error: 'Нет доступа' }, 403, cors);
-  if (session.role === 'worker' && req.method !== 'GET' && !['shift_assignments'].includes(table))
+  // BUG-003: payments — owner+client full; dispatcher GET only
+  // BUG-020 fix: payments — owner full, client full, dispatcher GET+POST (создание оплат)
+  if (table === 'payments' && session.role === 'worker') {
     return json(res, { error: 'Нет доступа' }, 403, cors);
+  }
+  // BUG-007: users — owner full; dispatcher PATCH own profile only
+  if (table === 'users' && session.role !== 'owner') {
+    if (!(session.role === 'dispatcher' && req.method === 'PATCH')) {
+      return json(res, { error: 'Нет доступа' }, 403, cors);
+    }
+  }
+  // Worker: only GET shift_assignments, POST nothing sensitive — all other mutations blocked
+  if (session.role === 'worker') {
+    // Block all DELETE
+    if (req.method === 'DELETE') return json(res, { error: 'Нет доступа' }, 403, cors);
+    // Block non-GET on protected tables
+    if (req.method !== 'GET' && !['shift_assignments'].includes(table))
+      return json(res, { error: 'Нет доступа' }, 403, cors);
+  }
 
-  // Dispatcher GET: restrict to own shifts (created_by) unless viewing specific allowed tables
+  // Dispatcher GET: restrict to own shifts (created_by), but workers/clients — show all (no created_by column)
   if (session.role === 'dispatcher' && req.method === 'GET') {
-    const dispTables = ['shifts', 'shift_assignments', 'reviews', 'workers', 'clients', 'orders'];
-    if (dispTables.includes(table)) {
+    const dispTablesWithCreatedBy = ['shifts', 'reviews', 'orders'];
+    const dispTablesWithShiftId = ['shift_assignments']; // filter via shift → created_by
+    const dispTablesAll = ['workers', 'clients']; // no created_by filter — show all
+    if (dispTablesWithCreatedBy.includes(table)) {
       const sep = query ? '&' : '';
       const filter = `created_by=eq.${session.userId}`;
       query = query ? query + sep + filter : filter;
+    } else if (dispTablesWithShiftId.includes(table)) {
+      // BUG-019 fix: shift_assignments has no created_by — fetch dispatcher's shift_ids first
+      try {
+        const shiftsRes = await (await sbFetch('shifts', `created_by=eq.${session.userId}&select=id&limit=1000`)).json();
+        const shiftIds = shiftsRes.map(s => s.id);
+        if (shiftIds.length === 0) {
+          // No shifts — return empty
+          return json(res, [], 200, cors);
+        }
+        const sep = query ? '&' : '';
+        const idsStr = shiftIds.join(',');
+        query = query ? query + sep + `shift_id=in.(${idsStr})` : `shift_id=in.(${idsStr})`;
+      } catch(e) {
+        return json(res, [], 200, cors);
+      }
     }
+    // workers and clients: dispatcher sees all — no additional filter needed
   }
 
-  // Worker GET: restrict to own data
+  // Worker GET: restrict to own data only — block access to workers/clients tables
   if (session.role === 'worker' && req.method === 'GET') {
+    // Worker must NOT see other workers or clients
+    if (table === 'workers' || table === 'clients' || table === 'users') {
+      return json(res, { error: 'Нет доступа' }, 403, cors);
+    }
     const workerTables = ['shift_assignments', 'shifts', 'reviews'];
     if (workerTables.includes(table)) {
       const sep = query ? '&' : '';
@@ -86,21 +129,169 @@ async function handleApiProxy(req, res, cors, urlPath) {
     }
   }
 
+  // Client GET: restrict to own data only — block access to workers/clients/users tables
+  if (session.role === 'client' && req.method === 'GET') {
+    if (table === 'workers' || table === 'users') {
+      return json(res, { error: 'Нет доступа' }, 403, cors);
+    }
+    if (table === 'clients') {
+      // Client can only see their own record
+      const sep = query ? '&' : '';
+      const filter = `id=eq.${session.userId}`;
+      query = query ? query + sep + filter : filter;
+    }
+  }
+
+  // BUG-007: Dispatcher can only PATCH own profile (force id filter)
+  if (table === 'users' && req.method === 'PATCH' && session.role === 'dispatcher') {
+    const sep = query ? '&' : '';
+    query = query ? query + sep + `id=eq.${session.userId}` : `id=eq.${session.userId}`;
+  }
+
+  // F6: P63 — Client edits order: filter by client_id + date must be in future
+  if (req.method === 'PATCH' && table === 'shifts' && session.role === 'client') {
+    const sep = query ? '&' : '';
+    query = query ? query + sep + `client_id=eq.${session.userId}` : `client_id=eq.${session.userId}`;
+    // Note: date validation happens in the body parsing below for POST.
+    // For PATCH, we validate after reading the body.
+  }
+
+  // BUG-001: Row-level security — client sees only own data
+  if (session.role === 'client' && ['shifts', 'shift_assignments', 'payments'].includes(table)) {
+    const cid = session.userId;
+    const sep = query ? '&' : '';
+    if (table === 'shifts') {
+      query = query ? query + sep + `client_id=eq.${cid}` : `client_id=eq.${cid}`;
+    } else if (table === 'shift_assignments' || table === 'payments') {
+      // Two-step fetch: Supabase REST doesn't support subqueries (same fix as BUG-019)
+      try {
+        const clientShiftsRes = await (await sbFetch('shifts', `client_id=eq.${cid}&select=id&limit=1000`)).json();
+        const clientShiftIds = clientShiftsRes.map(s => s.id);
+        if (clientShiftIds.length === 0) {
+          return json(res, [], 200, cors);
+        }
+        const idsStr = clientShiftIds.join(',');
+        if (table === 'shift_assignments') {
+          query = query ? query + sep + `shift_id=in.(${idsStr})` : `shift_id=in.(${idsStr})`;
+        } else {
+          // payments — need assignment IDs first
+          const asgnRes = await (await sbFetch('shift_assignments', `shift_id=in.(${idsStr})&select=id&limit=5000`)).json();
+          const asgnIds = asgnRes.map(a => a.id);
+          if (asgnIds.length === 0) return json(res, [], 200, cors);
+          const asgnStr = asgnIds.join(',');
+          query = query ? query + sep + `assignment_id=in.(${asgnStr})` : `assignment_id=in.(${asgnStr})`;
+        }
+      } catch(e) {
+        return json(res, [], 200, cors);
+      }
+    }
+  }
+
   const body = await readBody(req);
   let parsedBody = body;
   try {
     if (body && req.method !== 'GET' && req.method !== 'DELETE') {
       const parsed = JSON.parse(body);
+
+      // БАГ #3: Валидация даты смены — дата не должна быть в прошлом
+      if (table === 'shifts' && req.method === 'POST' && parsed.date) {
+        const shiftDate = new Date(parsed.date);
+        const today = new Date(); today.setHours(0,0,0,0);
+        if (isNaN(shiftDate.getTime())) {
+          return json(res, { error: 'Неверный формат даты' }, 400, cors);
+        }
+        if (shiftDate < today) {
+          return json(res, { error: 'Дата смены не может быть в прошлом' }, 400, cors);
+        }
+      }
+
+      // F6: P63 — Client cannot edit shift that's already started/completed
+      if (table === 'shifts' && req.method === 'PATCH' && session.role === 'client') {
+        // Fetch the shift being edited to check its date
+        const idMatch = query.match(/id=eq\.([0-9a-f-]{36})/);
+        if (idMatch) {
+          try {
+            const existing = await (await sbFetch('shifts', `id=eq.${idMatch[1]}&select=date,status&limit=1`)).json();
+            if (existing.length) {
+              const shiftDate = new Date(existing[0].date);
+              const today = new Date(); today.setHours(0,0,0,0);
+              if (shiftDate <= today) {
+                return json(res, { error: 'Нельзя редактировать смену после её начала' }, 403, cors);
+              }
+              if (['completed', 'in_progress'].includes(existing[0].status)) {
+                return json(res, { error: 'Нельзя редактировать завершённую или активную смену' }, 403, cors);
+              }
+            }
+          } catch(e) { console.error('[F6] shift date check error:', e.message); }
+        }
+        // Block client from changing created_by or client_id
+        delete parsed.created_by;
+        delete parsed.client_id;
+      }
+
+      // BUG-006: Inject created_by from JWT for shifts
+      if (req.method === 'POST' && table === 'shifts' && (session.role === 'dispatcher' || session.role === 'owner')) {
+        parsed.created_by = session.userId;
+      }
+
+      // F5: P62 — Client creates order: inject client_id from JWT
+      if (req.method === 'POST' && table === 'shifts' && session.role === 'client') {
+        parsed.client_id = session.userId;
+        // created_by stays null for client-created shifts
+        if (!parsed.status) parsed.status = 'pending';
+      }
+
+      // БАГ #3: Валидация workers_needed — должно быть положительным
+      if (table === 'shifts' && parsed.workers_needed !== undefined) {
+        const wn = parseInt(parsed.workers_needed);
+        if (isNaN(wn) || wn < 1 || wn > 100) {
+          return json(res, { error: 'Количество рабочих должно быть от 1 до 100' }, 400, cors);
+        }
+        parsed.workers_needed = wn;
+      }
+
       if (parsed.password && (table === 'workers' || table === 'clients' || table === 'users')) {
         if (parsed.password.length < 50) {
           parsed.password = hashPassword(parsed.password);
         }
       }
+
+      // BUG-002: 3-hour decline limit on shift_assignments
+      if (req.method === 'PATCH' && table === 'shift_assignments' && parsed.invite_status === 'declined') {
+        const idMatch = query.match(/id=eq\.([0-9a-f-]{36})/);
+        if (idMatch) {
+          try {
+            const asgnRes = await sbFetch('shift_assignments', `id=eq.${idMatch[1]}&select=shift_id&limit=1`);
+            const asgnData = await asgnRes.json();
+            if (asgnData.length && asgnData[0].shift_id) {
+              const shiftRes = await sbFetch('shifts', `id=eq.${asgnData[0].shift_id}&select=date,start_time&limit=1`);
+              const shiftData = await shiftRes.json();
+              if (shiftData.length && shiftData[0].date) {
+                const startStr = shiftData[0].start_time ? `${shiftData[0].date}T${shiftData[0].start_time}` : shiftData[0].date;
+                const hoursUntil = (new Date(startStr) - Date.now()) / 3600000;
+                if (hoursUntil < 3) {
+                  return json(res, { error: 'Отказ возможен не менее чем за 3 часа до начала смены' }, 403, cors);
+                }
+              }
+            }
+          } catch(e) { console.error('[BUG-002] decline check error:', e.message); }
+        }
+      }
+
       parsedBody = JSON.stringify(parsed);
     }
   } catch(e) {}
 
   try {
+    // BUG-004: Transform plain date=YYYY-MM-DD to gte/lte for Supabase
+    const simpleDate = query.match(/(?:^|&)date=([^&]+)/);
+    if (simpleDate && !simpleDate[1].startsWith('gte.') && !simpleDate[1].startsWith('lte.')) {
+      const dv = simpleDate[1];
+      query = query.replace(/(^|&)date=[^&]+/, '');
+      const sep = query ? '&' : '';
+      query += sep + `date=gte.${dv}&date=lte.${dv}`;
+    }
+
     const opts = { method: req.method, headers: sbHeaders() };
     if (req.method === 'POST' || req.method === 'PATCH') opts.headers['Prefer'] = 'return=representation';
     if (parsedBody && req.method !== 'GET' && req.method !== 'DELETE') opts.body = parsedBody;
@@ -112,13 +303,13 @@ async function handleApiProxy(req, res, cors, urlPath) {
       await shiftRoutes.handlePostProcess(table, req.method, data, body, query, req);
       const methodMap = { POST: 'data_create', PATCH: 'data_update', DELETE: 'data_delete' };
       const action = methodMap[req.method];
-      if (action) audit(action, `${table} ${req.method}`, session?.userId, session?.role, req.headers['x-forwarded-for'] || req.socket.remoteAddress);
+      if (action) audit(action, `${table} ${req.method}`, session?.userId, session?.role, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
     }
 
-    // Strip passwords from sensitive tables
+    // Strip passwords from sensitive tables (BUG-025: all methods, not just GET)
     let responseData = data;
     const sensitiveTables = ['workers', 'clients', 'users'];
-    if (sensitiveTables.includes(table) && req.method === 'GET') {
+    if (sensitiveTables.includes(table)) {
       try {
         let parsed = JSON.parse(data);
         if (Array.isArray(parsed)) {
@@ -165,7 +356,7 @@ function checkApiRateLimit(ip) {
   if (now - a.lastAttempt > 60000) { a.count = 0; }
   a.count++;
   a.lastAttempt = now;
-  return a.count <= 120;
+  return a.count <= 300; // БАГ #6: увеличен с 120 до 300 запросов/мин
 }
 
 setInterval(() => {
@@ -182,7 +373,7 @@ function createRouter() {
 
     if (req.method === 'OPTIONS') { res.writeHead(200, cors); return res.end(); }
 
-    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const clientIp = extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress);
     if (!checkApiRateLimit(clientIp) && urlPath.startsWith('/api/')) {
       return json(res, { error: 'Слишком много запросов' }, 429, cors);
     }
@@ -267,8 +458,83 @@ function createRouter() {
     if (urlPath === '/api/tracking/location' && req.method === 'POST') { if (!auth()) return; return await trackingRoutes.handleTrackingLocation(req, res, cors); }
     if (urlPath === '/api/tracking/workers-location' && req.method === 'GET') { if (!auth()) return; return await trackingRoutes.handleTrackingWorkersLocation(req, res, cors); }
 
+    // Dashboard — alias for /api/stats
+    if (urlPath === '/api/dashboard' && req.method === 'GET') {
+      const session = requireAuth(req);
+      if (!session) return json(res, { error: 'Требуется авторизация' }, 401, cors);
+      if (session.role !== 'owner' && session.role !== 'dispatcher') return json(res, { error: 'Нет доступа' }, 403, cors);
+      return handleStats(req, res, cors);
+    }
+
+    // --- Feature routes (F1-F9) ---
+
+    // F1: Bulk hours
+    if (urlPath === '/api/bulk-hours' && req.method === 'POST') { if (!auth()) return; return await featureRoutes.handleBulkHours(req, res, cors); }
+
+    // F2: Force confirm hours
+    if (urlPath === '/api/force-confirm' && req.method === 'POST') { if (!auth()) return; return await featureRoutes.handleForceConfirm(req, res, cors); }
+
+    // F3: Reassign workers
+    if (urlPath === '/api/reassign-workers' && req.method === 'POST') { if (!auth()) return; return await featureRoutes.handleReassignWorkers(req, res, cors); }
+
+    // F4: Recurring shifts (new schema with interval_days)
+    if (urlPath === '/api/recurring-shifts' && req.method === 'GET') { if (!auth()) return; return await featureRoutes.handleRecurringShiftsList(req, res, cors); }
+    if (urlPath === '/api/recurring-shifts' && req.method === 'POST') { if (!auth()) return; return await featureRoutes.handleRecurringShiftsCreate(req, res, cors); }
+    if (urlPath.match(/^\/api\/recurring-shifts\/[0-9a-f-]{36}$/) && req.method === 'PATCH') {
+      if (!auth()) return;
+      const id = urlPath.split('/').pop();
+      return await featureRoutes.handleRecurringShiftsUpdate(req, res, cors, id);
+    }
+    if (urlPath.match(/^\/api\/recurring-shifts\/[0-9a-f-]{36}$/) && req.method === 'DELETE') {
+      if (!auth()) return;
+      const id = urlPath.split('/').pop();
+      return await featureRoutes.handleRecurringShiftsDelete(req, res, cors, id);
+    }
+
+    // F7: Confirm payment (client)
+    if (urlPath === '/api/confirm-payment' && req.method === 'POST') { if (!auth()) return; return await featureRoutes.handleConfirmPayment(req, res, cors); }
+
+    // Geocode proxy (BUG-046: remove Dadata token from frontend)
+    if (urlPath === '/api/geocode' && req.method === 'GET') {
+      const q = new URL(req.url, 'http://localhost').searchParams.get('q');
+      if (!q) return json(res, [], 200, cors);
+      try {
+        const r = await fetch(`https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Token cd57e4b2e13f49cfb1eb1fbed9f1d7f49ba685b1' },
+          body: JSON.stringify({ query: q, count: 5 }),
+          signal: AbortSignal.timeout(5000)
+        });
+        const d = await r.json();
+        return json(res, (d.suggestions || []).map(s => s.value), 200, cors);
+      } catch (e) { return json(res, [], 200, cors); }
+    }
+
+    // F8: iCal export
+    if (urlPath.match(/^\/api\/shift\/[0-9a-f-]{36}\/ical$/) && req.method === 'GET') {
+      if (!auth()) return;
+      const id = urlPath.match(/\/api\/shift\/([0-9a-f-]{36})\/ical/)[1];
+      return await featureRoutes.handleShiftIcal(req, res, cors, id);
+    }
+
+    // BUG-026: GET /api/shift/:id/photos — proxy to shift-photos endpoint
+    if (urlPath.match(/^\/api\/shift\/[0-9a-f-]{36}\/photos$/) && req.method === 'GET') {
+      if (!auth()) return;
+      const shiftId = urlPath.match(/\/api\/shift\/([0-9a-f-]{36})\/photos/)[1];
+      try {
+        const fs2 = require('fs');
+        const path2 = require('path');
+        const photosDir = path2.join(config.appDir, 'data', 'shift-photos');
+        const files = (await fs2.promises.readdir(photosDir).catch(() => [])).filter(f => f.startsWith(shiftId + '_'));
+        return json(res, files.map(f => ({ filename: f, url: '/api/shift-photos/' + f })), 200, cors);
+      } catch (e) { return json(res, [], 200, cors); }
+    }
+
     // API proxy
     if (urlPath.startsWith('/api/')) return await handleApiProxy(req, res, cors, urlPath);
+
+    // F9: PDF export
+    if (urlPath === '/export/payments.pdf') { if (!auth()) return; return await featureRoutes.handleExportPdf(req, res, cors); }
 
     // Payment routes
     if (urlPath === '/export/payments.csv') { if (!auth()) return; return await paymentRoutes.handleExportCsv(req, res, cors); }

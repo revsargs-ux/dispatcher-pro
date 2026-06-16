@@ -77,7 +77,7 @@ const server = http.createServer(async (req, res) => {
         const buf = Buffer.from(b64, 'base64');
         if (buf.length > 5 * 1024 * 1024) { res.writeHead(413, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'File too large' })); }
         const fname = shift_id + '_' + Date.now() + '_' + String(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
-        fs.writeFileSync(path.join(shiftPhotosDir, fname), buf);
+        await fs.promises.writeFile(path.join(shiftPhotosDir, fname), buf);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, filename: fname }));
       } catch (e) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Upload error' })); }
@@ -91,7 +91,7 @@ const server = http.createServer(async (req, res) => {
       const shiftId = params.get('shift_id');
       if (!shiftId) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'shift_id required' })); }
       try {
-        const files = fs.readdirSync(shiftPhotosDir).filter(f => f.startsWith(shiftId + '_'));
+        const files = (await fs.promises.readdir(shiftPhotosDir)).filter(f => f.startsWith(shiftId + '_'));
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(files.map(f => ({ filename: f, url: '/shift-photos/' + f }))));
       } catch (e) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify([])); }
@@ -101,19 +101,10 @@ const server = http.createServer(async (req, res) => {
     if (urlPath.startsWith('/shift-photos/') || urlPath.includes('/shift-photos/')) {
       res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Use /api/shift-photos endpoint' }));
     }
-    // Also block direct access to data directory
+    // Block direct access to data directory
     const normalizedPath = path.normalize(urlPath);
     if (normalizedPath.startsWith('/data/')) {
       res.writeHead(403); return res.end('Forbidden');
-    }
-    // Shift photo serve endpoint (only via /shift-photos/ URL)
-    if (urlPath.startsWith('/shift-photos/')) {
-      const authSession = requireAuth(req);
-      const ext = path.extname(photoFile).toLowerCase();
-      const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp' }[ext] || 'application/octet-stream';
-      res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'no-cache' });
-      fs.createReadStream(photoFile).pipe(res);
-      return;
     }
     // Serve language files
     if (urlPath === '/lang/ru.json' || urlPath === '/lang/en.json') {
@@ -143,8 +134,8 @@ server.listen(config.port, '0.0.0.0', () => {
 });
 
 // Global error handlers
-process.on('uncaughtException', (err) => { console.error('Uncaught:', err.message); });
-process.on('unhandledRejection', (err) => { console.error('Unhandled:', err); });
+process.on('uncaughtException', (err) => { console.error('UNCAUGHT:', err.message); process.exit(1); });
+process.on('unhandledRejection', (err) => { console.error('UNHANDLED:', err); process.exit(1); });
 
 // Start Telegram polling
 startPolling();
@@ -166,82 +157,69 @@ setInterval(autoConfirmHours, 30 * 60 * 1000);
 setTimeout(autoConfirmHours, 60000); // first run after 1 min
 console.log('[AutoConfirm] Client hours auto-confirm enabled (every 30 min)');
 
-// ===== Recurring orders: auto-create shifts daily =====
+// ===== Recurring orders: auto-create shifts by interval_days =====
+// Polls every 5 minutes, creates shifts when interval_days elapsed since last shift
+const sbFetch = require('./modules/db').sbFetch;
+
 async function processRecurringOrders() {
   try {
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0=Sun
-    if (dayOfWeek < 0 || dayOfWeek > 6) return;
-    // Get active recurring templates for today's day of week
-    const res = await fetch(`${config.sbUrl}/rest/v1/recurring_orders?is_active=eq.true&day_of_week=eq.${dayOfWeek}&select=*`, {
-      headers: sbHeaders()
-    });
-    const templates = await res.json();
-    if (!Array.isArray(templates) || !templates.length) return;
+    const res = await sbFetch('recurring_orders', 'is_active=eq.true&select=*');
+    const orders = await res.json();
+    if (!Array.isArray(orders) || !orders.length) return;
 
-    const todayStr = today.toISOString().slice(0, 10);
-    for (const t of templates) {
-      // Check if shift already exists for this template today
-      const checkRes = await fetch(
-        `${config.sbUrl}/rest/v1/shifts?client_id=eq.${t.client_id}&date=eq.${todayStr}&notes=like.*recurring:${t.id}*`,
-        { headers: sbHeaders() }
-      );
-      const existing = await checkRes.json();
-      if (Array.isArray(existing) && existing.length > 0) continue; // already created
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
 
-      // Create the shift
+    for (const order of orders) {
+      // Skip orders without client_id (test/incomplete data)
+      if (!order.client_id) continue;
+      // Find last shift for this client
+      const lastShiftRes = await sbFetch('shifts', `client_id=eq.${order.client_id}&select=created_at,date&order=created_at.desc&limit=1`);
+      const lastShift = (await lastShiftRes.json())[0];
+
+      let shouldCreate = false;
+      if (!lastShift) {
+        // No shifts at all — create first one
+        shouldCreate = true;
+      } else {
+        const daysSince = (now - new Date(lastShift.created_at)) / 86400000;
+        if (daysSince >= (order.interval_days || 7)) {
+          shouldCreate = true;
+        }
+      }
+
+      if (!shouldCreate) continue;
+
+      // Prevent duplicate for today: check if a recurring shift already exists
+      const dupCheckRes = await sbFetch('shifts', `client_id=eq.${order.client_id}&date=eq.${todayStr}&notes=like.*recurring:${order.id}*&select=id&limit=1`);
+      const dupExisting = await dupCheckRes.json();
+      if (Array.isArray(dupExisting) && dupExisting.length > 0) continue;
+
       const shiftData = {
-        client_id: t.client_id,
+        client_id: order.client_id,
         date: todayStr,
-        start_time: t.time_start || '08:00',
-        status: 'planned',
-        object_address: t.object_address || null,
-        notes: `recurring:${t.id} ${t.notes || ''}`.trim(),
-        created_by: t.created_by || null
+        start_time: order.start_time || '10:00',
+        service_type_id: order.service_type_id || null,
+        worker_count: order.worker_count || 1,
+        address: order.address || '',
+        created_by: order.created_by || null,
+        status: 'pending',
+        notes: `recurring:${order.id}`
       };
-      const createRes = await fetch(`${config.sbUrl}/rest/v1/shifts`, {
+
+      await sbFetch('shifts', '', {
         method: 'POST',
-        headers: { ...sbHeaders(), 'Prefer': 'return=representation' },
         body: JSON.stringify(shiftData)
       });
-      const created = await createRes.json();
-
-      if (Array.isArray(created) && created[0] && t.worker_id) {
-        // Auto-assign the worker
-        const asgnData = {
-          shift_id: created[0].id,
-          worker_id: t.worker_id,
-          invite_status: 'confirmed',
-          rate_per_hour: 0,
-          client_rate_per_hour: 0
-        };
-        await fetch(`${config.sbUrl}/rest/v1/shift_assignments`, {
-          method: 'POST',
-          headers: sbHeaders(),
-          body: JSON.stringify(asgnData)
-        });
-      }
-      console.log(`[Recurring] Created shift for template ${t.id} on ${todayStr}`);
+      console.log(`[Recurring] Created shift for order ${order.id} (client ${order.client_id}) on ${todayStr}`);
     }
   } catch (e) {
     console.error('[Recurring] Error:', e.message);
   }
 }
 
-// Run recurring processing every day at midnight + on startup
-const RECURRING_INTERVAL = 24 * 60 * 60 * 1000;
-function scheduleRecurring() {
-  const now = new Date();
-  const next = new Date(now);
-  next.setHours(0, 5, 0, 0); // 00:05 UTC
-  if (next <= now) next.setDate(next.getDate() + 1);
-  const delay = next - now;
-  setTimeout(() => {
-    processRecurringOrders();
-    setInterval(processRecurringOrders, RECURRING_INTERVAL);
-  }, delay);
-}
-// Run once on startup (for today)
-setTimeout(processRecurringOrders, 60000);
-scheduleRecurring();
-console.log('[Recurring] Auto-shift creation enabled');
+// Poll every 5 minutes
+setInterval(processRecurringOrders, 5 * 60 * 1000);
+// First run 30s after startup
+setTimeout(processRecurringOrders, 30000);
+console.log('[Recurring] interval_days polling enabled (every 5 min)');

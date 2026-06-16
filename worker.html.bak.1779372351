@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👷</text></svg>"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Рабочий — Dispatcher.PRO</title>
+<link rel="manifest" href="/manifest.json">
+<style>
+:root{--primary:#1a365d;--primary-light:#2c5282;--accent:#38a169;--danger:#c53030;--bg:#f7fafc;--card:#fff;--border:#e2e8f0;--text:#1a202c;--text-light:#718096;--bg-gradient-start:#0f2440;--bg-gradient-end:#1a365d;--auth-card-bg:#fff}
+@media(prefers-color-scheme:dark){:root:not(.light){--primary:#4c7cba;--primary-light:#5a8fd4;--accent:#48bb78;--danger:#e53e3e;--bg:#1a1a2e;--card:#16213e;--border:#2a2a4a;--text:#e2e8f0;--text-light:#a0aec0;--bg-gradient-start:#0a0f1e;--bg-gradient-end:#1a1a2e;--auth-card-bg:#16213e}}
+body.dark{--primary:#4c7cba;--primary-light:#5a8fd4;--accent:#48bb78;--danger:#e53e3e;--bg:#1a1a2e;--card:#16213e;--border:#2a2a4a;--text:#e2e8f0;--text-light:#a0aec0;--bg-gradient-start:#0a0f1e;--bg-gradient-end:#1a1a2e;--auth-card-bg:#16213e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.container{max-width:480px;margin:0 auto;padding:15px}
+.auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,var(--bg-gradient-start),var(--bg-gradient-end))}
+.auth-box{background:var(--auth-card-bg);border-radius:16px;padding:40px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.auth-box h1{color:var(--primary);font-size:24px;text-align:center}
+.auth-box .subtitle{color:var(--text-light);text-align:center;font-size:13px;margin-bottom:24px}
+.auth-box input{width:100%;padding:12px;border:2px solid var(--border);border-radius:8px;font-size:15px;margin-bottom:12px}
+.auth-box input:focus{outline:none;border-color:var(--primary)}
+.auth-box button{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
+.auth-error{color:var(--danger);text-align:center;font-size:13px;margin-top:8px;display:none}
+.header{background:var(--primary);color:#fff;padding:15px;border-radius:12px;margin-bottom:15px}
+.header h2{font-size:18px}.header p{font-size:13px;opacity:.9;margin-top:4px}
+.card{background:var(--card);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.card .date{font-size:13px;color:var(--text-light)}.card .title{font-size:17px;font-weight:bold;margin:4px 0}
+.card .detail{font-size:14px;color:var(--text-light);margin:2px 0}
+.card .amount{font-size:18px;font-weight:bold;color:var(--primary);margin-top:6px}
+.badge{display:inline-block;padding:3px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.badge-green{background:#c6f6d5;color:#276749}.badge-yellow{background:#fefcbf;color:#975a16}.badge-red{background:#fed7d7;color:#9b2c2c}.badge-blue{background:#bee3f8;color:#2a4365}
+.status-invited{background:#fefcbf;color:#975a16;padding:6px 12px;border-radius:8px;font-size:14px;font-weight:600;margin:6px 0}
+.status-confirmed{background:#c6f6d5;color:#276749;padding:6px 12px;border-radius:8px;font-size:14px;font-weight:600;margin:6px 0}
+.status-working{background:#bee3f8;color:#2a4365;padding:6px 12px;border-radius:8px;font-size:14px;font-weight:600;margin:6px 0}
+.status-done{background:#c6f6d5;color:#276749;padding:6px 12px;border-radius:8px;font-size:14px;font-weight:600;margin:6px 0}
+.status-declined{background:#fed7d7;color:#9b2c2c;padding:6px 12px;border-radius:8px;font-size:14px;font-weight:600;margin:6px 0}
+.time-block{background:var(--bg);border-radius:8px;padding:10px;margin:8px 0;font-size:13px}
+.time-block div{margin:2px 0}
+.actions{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.btn{padding:12px;border-radius:8px;border:none;font-size:15px;font-weight:600;cursor:pointer;width:100%}
+.btn-accept{background:var(--accent);color:#fff}.btn-decline{background:var(--danger);color:#fff}
+.btn-work{background:var(--primary);color:#fff}.btn-work:disabled{background:#ccc;cursor:not-allowed}
+.btn-cancel{background:var(--card);border:2px solid var(--border);color:var(--text);font-size:13px;padding:8px}
+.logout{display:block;text-align:center;color:var(--text-light);margin-top:20px;padding:10px;font-size:14px}
+.loading{text-align:center;padding:30px;color:var(--text-light)}
+.empty{text-align:center;padding:40px;color:var(--text-light)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;z-index:999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.switch{position:relative;width:48px;height:26px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:26px;transition:.3s}
+.switch .slider::before{content:'';position:absolute;height:20px;width:20px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+.switch input:checked+.slider{background:var(--accent)}
+.switch input:checked+.slider::before{transform:translateX(22px)}
+/* Chat */
+.chat-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;align-items:flex-end;justify-content:center}
+.chat-box{background:var(--card);border-radius:16px 16px 0 0;width:100%;max-width:480px;height:70vh;display:flex;flex-direction:column}
+.chat-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:16px}
+.chat-head button{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-light)}
+.chat-body{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:6px}
+.chat-msg{max-width:80%;padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.4;word-break:break-word}
+.chat-msg.me{align-self:flex-end;background:var(--primary);color:#fff;border-bottom-right-radius:4px}
+.chat-msg.other{align-self:flex-start;background:var(--border);color:var(--text);border-bottom-left-radius:4px}
+.chat-msg .chat-sender{font-size:11px;opacity:.7;margin-bottom:2px}
+.chat-msg .chat-time{font-size:10px;opacity:.6;margin-top:2px;text-align:right}
+.chat-foot{padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px}
+.chat-foot input{flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px}
+.chat-foot input:focus{outline:none;border-color:var(--primary)}
+.chat-foot button{padding:10px 18px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer}
+.chat-empty{text-align:center;color:var(--text-light);padding:40px 16px;font-size:14px}
+
+@media(max-width:768px){
+  table{font-size:12px;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  th,td{padding:6px 8px;white-space:nowrap;}
+  .toolbar{flex-direction:column;gap:8px;}
+  .toolbar input,.toolbar select,.toolbar button{width:100%!important;}
+  .modal-content{margin:10px;width:95%;max-height:90vh;overflow-y:auto;}
+  .card{padding:12px;}
+}
+</style>
+<style>
+.pw-wrap{position:relative;display:flex;align-items:center;margin-bottom:12px}
+.pw-wrap input{flex:1;width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:8px;font-size:15px;margin:0;transition:.2s;border-right:none;border-top-right-radius:0;border-bottom-right-radius:0}
+.pw-wrap input:focus{outline:none;border-color:var(--primary)}
+.pw-eye{display:flex;align-items:center;justify-content:center;width:44px;height:46px;background:#fff;border:2px solid var(--border);border-left:none;border-radius:0 8px 8px 0;cursor:pointer;font-size:16px;user-select:none;color:var(--text-light);flex-shrink:0}
+.pw-eye:active{background:var(--border)}
+.pw-match{height:4px;border-radius:2px;margin:-8px 0 12px;transition:background .3s}
+.pw-match.ok{background:#38a169}
+.pw-match.fail{background:#c53030}
+.pw-match-label{font-size:12px;margin:-8px 0 12px;text-align:center}
+.pw-match-label.ok{color:#38a169}
+.pw-match-label.fail{color:#c53030}
+</style>
+</head>
+<body>
+<div id="auth-screen" class="auth-screen"><div class="auth-box">
+  <h1>👷 Dispatcher.PRO</h1>
+  <p class="subtitle" id="auth-subtitle" data-i18n="auth_subtitle_worker">Вход в кабинет</p>
+  <div id="auth-login">
+    <input type="tel" id="phone-input" data-i18n-placeholder="placeholder_phone" placeholder="Номер телефона" maxlength="15">
+    <div class="pw-wrap">
+      <input type="password" id="pass-input" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
+      <span class="pw-eye" onclick="togglePw('pass-input',this)">👁</span>
+    </div>
+    <button onclick="login()" data-i18n="btn_login">Войти</button>
+    <p style="margin-top:8px;font-size:13px;color:var(--text-light);"><a href="javascript:void(0)" onclick="showReg()" style="color:var(--primary);" data-i18n="auth_register_link">Зарегистрироваться</a> · <a href="javascript:void(0)" onclick="forgotPassword()" style="color:var(--primary);" data-i18n="auth_forgot">Забыли пароль?</a></p>
+  </div>
+  <div id="auth-reg" style="display:none;">
+    <input type="text" id="reg-name" data-i18n-placeholder="label_name" placeholder="ФИО">
+    <input type="tel" id="reg-phone" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15">
+    <div class="pw-wrap">
+      <input type="password" id="reg-pass" placeholder="Пароль">
+      <span class="pw-eye" onclick="togglePw('reg-pass',this)">👁</span>
+    </div>
+    <div class="pw-wrap">
+      <input type="password" id="reg-pass2" placeholder="Повторите пароль" oninput="checkPwMatch()">
+      <span class="pw-eye" onclick="togglePw('reg-pass2',this)">👁</span>
+    </div>
+    <div id="pw-match-bar" class="pw-match" style="background:var(--border)"></div>
+    <div id="pw-match-label" class="pw-match-label"></div>
+    <button onclick="register()" data-i18n="btn_register">Зарегистрироваться</button>
+    <p style="margin-top:8px;font-size:13px;color:var(--text-light);"><a href="javascript:void(0)" onclick="showLogin()" style="color:var(--primary);" data-i18n="auth_login_link">Уже есть аккаунт? Войти</a></p>
+  </div>
+  <p id="auth-error" class="auth-error"></p>
+</div></div>
+
+<div id="main-screen" style="display:none;"><div class="container">
+  <div class="header" style="display:flex;justify-content:space-between;align-items:center;"><div><h2 id="worker-name">👷</h2><p id="worker-stats"></p></div><div style="display:flex;gap:6px;align-items:center;"><button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button><button id="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">🌙</button></div></div>
+  <div id="tg-banner" style="display:none;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkTelegram()">📱 Подключить уведомления в Telegram</div>
+  <div id="tg-linked" style="display:none;background:#e8f5e9;color:#2e7d32;padding:10px 16px;border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px">✅ Telegram уведомления подключены</div>
+  <div id="max-banner" style="display:none;background:linear-gradient(135deg,#6b3fa0,#8b5cf6);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkMax()">💬 Подключить уведомления в МАКС</div>
+  <div id="max-linked" style="display:none;background:#f3e8ff;color:#6b21a8;padding:10px 16px;border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px">✅ МАКС уведомления подключены</div>
+  </div>
+  <div id="shifts-list"></div>
+  <details style="margin-top:15px;background:var(--card);border-radius:10px;padding:14px;border:1px solid var(--border);">
+    <summary style="font-weight:600;cursor:pointer;font-size:14px;" data-i18n="how_to_use">❓ Как пользоваться</summary>
+    <div style="margin-top:12px;font-size:13px;line-height:1.8;color:var(--text-light);">
+      <p><strong>1️⃣ Первый вход</strong></p>
+      <p>Если вам дали телефон и пароль — введите их на экране входа. Если аккаунта ещё нет — нажмите «Зарегистрироваться», введите ФИО, телефон и придумайте пароль.</p>
+      <br>
+      <p><strong>2️⃣ Подключите Telegram</strong></p>
+      <p>После входа нажмите синий баннер «📱 Подключить уведомления» сверху. Откроется бот @DispetcherPro_bot — отправьте свой номер телефона. Теперь вы будете получать уведомления о новых сменах и оплате.</p>
+      <br>
+      <p><strong>3️⃣ Приглашение на смену</strong></p>
+      <p>Когда диспетчер назначает вас на смену — она появится в списке с пометкой «📞 Приглашение». Нажмите ✅ <em>Подтвердить</em> чтобы принять, или ❌ <em>Отказаться</em> если не можете. Отказаться можно не позднее чем за 3 часа до начала.</p>
+      <br>
+      <p><strong>4️⃣ Начало работы</strong></p>
+      <p>В день смены появится кнопка ▶️ «Начать работу». Нажмите её когда реально приступили. Время зафиксируется автоматически.</p>
+      <br>
+      <p><strong>5️⃣ Завершение работы</strong></p>
+      <p>Когда закончили — нажмите ⏹ «Завершить работу». Часы и сумма к выплате посчитаются автоматически по вашей ставке.</p>
+      <br>
+      <p><strong>6️⃣ Оплата</strong></p>
+      <p>Диспетчер отмечает оплату. Когда статус смены «✅ Оплачено» — деньги можно получать. Сумма к выплате показана вверху страницы.</p>
+      <br>
+      <p><strong>💡 Если забыли пароль</strong></p>
+      <p>На экране входа нажмите «Забыли пароль?» — новый пароль придёт в Telegram. Если Telegram не привязан — обратитесь к диспетчеру.</p>
+    </div>
+  </details>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// Telegram Mini App auto-login
+(function(){
+  const p=new URLSearchParams(window.location.search);
+  if(p.get('from_tg')==='1'){
+    const tid=p.get('tg_user_id');
+    if(tid&&!localStorage.getItem('token')){
+      fetch('/auth/tg-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_chat_id:tid})}).then(r=>r.json()).then(d=>{if(d.token){localStorage.setItem('token',d.token);localStorage.setItem('user',JSON.stringify(d.user));location.href=location.pathname;}}).catch(()=>{});
+    }
+  }
+})();
+// ===== i18n =====
+const DEFAULT_LANG='ru';
+let currentLang=localStorage.getItem('lang')||DEFAULT_LANG;
+let translations={};
+async function loadLang(lang){try{const r=await fetch('/lang/'+lang+'.json');translations=await r.json();currentLang=lang;localStorage.setItem('lang',lang);applyTranslations();}catch(e){console.warn('Lang load error:',e);}}
+function t(key){return translations[key]||key;}
+function applyTranslations(){document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=t(el.getAttribute('data-i18n'));});document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{el.placeholder=t(el.getAttribute('data-i18n-placeholder'));});}
+function setLang(lang){loadLang(lang);}
+// Theme toggle
+function toggleTheme(){
+  const d=document.body;
+  if(d.classList.contains('dark')){d.classList.remove('dark');d.classList.add('light');localStorage.setItem('dp_theme','light');}
+  else{d.classList.remove('light');d.classList.add('dark');localStorage.removeItem('dp_theme');}
+  document.getElementById('theme-toggle').textContent=d.classList.contains('dark')?'☀️':'🌙';
+}
+(function(){const s=localStorage.getItem('dp_theme');if(s==='light')document.documentElement.classList.add('light');else if(window.matchMedia('(prefers-color-scheme:dark)').matches&&!s)document.body.classList.add('dark');else if(s)return;else if(window.matchMedia('(prefers-color-scheme:dark)').matches)document.body.classList.add('dark');if(document.body.classList.contains('dark')){document.getElementById('theme-toggle').textContent='☀️';}})();
+
+// Phone input mask
+function setupPhoneMask(input){
+  if(!input)return;
+  input.addEventListener('input',function(){
+    let v=this.value.replace(/\D/g,'');
+    if(v.length>0&&(v[0]==='8'))v=v.slice(1);
+    if(v.length>0&&v[0]!=='7')v='7'+v;
+    if(v.length>11)v=v.slice(0,11);
+    this.value=v.length>=1?'+'+v:'';
+  });
+}
+function initPhoneMasks(){document.querySelectorAll('input[type="tel"]').forEach(setupPhoneMask);}
+
+async function tryRefreshToken(){
+  const tk=localStorage.getItem('dp_token');if(!tk)return false;
+  try{const r=await fetch('/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tk})});if(!r.ok)return false;const d=await r.json();if(d.ok&&d.token){localStorage.setItem('dp_token',d.token);return true;}}catch(e){}
+  return false;
+}
+setInterval(()=>tryRefreshToken(),6*60*60*1000);
+
+async function api(t,m='GET',b=null,q='',_retry=false){
+  const u='/api/'+t+(q?(q[0]==='?'?q:'?'+q):'');
+  const o={method:m,headers:{'Content-Type':'application/json'}};
+  const tk=localStorage.getItem('dp_token');if(tk)o.headers['Authorization']='Bearer '+tk;
+  if(b)o.body=JSON.stringify(b);
+  try{const r=await fetch(u,o);if(r.status===401){if(!_retry){const ref=await tryRefreshToken();if(ref)return api(t,m,b,q,true);}localStorage.removeItem('dp_token');return[];}if(!r.ok)return m==='DELETE'?false:[];if(m==='DELETE')return true;return await r.json();}catch(e){return[];}
+}
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',3000);}
+function norm(p){return(p||'').replace(/[\+\-\(\)\s]/g,'').replace(/^8/,'7');}
+function formatDate(d){if(!d)return'—';const p=d.split('-');return p.length===3?p[2]+'.'+p[1]+'.'+p[0]:d;}
+function formatDateKam(d){if(!d)return"—";try{const dt=new Date(d+"T00:00:00+12:00");return dt.toLocaleDateString("ru",{timeZone:"Asia/Kamchatka",day:"2-digit",month:"2-digit",year:"numeric"});}catch{return formatDisplayDate(d);}}
+function formatTimeKam(ts){if(!ts)return'—';try{return new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});}catch{return'—';}}
+function formatTime(ts){if(!ts)return'—';try{return new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});}catch{return'—';}}
+
+let worker=null;
+function showReg(){
+  document.getElementById('auth-login').style.display='none';
+  document.getElementById('auth-reg').style.display='block';
+  document.getElementById('auth-subtitle').textContent='Регистрация исполнителя';
+  document.getElementById('auth-error').style.display='none';
+}
+function showLogin(){
+  document.getElementById('auth-login').style.display='block';
+  document.getElementById('auth-reg').style.display='none';
+  document.getElementById('auth-subtitle').textContent='Вход в кабинет';
+  document.getElementById('auth-error').style.display='none';
+}
+function showErr(m){const e=document.getElementById('auth-error');e.textContent=m;e.style.display='block';}
+function togglePw(id,el){const inp=document.getElementById(id);if(inp.type==='password'){inp.type='text';el.textContent='🙈';}else{inp.type='password';el.textContent='👁';}}
+function checkPwMatch(){const p1=document.getElementById('reg-pass').value;const p2=document.getElementById('reg-pass2').value;const bar=document.getElementById('pw-match-bar');const lbl=document.getElementById('pw-match-label');if(!p2){bar.style.background='var(--border)';lbl.textContent='';return;}if(p1===p2){bar.className='pw-match ok';lbl.className='pw-match-label ok';lbl.textContent='✓ Пароли совпадают';}else{bar.className='pw-match fail';lbl.className='pw-match-label fail';lbl.textContent='✗ Пароли не совпадают';}}
+
+function forgotPassword(){
+  const phone=prompt('Введите номер телефона, привязанный к аккаунту:');
+  if(!phone)return;
+  const ph=norm(phone);
+  fetch('/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'workers',phone:'+'+ph})})
+  .then(r=>r.json()).then(d=>{
+    if(d.ok)showErr('Новый пароль отправлен в Telegram. Если Telegram не привязан — обратитесь к диспетчеру.');
+    else showErr(d.error||'Ошибка');
+  }).catch(()=>showErr('Ошибка подключения'));
+}
+
+async function login(){
+  const phone=document.getElementById('phone-input').value.trim();
+  const pass=document.getElementById('pass-input').value;
+  if(!phone||!pass){showErr('Введите телефон и пароль');return;}
+  try{
+    const ph=norm(phone);
+    const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'workers',phone:'+'+ph,pass:pass})});
+    const d=await r.json();
+    if(!d.ok){showErr(d.error||'Ошибка входа');return;}
+    worker=d.user;localStorage.setItem('w_auth',JSON.stringify({id:d.user.id,full_name:d.user.full_name,phone:d.user.phone}));if(d.token)localStorage.setItem('dp_token',d.token);showMain();
+  }catch(e){showErr('Ошибка подключения');}
+}
+async function autoLogin(){
+  const token=localStorage.getItem('dp_token');
+  if(!token)return false;
+  try{
+    const r=await fetch('/auth/me',{headers:{'Authorization':'Bearer '+token}});
+    if(!r.ok){localStorage.removeItem('dp_token');localStorage.removeItem('w_auth');return false;}
+    const d=await r.json();
+    if(d.ok&&d.user){
+      worker=d.user;
+      if(d.token)localStorage.setItem('dp_token',d.token);
+      localStorage.setItem('w_auth',JSON.stringify({id:d.user.id,full_name:d.user.full_name,phone:d.user.phone}));
+      showMain();
+      return true;
+    }
+  }catch(e){console.error('autoLogin error',e);}
+  localStorage.removeItem('dp_token');localStorage.removeItem('w_auth');
+  return false;
+}
+async function register(){
+  const name=document.getElementById('reg-name').value.trim();
+  const phone=document.getElementById('reg-phone').value.trim();
+  const pass=document.getElementById('reg-pass').value;
+  const pass2=document.getElementById('reg-pass2').value;
+  if(!name||!phone||!pass){showErr('Заполните все поля');return;}
+  if(name.length<2){showErr('Имя минимум 2 символа');return;}
+  const digits=phone.replace(/[-+()\s]/g,'');
+  if(!/^\d{11}$/.test(digits)){showErr('Телефон: 11 цифр');return;}
+  if(pass!==pass2){showErr('Пароли не совпадают');return;}
+  if(pass.length<4){showErr('Пароль минимум 4 символа');return;}
+  const ph=norm(phone);
+  const existing=await api('workers','GET',null,`?or=(phone.eq.${ph},phone.eq.%2B${ph})&limit=1`);
+  if(existing?.length){showErr('Номер уже зарегистрирован');return;}
+  const regRes=await fetch('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'workers',data:{full_name:name,phone:ph,password:pass,is_active:true,archived:false}})});
+  const regData=await regRes.json().catch(()=>({}));
+  if(regRes.status>=400||(Array.isArray(regData)===false && regData.ok===false)){showErr(regData.error||'Ошибка регистрации');return;}
+  // Автовход после регистрации
+  try{
+    const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'workers',phone:'+'+ph,pass:pass})});
+    const d=await r.json();
+    if(d.ok){worker=d.user;localStorage.setItem('w_auth',JSON.stringify({id:d.user.id,full_name:d.user.full_name,phone:d.user.phone}));if(d.token)localStorage.setItem('dp_token',d.token);showMain();return;}
+  }catch(e){}
+  // Если автовход не удался — показать форму входа с заполненным телефоном
+  toast('Зарегистрировано! Войдите с вашим паролем');
+  showLogin();
+  document.getElementById('phone-input').value='+'+ph;
+}
+
+async function showMain(){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('main-screen').style.display='block';
+  document.getElementById('worker-name').textContent='👷 '+(worker?.full_name||'');
+  await render();setInterval(render,30000);
+}
+
+let _prevShiftStatus={};
+async function render(){
+  try{
+    const assignments=await api('shift_assignments','GET',null,
+      `?worker_id=eq.${worker.id}&select=*,shifts(date,start_time,planned_end_time,comment,clients(name),service_types(name),status)&order=created_at.desc`);
+    
+    // Detect status changes
+    (assignments||[]).forEach(a=>{
+      const s=a.shifts?.status||'';
+      const prev=_prevShiftStatus[a.shift_id];
+      if(prev && prev!=='completed' && s==='completed'){toast('✅ Смена завершена!');}
+      _prevShiftStatus[a.shift_id]=s;
+    });
+    
+    let allH=0,allUnpaid=0,allPaid=0;
+    (assignments||[]).forEach(a=>{
+      const h=parseFloat(a.hours_worked)||0;allH+=h;
+      if(a.payment_status==='paid')allPaid+=h*(parseFloat(a.rate_per_hour)||400);
+      else allUnpaid+=h*(parseFloat(a.rate_per_hour)||400);
+    });
+    document.getElementById('worker-stats').innerHTML=`<span style="color:var(--accent);font-weight:bold;">${allUnpaid.toLocaleString('ru')}₽ к выплате</span> · ${allH}ч · ${allPaid.toLocaleString('ru')}₽ получено`;
+    // Load worker rating
+    try{
+      const rRes=await fetch('/api/reviews/worker/'+worker.id,{headers:{'Authorization':'Bearer '+localStorage.getItem('dp_token')}});
+      if(rRes.ok){const rData=await rRes.json();if(rData.count>0){document.getElementById('worker-stats').innerHTML+=` · ⭐ ${rData.average} (${rData.count} отзыв${rData.count===1?'':rData.count<5?'а':'ов'})`;}}
+    }catch(e){}
+
+    // Preload shift photos
+    let _shiftPhotos={};
+    try{
+      const shiftIds=[...new Set(assignments.map(a=>a.shift_id))];
+      for(const sid of shiftIds){
+        const phRes=await fetch('/api/shift-photos?shift_id='+sid,{headers:{'Authorization':'Bearer '+localStorage.getItem('dp_token')}});
+        if(phRes.ok){const phData=await phRes.json();if(phData.length)_shiftPhotos[sid]=phData;}
+      }
+    }catch(e){}
+
+    const list=document.getElementById('shifts-list');
+    if(!assignments||!assignments.length){list.innerHTML='<div class="empty"><div style="font-size:48px">📭</div><p>Смен пока нет</p></div>';return;}
+
+    list.innerHTML=assignments.map(a=>{
+      const status=a.invite_status;
+      const h=parseFloat(a.hours_worked)||0;
+      const rate=parseFloat(a.rate_per_hour)||400;
+      const dateStr=a.shifts?.date?formatDate(a.shifts.date):'—';
+      const startTime=a.shifts?.start_time||'';
+      const endTime=a.shifts?.planned_end_time||'';
+      const comment=a.shifts?.comment||'';
+      const address=a.shifts?.address||'';
+      const clientName=a.shifts?.clients?.name||'—';
+      const serviceName=a.shifts?.service_types?.name||'—';
+      const clientConfirmed=a.client_confirmed;
+
+      // Status
+      let statusHtml='';
+      if(status==='declined'){statusHtml='<div class="status-declined">❌ Вы отказались</div>';}
+      else if(status==='invited'){statusHtml='<div class="status-invited">📞 Приглашение</div>';}
+      else if(status==='confirmed'&&a.actual_start_time&&!a.actual_end_time){statusHtml='<div class="status-working">🔄 Вы на смене</div>';}
+      else if(status==='confirmed'&&a.actual_end_time){statusHtml='<div class="status-done">✅ Смена завершена'+(clientConfirmed?' · Подтверждено':'')+'</div>';}
+      else if(status==='confirmed'&&!a.actual_start_time){statusHtml='<div class="status-confirmed">✅ Вы подтвердили</div>';}
+
+      // Time block
+      let timeBlock='';
+      if(status==='confirmed'||status==='invited'){
+        timeBlock=`<div class="time-block">
+          <div><strong>📅 Дата:</strong> ${dateStr}</div>
+          ${startTime?`<div><strong>🕐 Начало:</strong> ${startTime}</div>`:''}
+          ${endTime?`<div><strong>🕐 Окончание:</strong> ${endTime}</div>`:''}
+          ${a.actual_start_time?`<div><strong>▶️ Фактическое начало:</strong> ${formatTime(a.actual_start_time)}</div>`:''}
+          ${a.actual_end_time?`<div><strong>⏹ Фактическое окончание:</strong> ${formatTime(a.actual_end_time)}</div>`:''}
+          ${address?`<div><strong>📍 Адрес:</strong> ${esc(address)}</div>`:''}
+          ${comment?`<div style="color:var(--text-light);margin-top:4px;">💬 ${esc(comment)}</div>`:''}
+        </div>`;
+      }
+
+      // Amount with salary breakdown
+      const extra=parseFloat(a.extra_amount)||0;
+      const calcSalary=parseFloat(a.calculated_salary)||0;
+      let amountHtml='';
+      if(h>0){
+        const base=h*rate;
+        amountHtml=`<div class="amount">⏱ ${h}ч × ${rate}₽ = <strong>${base.toLocaleString('ru')}₽</strong>${extra>0?'<br>➕ Доп: '+extra.toLocaleString('ru')+'₽':''}</div>`;
+        if(calcSalary>0)amountHtml+=`<div style="font-size:14px;font-weight:bold;color:var(--primary);margin-top:2px;">💰 Итого: ${calcSalary.toLocaleString('ru')}₽</div>`;
+        if(a.payment_status==='paid')amountHtml+='<div style="font-size:13px;color:var(--accent);margin-top:2px;">✅ Оплачено</div>';
+      }else{
+        amountHtml=`<div class="amount" style="color:var(--text-light);font-size:14px;">💰 Ставка: ${rate}₽/ч</div>`;
+      }
+
+      // Actions
+      let actionsHtml='';
+      if(status==='invited'){
+        actionsHtml=`<div class="actions">
+          <button class="btn btn-accept" onclick="respond('${a.id}','confirmed')">✅ Подтвердить</button>
+          <button class="btn btn-decline" onclick="respond('${a.id}','declined')">❌ Отказаться</button>
+        </div>`;
+      }else if(status==='confirmed'&&!a.actual_start_time&&!clientConfirmed){
+        const plannedStart=a.shifts?.start_time;
+        let canStart=true,disableReason='';
+        const now=new Date();
+        const shiftDate=a.shifts?.date||'';
+        if(plannedStart){
+          const planned=new Date(shiftDate+'T'+plannedStart);
+          if(now<planned){canStart=false;disableReason='До начала: '+plannedStart.slice(0,5);}
+        }
+        let cancelBtn='';
+        if(plannedStart){
+          const hoursBefore=(new Date(shiftDate+'T'+plannedStart)-now)/3600000;
+          if(hoursBefore>=3){cancelBtn=`<button class="btn btn-cancel" onclick="cancelConfirmed('${a.id}','${shiftDate}','${plannedStart}')">❌ Отказаться</button>`;}
+          else if(hoursBefore>0){cancelBtn=`<button class="btn btn-cancel" disabled style="opacity:.4;">❌ Отказ (< 3ч)</button>`;}
+        }
+        if(canStart){actionsHtml=`<button class="btn btn-work" onclick="startWork('${a.id}')">▶️ Начать работу</button>${cancelBtn}`;}
+        else{actionsHtml=`<button class="btn btn-work" disabled>⏳ ${disableReason}</button>${cancelBtn}`;}
+      }else if(status==='confirmed'&&a.actual_start_time&&!a.actual_end_time&&!clientConfirmed){
+        actionsHtml=`<button class="btn btn-work" style="background:var(--danger);" onclick="endWork('${a.id}')">⏹ Завершить работу</button> <button class="btn btn-work" style="background:var(--primary);" onclick="pickShiftPhoto('${a.shift_id}','${a.id}')">📸 Фото</button> <button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" onclick="openChat('${a.shift_id}')">💬 Чат</button>`;
+      }
+
+      // Add chat button to all confirmed/working shifts
+      if(status==='confirmed' && !actionsHtml.includes('openChat')){
+        actionsHtml=(actionsHtml?actionsHtml+' ':'')+`<button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" onclick="openChat('${a.shift_id}')">💬 Чат</button>`;
+      }
+
+      const photosHtml=_shiftPhotos[a.shift_id]?'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">'+_shiftPhotos[a.shift_id].map(p=>`<img src="/shift-photos/${p.filename}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="window.open('/shift-photos/${p.filename}','_blank')">`).join('')+'</div>':'';
+
+      return `<div class="card" id="card-${a.id}">
+        <div class="date">📅 ${dateStr}</div>
+        <div class="title">${esc(clientName)}</div>
+        <div class="detail">${esc(serviceName)}</div>
+        ${amountHtml}
+        ${statusHtml}
+        ${timeBlock}
+        ${actionsHtml}
+        <div id="photos-${a.shift_id}">${photosHtml}</div>
+      </div>`;
+    }).join('');
+  }catch(e){toast('Ошибка загрузки');}
+}
+
+async function respond(id,status){
+  try{await api('shift_assignments','PATCH',{invite_status:status},`?id=eq.${id}`);render();}
+  catch(e){toast('Ошибка');}
+}
+async function startWork(id){
+  // Проверяем время начала
+  try{
+    const asgn=(await api('shift_assignments','GET',null,`?id=eq.${id}&select=*,shifts(date,start_time,planned_end_time,address,comment,clients(name))`))[0];
+    if(!asgn){toast('Смена не найдена');return;}
+    
+    const now=new Date();
+    const shiftDate=asgn.shifts?.date||'';
+    const startTime=asgn.shifts?.start_time||'';
+    const address=asgn.shifts?.address||asgn.shifts?.comment||'';
+    
+    // Проверка: не раньше времени начала
+    if(shiftDate && startTime){
+      const planned=new Date(shiftDate+'T'+startTime);
+      if(now < planned){
+        toast('⏳ Смена ещё не началась! Начало: '+startTime.slice(0,5));
+        return;
+      }
+    }
+    
+    toast('✅ Смена началась!');
+    render();
+  }catch(e){toast('Ошибка: '+e.message);}
+}
+
+function getDistance(lat1,lon1,lat2,lon2){
+  const R=6371000; // Earth radius in meters
+  const dLat=(lat2-lat1)*Math.PI/180;
+  const dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+async function endWork(id){
+  if(!confirm('Завершить смену?'))return;
+  try{
+    const a=(await api('shift_assignments','GET',null,`?id=eq.${id}&select=actual_start_time`))[0];
+    const end=new Date();let hours=0;
+    if(a?.actual_start_time){hours=Math.round(((end-new Date(a.actual_start_time))/3600000)*10)/10;if(hours<0)hours=0;}
+    await api('shift_assignments','PATCH',{actual_end_time:end.toISOString(),hours_worked:hours},`?id=eq.${id}`);
+    render();
+  }catch(e){toast('Ошибка');}
+}
+async function cancelConfirmed(id,shiftDate,shiftTime){
+  if(!confirm('Вы уверены? Отмена возможна только за 3 часа до начала.'))return;
+  try{
+    await api('shift_assignments','PATCH',{invite_status:'declined'},`?id=eq.${id}`);
+    const assignment=(await api('shift_assignments','GET',null,`?id=eq.${id}&select=shift_id,rate_per_hour,client_rate_per_hour`))[0];
+    if(assignment){
+      const allWorkers=await api('workers','GET',null,'?is_active=eq.true&archived=eq.false&select=id');
+      const batch=allWorkers.filter(w=>w.id!==worker.id).map(w=>({shift_id:assignment.shift_id,worker_id:w.id,invite_status:'invited',rate_per_hour:assignment.rate_per_hour||400,client_rate_per_hour:assignment.client_rate_per_hour||520}));
+      if(batch.length)await api('shift_assignments','POST',batch);
+    }
+    toast('Смена отменена. Другие получат приглашение.');
+    render();
+  }catch(e){toast('Ошибка отмены');}
+}
+function logout(){const tk=localStorage.getItem('dp_token');if(tk)fetch('/auth/logout',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk}}).catch(()=>{});localStorage.removeItem('w_auth');localStorage.removeItem('dp_token');worker=null;location.reload();}
+
+// Telegram integration
+async function checkTelegramStatus(){
+  if(!worker||!worker.phone)return;
+  try{
+    const r=await fetch('/api/telegram-status?phone='+norm(worker.phone)+'&table=workers');
+    const d=await r.json();
+    if(d.linked){document.getElementById('tg-linked').style.display='block';}
+    else{document.getElementById('tg-banner').style.display='block';}
+  }catch(e){document.getElementById('tg-banner').style.display='block';}
+}
+function linkTelegram(){
+  const ph=norm(worker.phone||'');
+  if(ph) window.open('https://t.me/DispetcherPro_bot?start='+ph,'_blank');
+  else window.open('https://t.me/DispetcherPro_bot','_blank');
+}
+async function checkMaxStatus(){
+  try{
+    const r=await fetch('/api/telegram-status?phone='+norm(worker.phone)+'&table=workers&field=max_chat_id');
+    const d=await r.json();
+    if(d.linked){document.getElementById('max-banner').style.display='none';document.getElementById('max-linked').style.display='';}
+    else{document.getElementById('max-banner').style.display='';document.getElementById('max-linked').style.display='none';}
+  }catch(e){}
+}
+function linkMax(){
+  const ph=norm(worker.phone||'');
+  if(ph) window.open('https://max.ru/id4100044993_bot?start='+ph,'_blank');
+  else window.open('https://max.ru/id4100044993_bot','_blank');
+}
+// Check TG status after login
+
+// Push notifications + alarm
+let alarmInterval=null,notifiedShifts=new Set();
+function requestNotifications(){
+  if('Notification' in window && Notification.permission==='default'){
+    Notification.requestPermission();
+  }
+}
+function sendPush(title,body){
+  if('Notification' in window && Notification.permission==='granted'){
+    new Notification(title,{body,icon:'/manifest.json',badge:'/manifest.json'});
+  }
+}
+function startAlarmChecker(){if(alarmInterval)return;requestNotifications();alarmInterval=setInterval(checkAlarm,30000);checkAlarm();}
+function checkAlarm(){
+  if(!worker)return;const now=new Date();
+  document.querySelectorAll('.card').forEach(card=>{
+    const startMatch=card.textContent.match(/Начало:\\s*(\\d{2}:\\d{2})/);if(!startMatch)return;
+    const dateMatch=card.querySelector('.date')?.textContent?.match(/(\\d{2}\\.\\d{2}\\.\\d{4})/);if(!dateMatch)return;
+    const[_,dd,mm,yyyy]=dateMatch[0].match(/(\\d{2})\\.(\\d{2})\\.(\\d{4})/);
+    const planned=new Date(yyyy+'-'+mm+'-'+dd+'T'+startMatch[1]+':00');
+    const diff=(planned-now)/60000;
+    const hasBtn=card.querySelector('.btn-work:not([disabled])');
+    const key=planned.getTime();
+    // 1 hour before
+    if(diff<=60&&diff>55&&hasBtn&&!notifiedShifts.has('h1_'+key)){
+      notifiedShifts.add('h1_'+key);sendPush('⏰ Через 1 час','Смена начинается в '+startMatch[1]);playAlarm();
+    }
+    // 15 min before
+    if(diff<=15&&diff>10&&hasBtn&&!notifiedShifts.has('m15_'+key)){
+      notifiedShifts.add('m15_'+key);sendPush('🚨 Через 15 минут!','Смена начинается в '+startMatch[1]);playAlarm();showAlarmNotice(planned);
+    }
+  });
+}
+function playAlarm(){
+  try{const ctx=new(window.AudioContext||window.webkitAudioContext)();
+  function beep(f,s,d){const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=f;o.type='sine';g.gain.value=0.3;o.start(ctx.currentTime+s);o.stop(ctx.currentTime+s+d);}
+  for(let i=0;i<5;i++){beep(800,i*0.5,0.3);beep(1000,i*0.5+0.15,0.15);}
+  }catch(e){}
+}
+function showAlarmNotice(planned){
+  const o=document.createElement('div');
+  o.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  o.innerHTML='<div style="background:#fff;border-radius:16px;padding:30px;text-align:center;max-width:300px;"><div style="font-size:64px;">⏰</div><div style="font-size:20px;font-weight:bold;margin:12px 0;">Смена начинается!</div><div style="color:#666;">'+planned.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})+'</div><button onclick="this.parentElement.parentElement.remove()" style="margin-top:16px;padding:12px 32px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;">Понятно</button></div>';
+  document.body.appendChild(o);
+}
+
+// ============================================================
+// ============================================================
+// Keep SW updated with fresh token
+setInterval(() => {
+  const token = localStorage.getItem('dp_token');
+  if (navigator.serviceWorker?.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'AUTH_TOKEN_UPDATE', token: token });
+  }
+}, 5 * 60 * 1000);
+
+
+(async()=>{
+  const p=new URLSearchParams(location.search);
+  if(p.get('invite')==='1'||p.get('reg')==='1'){showReg();}
+  const ok=await autoLogin();
+})();
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
+initPhoneMasks();
+loadLang(currentLang);
+
+// --- Shift photo upload ---
+// --- Chat ---
+let _chatShiftId=null,_chatPoll=null,_chatMyId=null;
+function openChat(shiftId){
+  _chatShiftId=shiftId;_chatMyId=worker?.id;
+  document.getElementById('chat-modal').style.display='flex';
+  loadChatMessages();
+  _chatPoll=setInterval(loadChatMessages,5000);
+}
+function closeChat(){
+  document.getElementById('chat-modal').style.display='none';
+  if(_chatPoll)clearInterval(_chatPoll);_chatPoll=null;_chatShiftId=null;
+}
+async function loadChatMessages(){
+  if(!_chatShiftId)return;
+  try{
+    const r=await fetch('/api/chat/'+_chatShiftId,{headers:{'Authorization':'Bearer '+localStorage.getItem('dp_token')}});
+    const msgs=await r.json();
+    if(!Array.isArray(msgs))return;
+    const box=document.getElementById('chat-messages');
+    const wasBottom=box.scrollTop+box.clientHeight>=box.scrollHeight-50;
+    if(!msgs.length){box.innerHTML='<div class="chat-empty">Сообщений пока нет</div>';return;}
+    box.innerHTML=msgs.map(m=>{
+      const mine=m.sender_id===_chatMyId;
+      const t=m.created_at?new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}):'';
+      return `<div class="chat-msg ${mine?'me':'other'}"><div class="chat-sender">${mine?'Вы':esc(m.sender_name||'')}</div>${esc(m.message)}<div class="chat-time">${t}</div></div>`;
+    }).join('');
+    if(wasBottom)box.scrollTop=box.scrollHeight;
+  }catch(e){console.error('chat load',e);}
+}
+async function sendChatMsg(){
+  if(!_chatShiftId)return;
+  const inp=document.getElementById('chat-input');
+  const msg=inp.value.trim();if(!msg)return;
+  inp.value='';
+  try{
+    await fetch('/api/chat/'+_chatShiftId,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({message:msg})});
+    loadChatMessages();
+  }catch(e){toast('Ошибка отправки');}
+}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+// --- Shift photo upload ---
+let _photoInput=null;
+function pickShiftPhoto(shiftId,asgnId){
+  if(!_photoInput){_photoInput=document.createElement('input');_photoInput.type='file';_photoInput.accept='image/*';_photoInput.style.display='none';document.body.appendChild(_photoInput);}
+  _photoInput.onchange=()=>uploadShiftPhoto(shiftId,_photoInput);
+  _photoInput.click();
+}
+async function uploadShiftPhoto(shiftId,input){
+  const file=input.files[0];if(!file)return;
+  if(file.size>5*1024*1024){toast('Фото слишком большое (макс 5МБ)');return;}
+  toast('📸 Загрузка фото...');
+  try{
+    const reader=new FileReader();
+    const b64=await new Promise((res,rej)=>{reader.onload=()=>res(reader.result.split(',')[1]);reader.onerror=rej;reader.readAsDataURL(file);});
+    const r=await fetch('/api/upload-shift-photo',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({filename:file.name,data:b64,shift_id:shiftId})});
+    if(!r.ok){toast('Ошибка загрузки фото');return;}
+    const d=await r.json();
+    toast('✅ Фото добавлено');
+    render();
+  }catch(e){toast('Ошибка: '+e.message);}
+  input.value='';
+}
+</script>
+<script src="/push-client.js"></script>
+</body>
+</html>

@@ -19,7 +19,8 @@ async function syncToGoogleSheets(action, data) {
       params.set('data', JSON.stringify(data));
     }
     const r = await fetch(config.gasUrl + '?' + params.toString(), {
-      headers: { 'User-Agent': 'DispatcherPRO/1.0' }
+      headers: { 'User-Agent': 'DispatcherPRO/1.0' },
+      redirect: 'follow' // БАГ #4: GAS всегда редиректит — следуем
     });
     const result = await r.json();
     if (result.status === 'ok') {
@@ -39,7 +40,7 @@ async function syncToGoogleSheets(action, data) {
 async function fetchFromGAS(action) {
   try {
     const url = config.gasUrl + '?action=' + action;
-    const r = await fetch(url, { headers: { 'User-Agent': 'DispatcherPRO/1.0' } });
+    const r = await fetch(url, { headers: { 'User-Agent': 'DispatcherPRO/1.0' }, redirect: 'follow' });
     const result = await r.json();
     return result.status === 'ok' ? result.data : null;
   } catch (e) {
