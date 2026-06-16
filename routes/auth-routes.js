@@ -9,6 +9,52 @@ const { audit } = require('../modules/audit');
 const { tgSendMessage } = require('../modules/telegram');
 const { syncToGoogleSheets } = require('../modules/gas-sync');
 
+// IP → City cache (5min, 100 entries)
+const cityCache = new Map();
+
+// Extract first public IP from x-forwarded-for chain or raw IP
+function extractPublicIp(ipRaw) {
+  if (!ipRaw) return '';
+  // x-forwarded-for can be a comma-separated chain: "client.ip, proxy1.ip, proxy2.ip"
+  const ips = ipRaw.split(',').map(s => s.trim()).filter(Boolean);
+  for (const ip of ips) {
+    const clean = ip.replace(/^::ffff:/, '');
+    // Skip private/loopback IPs
+    if (clean === '127.0.0.1' || clean === '::1' || clean === 'unknown') continue;
+    if (clean.startsWith('10.') || clean.startsWith('192.168.')) continue;
+    // 172.16.x.x — 172.31.x.x
+    const m172 = clean.match(/^172\.(\d+)\./);
+    if (m172 && parseInt(m172[1]) >= 16 && parseInt(m172[1]) <= 31) continue;
+    return clean;
+  }
+  // Fallback: return first non-empty IP even if private
+  return ips[0]?.replace(/^::ffff:/, '') || '';
+}
+
+async function getCityByIp(ip) {
+  if (!ip || ip === 'unknown' || ip.startsWith('::') || ip === '127.0.0.1') return '';
+  if (cityCache.has(ip)) return cityCache.get(ip);
+  try {
+    const res = await fetch(`http://ip-api.com/json/${ip}?fields=city,country,status&lang=ru`, { signal: AbortSignal.timeout(5000) });
+    const data = await res.json();
+    const city = data.status === 'success' && data.country === 'Russia' ? (data.city || '') : '';
+    if (cityCache.size > 100) { const first = cityCache.keys().next().value; cityCache.delete(first); }
+    cityCache.set(ip, city);
+    return city;
+  } catch { return ''; }
+}
+
+// Обновить город у пользователя если пустой
+async function ensureCity(table, userId, ip) {
+  try {
+    const check = await (await sbFetch(table, `id=eq.${userId}&select=city&limit=1`)).json();
+    if (check.length && !check[0].city) {
+      const city = await getCityByIp(ip);
+      if (city) await sbFetch(table, `id=eq.${userId}`, { method: 'PATCH', body: JSON.stringify({ city }) });
+    }
+  } catch {}
+}
+
 // --- 2FA store: userId -> { code, expires, familyId } ---
 const twoFAStore = new Map();
 
@@ -33,7 +79,7 @@ function generate2FACode() {
 
 // --- Auth login ---
 async function handleLogin(req, res, cors) {
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ip = extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress);
   if (!checkRateLimit(ip)) return json(res, { ok: false, error: 'Слишком много попыток. Подождите 5 минут.' }, 429, cors);
 
   const body = await readBody(req);
@@ -60,6 +106,8 @@ async function handleLogin(req, res, cors) {
     resetRateLimit(ip);
     const token = createToken(u.id, u.role || (table === 'workers' ? 'worker' : table === 'clients' ? 'client' : 'owner'), table);
     audit('login_success', `${u.full_name || u.name} (${table})`, u.id, u.role, ip);
+    // Определить город если пустой (фоново, не блокируем вход)
+    ensureCity(table, u.id, ip).catch(()=>{});
 
     // Check if 2FA needed (owner/dispatcher with linked TG)
     const userRole = u.role || (table === 'workers' ? 'worker' : table === 'clients' ? 'client' : 'owner');
@@ -109,8 +157,14 @@ async function handleRegister(req, res, cors) {
     if (!regSession) {
       if (!['workers', 'clients', 'users'].includes(table)) return json(res, { ok: false, error: 'Регистрация недоступна для этого типа' }, 403, cors);
       if (table === 'users') {
-        if (data.role && data.role !== 'dispatcher') return json(res, { ok: false, error: 'Саморегистрация доступна только для диспетчеров' }, 403, cors);
-        data.role = data.role || 'dispatcher'; // Force role
+        // Allow owner self-registration only if no owners exist in DB
+        if (data.role === 'owner') {
+          const existing = await (await sbFetch('users', 'role=eq.owner&select=id&limit=1')).json();
+          if (existing.length > 0) return json(res, { ok: false, error: 'Владелец уже зарегистрирован' }, 403, cors);
+        } else {
+          if (data.role && data.role !== 'dispatcher') return json(res, { ok: false, error: 'Саморегистрация доступна только для диспетчеров' }, 403, cors);
+          data.role = data.role || 'dispatcher';
+        }
       }
     } else {
       if (!['owner', 'dispatcher'].includes(regSession.role)) return json(res, { ok: false, error: 'Нет прав для регистрации' }, 403, cors);
@@ -123,10 +177,17 @@ async function handleRegister(req, res, cors) {
       data[phoneField] = '+' + digits;
     }
 
-    // Проверка дубликата телефона
+    // Определить город по IP при регистрации
+    const regIp = extractPublicIp(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '');
+    if (!data.city) {
+      const regCity = await getCityByIp(regIp);
+      if (regCity) data.city = regCity;
+    }
+
+    // Проверка дубликата телефона (BUG-018 fix: encode + as %2B)
     if (data[phoneField]) {
-      const dupDigits = data[phoneField].replace(/[-+()\s]/g, '').replace(/^8/, '7');
-      const dupCheck = await (await sbFetch(table, `${phoneField}=ilike.%25${dupDigits.slice(-10)}%25&select=id,full_name&limit=1`)).json();
+      const encPhone = encodeURIComponent(data[phoneField]);
+      const dupCheck = await (await sbFetch(table, `${phoneField}=eq.${encPhone}&select=id&limit=1`)).json();
       if (dupCheck.length) {
         return json(res, { ok: false, error: 'Пользователь с таким номером уже зарегистрирован' }, 409, cors);
       }
@@ -148,7 +209,11 @@ async function handleRegister(req, res, cors) {
     if (sbRes.status < 300) {
       try {
         const regData = Array.isArray(JSON.parse(result)) ? JSON.parse(result)[0] : JSON.parse(result);
-        audit('register', `${regData.full_name || regData.name || ''} (${table})`, regData.id, regData.role || table, req.headers['x-forwarded-for'] || req.socket.remoteAddress);
+        audit('register', `${regData.full_name || regData.name || ''} (${table})`, regData.id, regData.role || table, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
+        // BUG-008: Auto-login after registration — return token
+        const newRole = regData.role || (table === 'workers' ? 'worker' : table === 'clients' ? 'client' : 'dispatcher');
+        const token = createToken(regData.id, newRole, table);
+        return json(res, { ok: true, token, user: { id: regData.id, full_name: regData.full_name || regData.name, phone: regData.phone || regData.contact || '', role: newRole } }, 201, cors);
       } catch(e) {}
     }
 
@@ -175,7 +240,7 @@ async function handleForgot(req, res, cors) {
     await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: hashPassword(newPass) }) });
     await tgSendMessage(u.telegram_chat_id, `🔑 Ваш новый пароль: <code>${newPass}</code>\n\nВойдите в систему и смените его в настройках.`);
     console.log('[TG] Password reset for', u.full_name);
-    audit('password_reset', u.full_name, u.id, table, req.headers['x-forwarded-for'] || req.socket.remoteAddress);
+    audit('password_reset', u.full_name, u.id, table, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
     json(res, { ok: true });
   } catch (e) {
     console.error('[Forgot] Error:', e.message);
@@ -197,10 +262,11 @@ async function handleAuthMe(req, res, cors) {
     if (u.is_active === false) return json(res, { ok: false, error: 'Аккаунт отключён' }, 403, cors);
 
     // Issue fresh token (extends session)
-    const freshToken = createToken(u.id, u.role || (table === 'workers' ? 'worker' : table === 'clients' ? 'client' : 'owner'), table);
+    const effectiveRole = u.role || (table === 'workers' ? 'worker' : table === 'clients' ? 'client' : 'owner');
+    const freshToken = createToken(u.id, effectiveRole, table);
     json(res, {
       ok: true, token: freshToken,
-      user: { id: u.id, full_name: u.full_name || u.name, phone: u.phone || u.contact || '', role: u.role, city: u.city || '', rate_per_hour: u.rate_per_hour, monthly_target_hours: u.monthly_target_hours, is_active: u.is_active }
+      user: { id: u.id, full_name: u.full_name || u.name, phone: u.phone || u.contact || '', role: effectiveRole, city: u.city || '', rate_per_hour: u.rate_per_hour, monthly_target_hours: u.monthly_target_hours, is_active: u.is_active }
     });
   } catch (e) { json(res, { ok: false, error: e.message }, 500, cors); }
 }
@@ -230,7 +296,7 @@ const TG_LOGIN_MAX = 5;
 const TG_LOGIN_WINDOW = 60 * 1000;
 
 async function handleTgLogin(req, res, cors) {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress;
+  const ip = extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress);
   const now = Date.now();
   const att = _tgLoginAttempts.get(ip);
   if (att && att.count >= TG_LOGIN_MAX && now < att.resetAt) {

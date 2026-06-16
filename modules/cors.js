@@ -5,12 +5,23 @@ const { config } = require('./config');
 
 function getCorsHeaders(req) {
   const origin = req.headers['origin'] || '';
-  const allowed = config.allowedOrigins.includes(origin) ? origin : '';
+  let allowed = '';
+
+  if (!origin) {
+    // No origin header — mobile apps, curl, Postman — allow
+    allowed = '*';
+  } else if (config.allowedOrigins.includes(origin)) {
+    allowed = origin;
+  } else {
+    // Unknown origin — block
+    allowed = '';
+  }
+
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Access-Control-Allow-Credentials': 'true'
+    'Access-Control-Allow-Credentials': allowed !== '*' ? 'true' : 'false'
   };
 }
 

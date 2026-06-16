@@ -1,0 +1,247 @@
+/**
+ * Dispatcher.PRO — Main entry point
+ */
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+const { config } = require('./modules/config');
+const { createRouter, startPolling } = require('./modules/routes');
+const { handlePushSubscription } = require('./notifications-module/push-route');
+const { runGasSync } = require('./modules/gas-sync');
+const { requireAuth } = require('./modules/auth');
+const { getCorsHeaders } = require('./modules/cors');
+const { sbHeaders } = require('./modules/db');
+const VERSION = '1.0.0';
+const { startMaxPolling } = require('./modules/max-bot');
+
+const { recordRequest } = require('./modules/monitoring');
+
+// Ensure receipts directory exists
+if (!fs.existsSync(config.receiptsDir)) fs.mkdirSync(config.receiptsDir, { recursive: true });
+
+// Auto-migration: add status column to payments table if missing
+const sbHeadersBase = sbHeaders;
+let _paymentStatusColExists = null; // null = unknown, true/false after check
+async function ensurePaymentStatusCol() {
+  if (_paymentStatusColExists !== null) return _paymentStatusColExists;
+  try {
+    const r = await fetch(`${config.sbUrl}/rest/v1/payments?select=id,status&limit=1`, { headers: sbHeadersBase() });
+    _paymentStatusColExists = (r.status === 200);
+    if (!_paymentStatusColExists) console.warn('[Migration] payments.status column missing. Please run SQL: ALTER TABLE payments ADD COLUMN IF NOT EXISTS status text DEFAULT \'paid\';');
+  } catch (e) { console.warn('[Migration] check failed:', e.message); _paymentStatusColExists = false; }
+  return _paymentStatusColExists;
+}
+ensurePaymentStatusCol();
+
+// Clean old receipts daily
+setInterval(() => {
+  const now = Date.now();
+  const dir = config.receiptsDir;
+  fs.promises.readdir(dir).then(files => Promise.all(
+    files.map(async f => {
+      try {
+        const stat = await fs.promises.stat(path.join(dir, f));
+        if (now - stat.mtimeMs > config.receiptTtlDays * 24 * 60 * 60 * 1000) {
+          await fs.promises.unlink(path.join(dir, f));
+          console.log('[Receipts] Deleted old file:', f);
+        }
+      } catch (_) {}
+    })
+  )).catch(() => {});
+}, 24 * 60 * 60 * 1000);
+
+// Ensure shift-photos directory exists
+const shiftPhotosDir = path.join(__dirname, 'data', 'shift-photos');
+if (!fs.existsSync(shiftPhotosDir)) fs.mkdirSync(shiftPhotosDir, { recursive: true });
+
+const router = createRouter();
+const server = http.createServer(async (req, res) => {
+  const startMs = Date.now();
+  const origEnd = res.end;
+  res.end = function (...args) {
+    recordRequest(req.url.split('?')[0], res.statusCode, Date.now() - startMs);
+    return origEnd.apply(res, args);
+  };
+  try {
+    // Shift photo upload endpoint
+    const urlPath = req.url.split('?')[0];
+    if (urlPath === '/api/upload-shift-photo' && req.method === 'POST') {
+      const authSession = requireAuth(req);
+      if (!authSession) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Auth required' })); }
+      const body = await new Promise((resolve, reject) => { let d = ''; req.on('data', c => d += c); req.on('end', () => resolve(d)); req.on('error', reject); });
+      try {
+        const { filename, data: b64, shift_id } = JSON.parse(body);
+        if (!filename || !b64 || !shift_id) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Missing fields' })); }
+        if (!/^[0-9a-f-]{36}$/.test(shift_id)) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Invalid shift_id' })); }
+        const buf = Buffer.from(b64, 'base64');
+        if (buf.length > 5 * 1024 * 1024) { res.writeHead(413, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'File too large' })); }
+        const fname = shift_id + '_' + Date.now() + '_' + String(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
+        fs.writeFileSync(path.join(shiftPhotosDir, fname), buf);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, filename: fname }));
+      } catch (e) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Upload error' })); }
+      return;
+    }
+    // Shift photo list endpoint
+    if (urlPath === '/api/shift-photos' && req.method === 'GET') {
+      const authSession = requireAuth(req);
+      if (!authSession) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Auth required' })); }
+      const params = new URL(req.url, 'http://localhost').searchParams;
+      const shiftId = params.get('shift_id');
+      if (!shiftId) { res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'shift_id required' })); }
+      try {
+        const files = fs.readdirSync(shiftPhotosDir).filter(f => f.startsWith(shiftId + '_'));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(files.map(f => ({ filename: f, url: '/shift-photos/' + f }))));
+      } catch (e) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify([])); }
+      return;
+    }
+    // Shift photo serve endpoint
+    if (urlPath.startsWith('/shift-photos/') || urlPath.includes('/shift-photos/')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Use /api/shift-photos endpoint' }));
+    }
+    // Also block direct access to data directory
+    const normalizedPath = path.normalize(urlPath);
+    if (normalizedPath.startsWith('/data/')) {
+      res.writeHead(403); return res.end('Forbidden');
+    }
+    // Shift photo serve endpoint (only via /shift-photos/ URL)
+    if (urlPath.startsWith('/shift-photos/')) {
+      const authSession = requireAuth(req);
+      const ext = path.extname(photoFile).toLowerCase();
+      const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp' }[ext] || 'application/octet-stream';
+      res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'no-cache' });
+      fs.createReadStream(photoFile).pipe(res);
+      return;
+    }
+    // Serve language files
+    if (urlPath === '/lang/ru.json' || urlPath === '/lang/en.json') {
+      const langFile = path.join(__dirname, 'lang', urlPath.replace('/lang/', ''));
+      if (fs.existsSync(langFile)) {
+        const data = fs.readFileSync(langFile, 'utf-8');
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*' });
+        res.end(data);
+      } else { res.writeHead(404); res.end('Not found'); }
+      return;
+    }
+    // Push subscription endpoint (изолированный модуль уведомлений)
+    if (req.url === '/api/push-subscription') {
+      const cors = getCorsHeaders(req);
+      return handlePushSubscription(req, res, cors);
+    }
+    await router(req, res);
+  } catch (e) {
+    console.error('Unhandled route error:', e.message);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+});
+
+server.listen(config.port, '0.0.0.0', () => {
+  console.log(`[Dispatcher.PRO] v${VERSION} started on :${config.port} | ${new Date().toISOString()}`);
+});
+
+// Global error handlers
+process.on('uncaughtException', (err) => { console.error('Uncaught:', err.message); });
+process.on('unhandledRejection', (err) => { console.error('Unhandled:', err); });
+
+// Start Telegram polling
+startPolling();
+
+// Start МАКС polling
+startMaxPolling();
+
+// Start GAS periodic sync (every 5 minutes)
+const sbFetchForSync = require('./modules/db').sbFetch;
+const { autoConfirmHours } = require('./routes/shift-routes');
+
+setInterval(() => runGasSync(sbFetchForSync), 5 * 60 * 1000);
+// Run once on startup after 30 seconds
+setTimeout(() => runGasSync(sbFetchForSync), 30000);
+console.log('[GAS-Sync] Periodic sync enabled (every 5 min)');
+
+// Auto-confirm client hours after 24h
+setInterval(autoConfirmHours, 30 * 60 * 1000);
+setTimeout(autoConfirmHours, 60000); // first run after 1 min
+console.log('[AutoConfirm] Client hours auto-confirm enabled (every 30 min)');
+
+// ===== Recurring orders: auto-create shifts daily =====
+async function processRecurringOrders() {
+  try {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun
+    if (dayOfWeek < 0 || dayOfWeek > 6) return;
+    // Get active recurring templates for today's day of week
+    const res = await fetch(`${config.sbUrl}/rest/v1/recurring_orders?is_active=eq.true&day_of_week=eq.${dayOfWeek}&select=*`, {
+      headers: sbHeaders()
+    });
+    const templates = await res.json();
+    if (!Array.isArray(templates) || !templates.length) return;
+
+    const todayStr = today.toISOString().slice(0, 10);
+    for (const t of templates) {
+      // Check if shift already exists for this template today
+      const checkRes = await fetch(
+        `${config.sbUrl}/rest/v1/shifts?client_id=eq.${t.client_id}&date=eq.${todayStr}&notes=like.*recurring:${t.id}*`,
+        { headers: sbHeaders() }
+      );
+      const existing = await checkRes.json();
+      if (Array.isArray(existing) && existing.length > 0) continue; // already created
+
+      // Create the shift
+      const shiftData = {
+        client_id: t.client_id,
+        date: todayStr,
+        start_time: t.time_start || '08:00',
+        status: 'planned',
+        object_address: t.object_address || null,
+        notes: `recurring:${t.id} ${t.notes || ''}`.trim(),
+        created_by: t.created_by || null
+      };
+      const createRes = await fetch(`${config.sbUrl}/rest/v1/shifts`, {
+        method: 'POST',
+        headers: { ...sbHeaders(), 'Prefer': 'return=representation' },
+        body: JSON.stringify(shiftData)
+      });
+      const created = await createRes.json();
+
+      if (Array.isArray(created) && created[0] && t.worker_id) {
+        // Auto-assign the worker
+        const asgnData = {
+          shift_id: created[0].id,
+          worker_id: t.worker_id,
+          invite_status: 'confirmed',
+          rate_per_hour: 0,
+          client_rate_per_hour: 0
+        };
+        await fetch(`${config.sbUrl}/rest/v1/shift_assignments`, {
+          method: 'POST',
+          headers: sbHeaders(),
+          body: JSON.stringify(asgnData)
+        });
+      }
+      console.log(`[Recurring] Created shift for template ${t.id} on ${todayStr}`);
+    }
+  } catch (e) {
+    console.error('[Recurring] Error:', e.message);
+  }
+}
+
+// Run recurring processing every day at midnight + on startup
+const RECURRING_INTERVAL = 24 * 60 * 60 * 1000;
+function scheduleRecurring() {
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(0, 5, 0, 0); // 00:05 UTC
+  if (next <= now) next.setDate(next.getDate() + 1);
+  const delay = next - now;
+  setTimeout(() => {
+    processRecurringOrders();
+    setInterval(processRecurringOrders, RECURRING_INTERVAL);
+  }, delay);
+}
+// Run once on startup (for today)
+setTimeout(processRecurringOrders, 60000);
+scheduleRecurring();
+console.log('[Recurring] Auto-shift creation enabled');

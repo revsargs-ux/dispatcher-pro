@@ -73,17 +73,32 @@ async function handleNotificationsDelete(req, res, cors) {
 }
 
 // --- Address suggest ---
+const addressCache = new Map();
+const CACHE_TTL = 300000; // 5 мин
+
 async function handleAddressSuggest(req, res, cors) {
   const params = new URL(req.url, 'http://localhost').searchParams;
   const q = params.get('q') || '';
   if (q.length < 2) return json(res, { suggestions: [] }, 200, cors);
+  // Кэш
+  const cached = addressCache.get(q);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return json(res, { suggestions: cached.data }, 200, cors);
   try {
-    const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ' Камчатский край')}&countrycodes=ru&limit=5&addressdetails=1&accept-language=ru`, {
-      headers: { 'User-Agent': 'DispatcherPRO/1.0' }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=ru&limit=5&accept-language=ru`, {
+      headers: { 'User-Agent': 'DispatcherPRO/1.0' },
+      signal: controller.signal
     });
+    clearTimeout(timer);
     const geoData = await geoRes.json();
-    json(res, { suggestions: geoData.map(r => ({ name: r.display_name, lat: r.lat, lon: r.lon })).slice(0, 5) }, 200, cors);
-  } catch (e) { json(res, { suggestions: [] }, 200, cors); }
+    const suggestions = geoData.map(r => ({ name: r.display_name, lat: r.lat, lon: r.lon })).slice(0, 5);
+    addressCache.set(q, { data: suggestions, ts: Date.now() });
+    if (addressCache.size > 100) { const first = addressCache.keys().next().value; addressCache.delete(first); }
+    json(res, { suggestions }, 200, cors);
+  } catch (e) {
+    json(res, { suggestions: addressCache.get(q)?.data || [] }, 200, cors);
+  }
 }
 
 // --- Telegram status ---

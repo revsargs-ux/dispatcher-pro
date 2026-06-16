@@ -30,3 +30,5 @@ time="2026-06-05T20:25:02Z" level=warning msg="/home/n8n/.openclaw/workspace/doc
  Container n8n-dispatcher-1 Error response from daemon: Conflict. The container name "/n8n-dispatcher-1" is already in use by container "edf76ace799e653fe2c697465157caee61d8698d71725c5836f075d23f82f9c7". You have to remove (or rename) that container to be able to reuse that name. 
 Error response from daemon: Conflict. The container name "/n8n-dispatcher-1" is already in use by container "edf76ace799e653fe2c697465157caee61d8698d71725c5836f075d23f82f9c7". You have to remove (or rename) that container to be able to reuse that name.
 {"ok":false,"error_code":401,"description":"Unauthorized"}[Fri Jun  5 08:25:07 PM UTC 2026] Container restarted
+[Tue Jun 16 01:55:01 PM UTC 2026] WARNING: Health check returned 502
+{"ok":false,"error_code":401,"description":"Unauthorized"}[Tue Jun 16 01:55:18 PM UTC 2026] Container restarted (health failed)

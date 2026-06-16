@@ -1,0 +1,214 @@
+/**
+ * Chat routes — client/worker/dispatcher messaging per shift
+ */
+const { sbFetch } = require('../modules/db');
+const { requireAuth } = require('../modules/auth');
+const { readBody, json } = require('./shared');
+const { config } = require('../modules/config');
+
+// --- Rate limit for bot forwarding: 1 per user per 2 seconds ---
+const _chatFwdLimit = new Map();
+function canForward(userId) {
+  const now = Date.now();
+  const last = _chatFwdLimit.get(userId) || 0;
+  if (now - last < 2000) return false;
+  _chatFwdLimit.set(userId, now);
+  return true;
+}
+
+// --- Send message via TG bot ---
+function sendTgMessage(chatId, text) {
+  return fetch(`${config.tgApi}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' })
+  }).catch(e => console.log('[Chat] TG send error:', e.message));
+}
+
+// --- Send message via MAX bot ---
+function sendMaxMessage(chatId, text) {
+  return fetch(`${config.maxApi}/messages?user_id=${chatId}`, {
+    method: 'POST',
+    headers: { 'Authorization': config.maxBotToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: text.slice(0, 4000) })
+  }).catch(e => console.log('[Chat] MAX send error:', e.message));
+}
+
+// --- Forward chat message to bots for the other party ---
+async function forwardChatToBots(shiftId, session, senderName, message) {
+  if (!canForward(session.userId)) return;
+
+  try {
+    // Get shift details with participants
+    const shiftRes = await sbFetch('shifts', `id=eq.${shiftId}&select=id,client_id`);
+    const shifts = await shiftRes.json();
+    if (!Array.isArray(shifts) || !shifts.length) return;
+    const shift = shifts[0];
+
+    const senderRole = session.role === 'owner' || session.role === 'dispatcher' ? 'dispatcher' : session.role;
+    const fwdText = `💬 <b>${escHtml(senderName)}</b>: ${escHtml(message)}`;
+
+    if (senderRole === 'worker') {
+      // Send to client
+      if (shift.client_id) {
+        const cRes = await sbFetch('clients', `id=eq.${shift.client_id}&select=telegram_chat_id,max_chat_id&limit=1`);
+        const clients = await cRes.json();
+        if (Array.isArray(clients) && clients[0]) {
+          const c = clients[0];
+          if (c.telegram_chat_id) sendTgMessage(c.telegram_chat_id, fwdText);
+          if (c.max_chat_id) sendMaxMessage(c.max_chat_id, fwdText.replace(/<\/?b>/g, ''));
+        }
+      }
+    } else if (senderRole === 'client') {
+      // Send to all assigned workers
+      const aRes = await sbFetch('shift_assignments', `shift_id=eq.${shiftId}&select=worker_id`);
+      const assignments = await aRes.json();
+      if (!Array.isArray(assignments)) return;
+      for (const a of assignments) {
+        const wRes = await sbFetch('workers', `id=eq.${a.worker_id}&select=telegram_chat_id,max_chat_id&limit=1`);
+        const workers = await wRes.json();
+        if (Array.isArray(workers) && workers[0]) {
+          const w = workers[0];
+          if (w.telegram_chat_id) sendTgMessage(w.telegram_chat_id, fwdText);
+          if (w.max_chat_id) sendMaxMessage(w.max_chat_id, fwdText.replace(/<\/?b>/g, ''));
+        }
+      }
+    }
+    // dispatcher messages: no forwarding needed (they see it in web)
+  } catch (e) {
+    console.error('[Chat] forwardChatToBots error:', e.message);
+  }
+}
+
+// --- HTML escape helper ---
+function escHtml(s) {
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// --- GET /api/chat/:shift_id — get messages ---
+async function handleChatGet(req, res, cors, urlPath) {
+  const session = requireAuth(req);
+  if (!session) return json(res, { error: 'Требуется авторизация' }, 401, cors);
+
+  const parts = urlPath.split('/');
+  const shiftId = parts[3]; // /api/chat/:shift_id
+  if (!shiftId || !/^[0-9a-f-]{36}$/.test(shiftId)) {
+    return json(res, { error: 'Неверный shift_id' }, 400, cors);
+  }
+
+  // Verify user has access to this shift
+  const hasAccess = await verifyShiftAccess(shiftId, session);
+  if (!hasAccess) return json(res, { error: 'Нет доступа к этому чату' }, 403, cors);
+
+  try {
+    const r = await sbFetch('chat_messages', `shift_id=eq.${shiftId}&order=created_at.asc&limit=100&select=id,sender_id,sender_role,sender_name,message,created_at`);
+    const data = await r.json();
+    if (!Array.isArray(data)) return json(res, [], 200, cors);
+    json(res, data, 200, cors);
+  } catch (e) {
+    console.error('Chat GET error:', e.message);
+    json(res, { error: 'Ошибка загрузки сообщений' }, 500, cors);
+  }
+}
+
+// Chat rate limit: userId -> { count, resetAt }
+const chatRateLimit = new Map();
+const CHAT_MAX = 10; // max messages per window
+const CHAT_WINDOW = 60 * 1000; // 1 minute
+
+// --- POST /api/chat/:shift_id — send message ---
+async function handleChatPost(req, res, cors, urlPath) {
+  const session = requireAuth(req);
+  if (!session) return json(res, { error: 'Требуется авторизация' }, 401, cors);
+
+  // Rate limit: max 10 messages per minute per user
+  const now = Date.now();
+  const rl = chatRateLimit.get(session.userId) || { count: 0, resetAt: now + CHAT_WINDOW };
+  if (now > rl.resetAt) { rl.count = 0; rl.resetAt = now + CHAT_WINDOW; }
+  rl.count++;
+  chatRateLimit.set(session.userId, rl);
+  if (rl.count > CHAT_MAX) return json(res, { error: 'Слишком много сообщений. Подождите минуту.' }, 429, cors);
+
+  const parts = urlPath.split('/');
+  const shiftId = parts[3];
+  if (!shiftId || !/^[0-9a-f-]{36}$/.test(shiftId)) {
+    return json(res, { error: 'Неверный shift_id' }, 400, cors);
+  }
+
+  // Verify user has access to this shift
+  const hasAccess = await verifyShiftAccess(shiftId, session);
+  if (!hasAccess) return json(res, { error: 'Нет доступа к этому чату' }, 403, cors);
+
+  const body = await readBody(req);
+  let parsed;
+  try {
+    parsed = JSON.parse(body);
+  } catch (e) {
+    return json(res, { error: 'Неверный JSON' }, 400, cors);
+  }
+
+  const message = (parsed.message || '').trim();
+  if (!message) return json(res, { error: 'Пустое сообщение' }, 400, cors);
+  if (message.length > 2000) return json(res, { error: 'Сообщение слишком длинное' }, 400, cors);
+
+  // Get sender name
+  let senderName = session.role === 'owner' ? 'Диспетчер' : session.fullName || 'Неизвестный';
+  if (session.role === 'owner' || session.role === 'dispatcher') {
+    // Try to get from users table
+    try {
+      const ur = await sbFetch('users', `id=eq.${session.userId}&select=full_name&limit=1`);
+      const ud = await ur.json();
+      if (Array.isArray(ud) && ud[0]?.full_name) senderName = ud[0].full_name;
+    } catch (e) {}
+  }
+
+  try {
+    const msg = {
+      shift_id: shiftId,
+      sender_id: session.userId,
+      sender_role: session.role === 'owner' || session.role === 'dispatcher' ? 'dispatcher' : session.role,
+      sender_name: senderName,
+      message
+    };
+    const r = await sbFetch('chat_messages', '', { method: 'POST', body: JSON.stringify(msg) });
+    const data = await r.text();
+    res.writeHead(r.status, { 'Content-Type': 'application/json', ...cors });
+    res.end(data);
+
+    // --- Forward to bots (async, don't block response) ---
+    forwardChatToBots(shiftId, session, senderName, message).catch(e =>
+      console.error('[Chat] Forward error:', e.message)
+    );
+  } catch (e) {
+    console.error('Chat POST error:', e.message);
+    json(res, { error: 'Ошибка отправки сообщения' }, 500, cors);
+  }
+}
+
+// --- Verify that user has access to shift chat ---
+async function verifyShiftAccess(shiftId, session) {
+  const role = session.role;
+
+  // Owner/dispatcher can access any shift chat
+  if (role === 'owner' || role === 'dispatcher') return true;
+
+  try {
+    if (role === 'worker') {
+      // Check if worker is assigned to this shift
+      const r = await sbFetch('shift_assignments', `shift_id=eq.${shiftId}&worker_id=eq.${session.userId}&select=id&limit=1`);
+      const data = await r.json();
+      return Array.isArray(data) && data.length > 0;
+    }
+    if (role === 'client') {
+      // Check if shift belongs to this client
+      const r = await sbFetch('shifts', `id=eq.${shiftId}&client_id=eq.${session.userId}&select=id&limit=1`);
+      const data = await r.json();
+      return Array.isArray(data) && data.length > 0;
+    }
+  } catch (e) {
+    console.error('verifyShiftAccess error:', e.message);
+  }
+  return false;
+}
+
+module.exports = { handleChatGet, handleChatPost };
