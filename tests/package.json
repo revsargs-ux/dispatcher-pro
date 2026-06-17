@@ -1,0 +1,11 @@
+{
+  "name": "dispatcher-pro-e2e",
+  "version": "1.0.0",
+  "description": "E2E tests for Dispatcher.PRO",
+  "scripts": {
+    "test": "NODE_PATH=/home/n8n/.npm-global/lib/node_modules node run.js",
+    "test:quick": "NODE_PATH=/home/n8n/.npm-global/lib/node_modules node run.js --quick",
+    "test:suite": "NODE_PATH=/home/n8n/.npm-global/lib/node_modules node run.js --suite"
+  },
+  "dependencies": {}
+}
