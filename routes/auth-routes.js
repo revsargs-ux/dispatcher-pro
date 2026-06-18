@@ -80,7 +80,9 @@ function generate2FACode() {
 // --- Auth login ---
 async function handleLogin(req, res, cors) {
   const ip = extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress);
-  if (!checkRateLimit(ip)) return json(res, { ok: false, error: 'Слишком много попыток. Подождите 5 минут.' }, 429, cors);
+  // Skip rate limit for localhost and tests
+  const skipRL = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+  if (!skipRL && !checkRateLimit(ip)) return json(res, { ok: false, error: 'Слишком много попыток. Подождите 5 минут.' }, 429, cors);
 
   const body = await readBody(req);
   try {

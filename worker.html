@@ -668,7 +668,7 @@ async function loadChatMessages(){
     if(!Array.isArray(msgs))return;
     const box=document.getElementById('chat-messages');
     const wasBottom=box.scrollTop+box.clientHeight>=box.scrollHeight-50;
-    if(!msgs.length){box.innerHTML='<div class="chat-empty">Сообщений пока нет</div>';return;}
+    if(!msgs.length){box.innerHTML='<div class="chat-empty">📭 Сообщений пока нет</div>';return;}
     box.innerHTML=msgs.map(m=>{
       const mine=m.sender_id===_chatMyId;
       const t=m.created_at?new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}):'';

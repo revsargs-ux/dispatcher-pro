@@ -4,6 +4,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Dispatcher.PRO</title>
 <link rel="manifest" href="/manifest.json">
 <!-- Leaflet removed: geo-tracking disabled -->
@@ -265,7 +268,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
     <input type="date" id="shift-date-from" style="width:130px">
     <input type="date" id="shift-date-to" style="width:130px">
     <select id="shift-client-filter" style="width:180px"><option value="">Все клиенты</option></select>
-    <button class="btn btn-outline" onclick="loadShifts()">🔍</button>
+    <button class="btn btn-outline" onclick="loadShifts()" aria-label="Найти">🔍</button>
   </div>
   <div class="loading" id="shifts-loading">⏳ Загрузка...</div>
   <div id="shifts-list"></div>
@@ -462,7 +465,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
   <input type="hidden" id="worker-edit-id">
   <div class="form-group"><label>ФИО</label><input type="text" id="worker-name"></div>
   <div class="form-group"><label>Телефон</label><input type="tel" id="worker-phone"></div>
-  <div class="form-group"><label>Пароль для входа</label><div style="display:flex;gap:6px;"><input type="text" id="worker-password" style="flex:1" placeholder="Авто"><button class="btn btn-sm btn-outline" onclick="document.getElementById('worker-password').value=String(Math.floor(100000+Math.random()*900000))">🔄</button></div></div>
+  <div class="form-group"><label>Пароль для входа</label><div style="display:flex;gap:6px;"><input type="text" id="worker-password" style="flex:1" placeholder="Авто"><button class="btn btn-sm btn-outline" onclick="document.getElementById('worker-password').value=String(Math.floor(100000+Math.random()*900000))" aria-label="Сгенерировать пароль">🔄</button></div></div>
   <button class="btn btn-primary" style="width:100%" onclick="saveWorker(this)" data-i18n="btn_save">Сохранить</button>
 </div></div>
 
@@ -471,7 +474,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
   <input type="hidden" id="client-edit-id">
   <div class="form-group"><label>Название</label><input type="text" id="client-name"></div>
   <div class="form-group"><label>Контактный телефон</label><input type="tel" id="client-contact" placeholder="+7..."></div>
-  <div class="form-group"><label>Пароль для входа</label><div style="display:flex;gap:6px;"><input type="text" id="client-password" style="flex:1" placeholder="Авто"><button class="btn btn-sm btn-outline" onclick="document.getElementById('client-password').value=String(Math.floor(100000+Math.random()*900000))">🔄</button></div></div>
+  <div class="form-group"><label>Пароль для входа</label><div style="display:flex;gap:6px;"><input type="text" id="client-password" style="flex:1" placeholder="Авто"><button class="btn btn-sm btn-outline" onclick="document.getElementById('client-password').value=String(Math.floor(100000+Math.random()*900000))" aria-label="Сгенерировать пароль">🔄</button></div></div>
   <div class="form-row">
     <div class="form-group"><label>Клиенту ₽/ч</label><input type="number" id="client-rate" value="520"></div>
     <div class="form-group"><label>Рабочему ₽/ч</label><input type="number" id="client-worker-rate" value="400"></div>
@@ -486,7 +489,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
   <input type="hidden" id="dispatcher-edit-id">
   <div class="form-group"><label>ФИО</label><input type="text" id="dispatcher-name"></div>
   <div class="form-group"><label>Телефон</label><input type="tel" id="dispatcher-phone" placeholder="+7..."></div>
-  <div class="form-group"><label>Пароль</label><div style="display:flex;gap:6px;"><input type="text" id="dispatcher-password" style="flex:1"><button class="btn btn-sm btn-outline" onclick="document.getElementById('dispatcher-password').value=String(Math.floor(100000+Math.random()*900000))">🔄</button></div></div>
+  <div class="form-group"><label>Пароль</label><div style="display:flex;gap:6px;"><input type="text" id="dispatcher-password" style="flex:1"><button class="btn btn-sm btn-outline" onclick="document.getElementById('dispatcher-password').value=String(Math.floor(100000+Math.random()*900000))" aria-label="Сгенерировать пароль">🔄</button></div></div>
   <div class="form-row">
     <div class="form-group"><label>Ставка ₽/час</label><input type="number" id="dispatcher-rate" value="7.5" step="0.5"></div>
     <div class="form-group"><label>Цель часов/мес</label><input type="number" id="dispatcher-target" value="8000"></div>
@@ -1037,7 +1040,7 @@ async function saveClient(btn){
 // ===== Dispatchers (owner only) =====
 async function loadDispatchers(){
   if(currentUser.role!=='owner')return;
-  const dispatchers=await api('users','GET',null,"?role=eq.dispatcher&order=full_name&select=id,full_name,phone,rate_per_hour,monthly_target_hours,is_active,telegram_chat_id");
+  const dispatchers=await api('users','GET',null,"?role=eq.dispatcher&order=full_name&select=id,full_name,phone,rate_per_hour,monthly_target_hours,is_active,telegram_chat_id,password");
   const monthStart=new Date().toISOString().split('T')[0].slice(0,8)+'01';
   // Single batch fetch instead of N+1
   const allAsgn=await api('shift_assignments','GET',null,`?select=hours_worked,shifts!inner(date,created_by)&shifts.date=gte.${monthStart}&limit=2000`);
@@ -1048,10 +1051,10 @@ async function loadDispatchers(){
     const totalH=hoursByDisp[d.id]||0;
     const rate=parseFloat(d.rate_per_hour)||7.5;
     const salary=Math.round(totalH*rate);
-    rows+=`<tr><td>${esc(d.full_name)}</td><td>${esc(d.phone)}</td><td>${rate}₽</td><td>${totalH.toLocaleString('ru')}ч</td><td><strong>${salary.toLocaleString('ru')}₽</strong></td>
+    rows+=`<tr><td>${esc(d.full_name)}</td><td>${esc(d.phone)}</td><td>${rate}₽</td><td>${totalH.toLocaleString('ru')}ч</td><td><strong>${salary.toLocaleString('ru')}₽</strong></td><td style="font-size:12px;color:var(--text-light);">${esc(d.password||'—')}</td><td><a href="https://xn----gtbdan3bddhceo9d.xn--p1ai" target="_blank" style="color:var(--primary);font-size:12px;">🔗 Войти</a></td>
       <td style="white-space:nowrap;"><button class="btn btn-sm btn-outline cpb" aria-label="Скопировать контакт" data-role="dispatcher" data-name="${esc(d.full_name)||''}" data-phone="${esc(d.phone)||''}">📋</button> <button class="btn btn-sm btn-outline" aria-label="Редактировать" onclick="editDispatcher('${d.id}')">✏️</button></td></tr>`;
   }
-  document.getElementById('dispatchers-table').innerHTML=rows||'<tr><td colspan="6" style="text-align:center;color:var(--text-light);">Нет диспетчеров</td></tr>';
+  document.getElementById('dispatchers-table').innerHTML=rows||'<tr><td colspan="8" style="text-align:center;color:var(--text-light);">Нет диспетчеров</td></tr>';
 }
 function openAddDispatcher(){
   document.getElementById('dispatcher-edit-id').value='';
@@ -1145,7 +1148,7 @@ function renderWorkerPayments(){
     return`<tr><td>${esc(wMap[a.worker_id])||'—'}</td><td>${esc(a.shifts?.clients?.name)||"\u2014"}</td><td>${formatDate(a.shifts?.date)}</td>
       <td>${h}ч</td><td>${total.toLocaleString('ru')}₽</td>
       <td><span class="badge ${paid?'badge-paid':'badge-unpaid'}">${paid?'Оплачено':'Не оплачено'}</span>${_payBtn(a)}</td></tr>`;
-  }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
+  }).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
 }
 
 function _payBtn(a){
@@ -1192,7 +1195,7 @@ function renderClientPayments(){
     return`<tr><td>${esc(a.shifts?.clients?.name)||"\u2014"}</td><td>${esc(wMap[a.worker_id])||'—'}</td><td>${formatDate(a.shifts?.date)}</td>
       <td>${h}ч</td><td>${total.toLocaleString('ru')}₽</td>
       <td><span class="badge ${paid?'badge-paid':'badge-unpaid'}">${paid?'Оплачено':'Не оплачено'}</span>${paid?'':" <button class=\"btn btn-sm btn-primary\" onclick=\"openPay('${a.id}',"+total+",'"+esc(a.shifts?.clients?.name||'')+"')\">💰</button>"}</td></tr>`;
-  }).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
+  }).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--text-light);">Нет данных</td></tr>';
 }
 
 async function loadPayments(){
@@ -1584,7 +1587,7 @@ function renderClientDetailPayments(){
     const confirmBtn=isPending?"<button class=\"btn btn-sm btn-success\" onclick=\"confirmClientPayment('"+p.id+"','"+p.assignment_id+"')\" style=\"padding:3px 8px;font-size:11px;\">✓ Подтвердить</button>":'';
     return`<tr style="${isPending?'background:var(--bg);':''}"><td>${formatDate((p.created_at||'').split('T')[0])}</td><td>${(parseFloat(p.amount)||0).toLocaleString('ru')}\u20bd</td><td>${p.method==='transfer'?'Перевод':p.method==='cash'?'Наличные':p.method==='card'?'Карта':p.method==='invoice'?'Безнал':p.method||'—'}</td><td>${statusBadge}</td><td>${noteHtml}</td><td>${confirmBtn}</td></tr>`;
   });
-  document.getElementById('cd-payments').innerHTML=rows.join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-light);">Нет платежей</td></tr>';
+  document.getElementById('cd-payments').innerHTML=rows.join('')||'<tr><td colspan="8" style="text-align:center;color:var(--text-light);">Нет платежей</td></tr>';
 }
 async function confirmClientPayment(paymentId,assignmentId){
   if(!confirm('Подтвердить оплату?'))return;

@@ -1,101 +1,77 @@
 # E2E Test Report
 
-**Date:** 2026-06-17T23:55:43.333Z
+**Date:** 2026-06-18T03:04:26.161Z
 **Status:** ❌ FAILED
-**Duration:** 270.7s
+**Duration:** 200.1s
 
 | Metric | Value |
 |---|---|
-| Total | 48 |
-| Passed | 42 |
-| Failed | 6 |
+| Total | 38 |
+| Passed | 35 |
+| Failed | 3 |
 | Warnings | 0 |
-| Success Rate | 88% |
+| Success Rate | 92% |
 
 ## Auth Tests
 
 | Test | Status | Duration | Details |
 |---|---|---|---|
-| Worker регистрация + автовход | ✅ pass | 3320ms |  |
-| Client регистрация + автовход | ✅ pass | 3432ms |  |
-| Dispatcher регистрация (через index) | ✅ pass | 2528ms |  |
-| Owner вход (существующий) | ✅ pass | 5385ms |  |
-| Wrong password → ошибка видна | ✅ pass | 3094ms |  |
-| Дубликат регистрации → ошибка видна | ✅ pass | 2531ms |  |
-| Logout → возвращается на форму входа | ✅ pass | 5313ms |  |
-| Авторизация на всех 4 страницах | ✅ pass | 8449ms |  |
+| Worker регистрация + автовход | ✅ pass | 3345ms |  |
+| Client регистрация + автовход | ✅ pass | 3422ms |  |
+| Dispatcher регистрация (через index) | ✅ pass | 2447ms |  |
+| Owner вход (существующий) | ✅ pass | 5336ms |  |
+| Wrong password → ошибка видна | ✅ pass | 3092ms |  |
+| Дубликат регистрации → ошибка видна | ✅ pass | 2524ms |  |
+| Logout → возвращается на форму входа | ✅ pass | 5321ms |  |
+| Авторизация на всех 4 страницах | ✅ pass | 8334ms |  |
 
 ## Shift Lifecycle Tests
 
 | Test | Status | Duration | Details |
 |---|---|---|---|
-| [Dispatcher] Создать смену на завтра | ✅ pass | 5375ms |  |
+| [Dispatcher] Создать смену на завтра | ✅ pass | 5356ms |  |
 | [Dispatcher] Пригласить рабочего | ✅ pass | 5298ms |  |
-| [Worker] Смена видна в списке | ✅ pass | 4833ms |  |
-| [Worker] Нажать Подтвердить | ✅ pass | 5231ms |  |
-| [Worker] Нажать Начать работу | ✅ pass | 5235ms |  |
-| [Worker] Нажать Завершить | ✅ pass | 5232ms |  |
-| [Dispatcher] Ввести часы | ✅ pass | 5348ms |  |
-| [Client] Подтвердить часы | ✅ pass | 5322ms |  |
-| [Dispatcher] Ввести оплату | ✅ pass | 5316ms |  |
-| [Dispatcher] Закрыть смену | ✅ pass | 5302ms |  |
+| [Worker] Смена видна в списке | ✅ pass | 5201ms |  |
+| [Worker] Нажать Подтвердить | ✅ pass | 5242ms |  |
+| [Worker] Нажать Начать работу | ✅ pass | 5261ms |  |
+| [Worker] Нажать Завершить | ✅ pass | 5240ms |  |
+| [Dispatcher] Ввести часы | ✅ pass | 5342ms |  |
+| [Client] Подтвердить часы | ✅ pass | 5290ms |  |
+| [Dispatcher] Ввести оплату | ✅ pass | 5297ms |  |
+| [Dispatcher] Закрыть смену | ✅ pass | 5312ms |  |
 
 ## UX Audit
 
 | Test | Status | Duration | Details |
 |---|---|---|---|
-| Все кнопки имеют читаемый текст (не пустые) | ✅ pass | 6999ms |  |
-| Placeholder'ы в input информативны | ✅ pass | 7008ms |  |
-| Toast-сообщения появляются при действии | ❌ fail | 4733ms | No toast or error shown after failed login |
-| Пустые состояния (📭) на страницах без данных | ❌ fail | 5776ms | No empty state shown when no data |
-| При ошибке сети показывается toast | ✅ pass | 4760ms |  |
-| Пароль скрывается за точками (type=password) | ✅ pass | 8003ms |  |
-| Телефон форматируется при вводе | ✅ pass | 2144ms |  |
-| Спиннер появляется при загрузке данных | ✅ pass | 4866ms |  |
-| Кнопки имеют min-height:44px | ❌ fail | 7395ms | owner: 6 buttons below 44px: ◀: 36px, ▶: 36px, 📥 CSV: 36px |
-| Заголовки страниц корректны | ✅ pass | 8011ms |  |
-| Ссылки кабинетов на index.html видны | ✅ pass | 1534ms |  |
-| confirm() появляется при удалении | ✅ pass | 1036ms |  |
+| Все кнопки имеют читаемый текст (не пустые) | ✅ pass | 7011ms |  |
+| Placeholder'ы в input информативны | ✅ pass | 7012ms |  |
+| Toast-сообщения появляются при действии | ✅ pass | 5701ms |  |
+| Пустые состояния (📭) на страницах без данных | ❌ fail | 8786ms | listHtml is not defined |
+| При ошибке сети показывается toast | ✅ pass | 4741ms |  |
+| Пароль скрывается за точками (type=password) | ✅ pass | 8020ms |  |
+| Телефон форматируется при вводе | ✅ pass | 2128ms |  |
+| Спиннер появляется при загрузке данных | ✅ pass | 4797ms |  |
+| Кнопки имеют min-height:44px | ✅ pass | 7550ms |  |
+| Заголовки страниц корректны | ✅ pass | 8020ms |  |
+| Ссылки кабинетов на index.html видны | ✅ pass | 1535ms |  |
+| confirm() появляется при удалении | ✅ pass | 1025ms |  |
 
 ## Accessibility Tests
 
 | Test | Status | Duration | Details |
 |---|---|---|---|
-| Кнопки с emoji имеют aria-label | ❌ fail | 1543ms | dispatcher: emoji buttons without aria-label: <button class="btn btn-outline" onclick="loadShifts()">🔍</button>, <button class="btn btn-sm btn-outline" onclick="document.getElementById('worker-password').value=Str, <button class="btn btn-sm btn-outline" onclick="document.getElementById('client-password').value=Str |
-| Tab order логичный (вход → пароль → кнопка) | ✅ pass | 1657ms |  |
-| Focus сохраняется после закрытия модалки | ✅ pass | 2055ms |  |
-| Alt text на изображениях | ✅ pass | 6689ms |  |
-| Color contrast — текст читаем на фоне | ❌ fail | 1533ms | Poor contrast on 13 elements: "Dispatcher.PRO" ratio: 1.7, "Зарегистрироваться" ratio: 1.7, "Войти" ratio: 1.7 |
-| Focus visible indicator при tab navigation | ✅ pass | 1244ms |  |
+| Кнопки с emoji имеют aria-label | ❌ fail | 1535ms | dispatcher: 6 emoji buttons without aria-label: <button class="btn btn-sm btn-outline" onclick="document.getElementById('worker-password').value=Str, <button class="btn btn-sm btn-outline" onclick="document.getElementById('client-password').value=Str, <button class="btn btn-sm btn-outline" onclick="document.getElementById('dispatcher-password').value |
+| Tab order логичный (вход → пароль → кнопка) | ✅ pass | 1658ms |  |
+| Focus сохраняется после закрытия модалки | ✅ pass | 2081ms |  |
+| Alt text на изображениях | ✅ pass | 6646ms |  |
+| Color contrast — текст читаем на фоне | ✅ pass | 1531ms |  |
+| Focus visible indicator при tab navigation | ✅ pass | 1251ms |  |
 
 ## Security Tests
 
 | Test | Status | Duration | Details |
 |---|---|---|---|
-| Нет API ключей Supabase в HTML | ✅ pass | 7382ms |  |
-| Нет Dadata токенов в HTML | ✅ pass | 8036ms |  |
-| Нет паролей в API ответах | ✅ pass | 900ms |  |
-| JWT token хранится в localStorage, не в куках | ✅ pass | 2872ms |  |
-| Нет eval() или innerHTML с user data | ✅ pass | 6629ms |  |
-
-## Performance Tests
-
-| Test | Status | Duration | Details |
-|---|---|---|---|
-| Время загрузки каждой страницы < 3s | ✅ pass | 4972ms |  |
-| Console не содержит ошибок JS | ❌ fail | 14071ms | Console errors found:
-dispatcher: Manifest fetch from http://localhost:3000/manifest.json failed, code 403
-worker: Manifest fetch from http://localhost:3000/manifest.json failed, code 403; showMain error: ReferenceError: showMain is not defined
-client: Manifest fetch from http://localhost:3000/manifest.json failed, code 403
-owner: A bad HTTP response code (403) was received when fetching the script.; Manifest fetch from http://localhost:3000/manifest.json failed, code 403 |
-| Количество сетевых запросов при загрузке < 20 | ✅ pass | 10188ms |  |
-| Размер DOM не превышает 5000 узлов | ✅ pass | 7740ms |  |
-
-## Visual Tests
-
-| Test | Status | Duration | Details |
-|---|---|---|---|
-| Скриншот каждой страницы в мобильном viewport | ✅ pass | 10400ms |  |
-| Скриншот каждой страницы в desktop viewport | ✅ pass | 10786ms |  |
-| Скриншот owner.html в dark mode | ✅ pass | 2688ms |  |
+| Нет API ключей Supabase в HTML | ✅ pass | 7617ms |  |
+| Нет Dadata токенов в HTML | ❌ fail | 6179ms | Navigating frame was detached |
 
