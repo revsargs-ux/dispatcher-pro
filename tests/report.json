@@ -1,175 +1,350 @@
 {
-  "timestamp": "2026-06-17T23:40:34.480Z",
+  "timestamp": "2026-06-17T23:55:43.333Z",
   "stats": {
-    "total": 23,
-    "passed": 17,
+    "total": 48,
+    "passed": 42,
     "failed": 6,
     "warnings": 0,
     "skipped": 0,
-    "pct": 74,
-    "duration": "111.5"
+    "pct": 88,
+    "duration": "270.7"
   },
   "results": [
     {
       "suite": "Auth Tests",
       "name": "Worker регистрация + автовход",
       "status": "pass",
-      "duration": 3322,
+      "duration": 3320,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Client регистрация + автовход",
       "status": "pass",
-      "duration": 3403,
+      "duration": 3432,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Dispatcher регистрация (через index)",
       "status": "pass",
-      "duration": 2525,
+      "duration": 2528,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Owner вход (существующий)",
       "status": "pass",
-      "duration": 5314,
+      "duration": 5385,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Wrong password → ошибка видна",
       "status": "pass",
-      "duration": 3106,
+      "duration": 3094,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Дубликат регистрации → ошибка видна",
       "status": "pass",
-      "duration": 2440,
+      "duration": 2531,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Logout → возвращается на форму входа",
       "status": "pass",
-      "duration": 5246,
+      "duration": 5313,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Авторизация на всех 4 страницах",
       "status": "pass",
-      "duration": 8364,
+      "duration": 8449,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Dispatcher] Создать смену на завтра",
       "status": "pass",
-      "duration": 5420,
+      "duration": 5375,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Dispatcher] Пригласить рабочего",
-      "status": "fail",
-      "duration": 1007,
-      "error": "No tabs found"
+      "status": "pass",
+      "duration": 5298,
+      "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Worker] Смена видна в списке",
       "status": "pass",
-      "duration": 5223,
+      "duration": 4833,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Worker] Нажать Подтвердить",
       "status": "pass",
-      "duration": 1,
+      "duration": 5231,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Worker] Нажать Начать работу",
       "status": "pass",
-      "duration": 4,
+      "duration": 5235,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Worker] Нажать Завершить",
       "status": "pass",
-      "duration": 2,
+      "duration": 5232,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Dispatcher] Ввести часы",
       "status": "pass",
-      "duration": 5024,
+      "duration": 5348,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Client] Подтвердить часы",
       "status": "pass",
-      "duration": 5307,
+      "duration": 5322,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Dispatcher] Ввести оплату",
       "status": "pass",
-      "duration": 5233,
+      "duration": 5316,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Dispatcher] Закрыть смену",
+      "status": "pass",
+      "duration": 5302,
+      "details": ""
+    },
+    {
+      "suite": "UX Audit",
+      "name": "Все кнопки имеют читаемый текст (не пустые)",
+      "status": "pass",
+      "duration": 6999,
+      "details": ""
+    },
+    {
+      "suite": "UX Audit",
+      "name": "Placeholder'ы в input информативны",
+      "status": "pass",
+      "duration": 7008,
+      "details": ""
+    },
+    {
+      "suite": "UX Audit",
+      "name": "Toast-сообщения появляются при действии",
       "status": "fail",
-      "duration": 1005,
-      "error": "Header not visible"
+      "duration": 4733,
+      "error": "No toast or error shown after failed login"
+    },
+    {
+      "suite": "UX Audit",
+      "name": "Пустые состояния (📭) на страницах без данных",
+      "status": "fail",
+      "duration": 5776,
+      "error": "No empty state shown when no data"
+    },
+    {
+      "suite": "UX Audit",
+      "name": "При ошибке сети показывается toast",
+      "status": "pass",
+      "duration": 4760,
+      "details": ""
+    },
+    {
+      "suite": "UX Audit",
+      "name": "Пароль скрывается за точками (type=password)",
+      "status": "pass",
+      "duration": 8003,
+      "details": ""
+    },
+    {
+      "suite": "UX Audit",
+      "name": "Телефон форматируется при вводе",
+      "status": "pass",
+      "duration": 2144,
+      "details": ""
+    },
+    {
+      "suite": "UX Audit",
+      "name": "Спиннер появляется при загрузке данных",
+      "status": "pass",
+      "duration": 4866,
+      "details": ""
+    },
+    {
+      "suite": "UX Audit",
+      "name": "Кнопки имеют min-height:44px",
+      "status": "fail",
+      "duration": 7395,
+      "error": "owner: 6 buttons below 44px: ◀: 36px, ▶: 36px, 📥 CSV: 36px"
+    },
+    {
+      "suite": "UX Audit",
+      "name": "Заголовки страниц корректны",
+      "status": "pass",
+      "duration": 8011,
+      "details": ""
+    },
+    {
+      "suite": "UX Audit",
+      "name": "Ссылки кабинетов на index.html видны",
+      "status": "pass",
+      "duration": 1534,
+      "details": ""
+    },
+    {
+      "suite": "UX Audit",
+      "name": "confirm() появляется при удалении",
+      "status": "pass",
+      "duration": 1036,
+      "details": ""
+    },
+    {
+      "suite": "Accessibility Tests",
+      "name": "Кнопки с emoji имеют aria-label",
+      "status": "fail",
+      "duration": 1543,
+      "error": "dispatcher: emoji buttons without aria-label: <button class=\"btn btn-outline\" onclick=\"loadShifts()\">🔍</button>, <button class=\"btn btn-sm btn-outline\" onclick=\"document.getElementById('worker-password').value=Str, <button class=\"btn btn-sm btn-outline\" onclick=\"document.getElementById('client-password').value=Str"
+    },
+    {
+      "suite": "Accessibility Tests",
+      "name": "Tab order логичный (вход → пароль → кнопка)",
+      "status": "pass",
+      "duration": 1657,
+      "details": ""
+    },
+    {
+      "suite": "Accessibility Tests",
+      "name": "Focus сохраняется после закрытия модалки",
+      "status": "pass",
+      "duration": 2055,
+      "details": ""
+    },
+    {
+      "suite": "Accessibility Tests",
+      "name": "Alt text на изображениях",
+      "status": "pass",
+      "duration": 6689,
+      "details": ""
+    },
+    {
+      "suite": "Accessibility Tests",
+      "name": "Color contrast — текст читаем на фоне",
+      "status": "fail",
+      "duration": 1533,
+      "error": "Poor contrast on 13 elements: \"Dispatcher.PRO\" ratio: 1.7, \"Зарегистрироваться\" ratio: 1.7, \"Войти\" ratio: 1.7"
+    },
+    {
+      "suite": "Accessibility Tests",
+      "name": "Focus visible indicator при tab navigation",
+      "status": "pass",
+      "duration": 1244,
+      "details": ""
     },
     {
       "suite": "Security Tests",
       "name": "Нет API ключей Supabase в HTML",
-      "status": "fail",
-      "duration": 8551,
-      "error": "Waiting failed: 5000ms exceeded"
+      "status": "pass",
+      "duration": 7382,
+      "details": ""
     },
     {
       "suite": "Security Tests",
       "name": "Нет Dadata токенов в HTML",
-      "status": "fail",
-      "duration": 8577,
-      "error": "Waiting failed: 5000ms exceeded"
+      "status": "pass",
+      "duration": 8036,
+      "details": ""
     },
     {
       "suite": "Security Tests",
       "name": "Нет паролей в API ответах",
       "status": "pass",
-      "duration": 436,
+      "duration": 900,
       "details": ""
     },
     {
       "suite": "Security Tests",
       "name": "JWT token хранится в localStorage, не в куках",
-      "status": "fail",
-      "duration": 5809,
-      "error": "Waiting failed: 5000ms exceeded"
+      "status": "pass",
+      "duration": 2872,
+      "details": ""
     },
     {
       "suite": "Security Tests",
       "name": "Нет eval() или innerHTML с user data",
+      "status": "pass",
+      "duration": 6629,
+      "details": ""
+    },
+    {
+      "suite": "Performance Tests",
+      "name": "Время загрузки каждой страницы < 3s",
+      "status": "pass",
+      "duration": 4972,
+      "details": ""
+    },
+    {
+      "suite": "Performance Tests",
+      "name": "Console не содержит ошибок JS",
       "status": "fail",
-      "duration": 8554,
-      "error": "Waiting failed: 5000ms exceeded"
+      "duration": 14071,
+      "error": "Console errors found:\ndispatcher: Manifest fetch from http://localhost:3000/manifest.json failed, code 403\nworker: Manifest fetch from http://localhost:3000/manifest.json failed, code 403; showMain error: ReferenceError: showMain is not defined\nclient: Manifest fetch from http://localhost:3000/manifest.json failed, code 403\nowner: A bad HTTP response code (403) was received when fetching the script.; Manifest fetch from http://localhost:3000/manifest.json failed, code 403"
+    },
+    {
+      "suite": "Performance Tests",
+      "name": "Количество сетевых запросов при загрузке < 20",
+      "status": "pass",
+      "duration": 10188,
+      "details": ""
+    },
+    {
+      "suite": "Performance Tests",
+      "name": "Размер DOM не превышает 5000 узлов",
+      "status": "pass",
+      "duration": 7740,
+      "details": ""
+    },
+    {
+      "suite": "Visual Tests",
+      "name": "Скриншот каждой страницы в мобильном viewport",
+      "status": "pass",
+      "duration": 10400,
+      "details": ""
+    },
+    {
+      "suite": "Visual Tests",
+      "name": "Скриншот каждой страницы в desktop viewport",
+      "status": "pass",
+      "duration": 10786,
+      "details": ""
+    },
+    {
+      "suite": "Visual Tests",
+      "name": "Скриншот owner.html в dark mode",
+      "status": "pass",
+      "duration": 2688,
+      "details": ""
     }
   ]
 }

@@ -13,7 +13,7 @@
 const config = require('./config');
 const reporter = require('./lib/reporter');
 const br = require('./lib/browser');
-const { ensureTestAccounts } = require('./lib/api-client');
+const { ensureTestAccounts, cleanupTestData } = require('./lib/api-client');
 const fs = require('fs');
 const path = require('path');
 
@@ -173,6 +173,16 @@ async function main() {
     console.error(error.stack);
   } finally {
     await br.close(browser);
+  }
+
+  // Cleanup test data
+  console.log('\n  🧹 Cleaning up test data...');
+  try {
+    const cleanup = await cleanupTestData();
+    cleanup.deleted.forEach(d => console.log(`  ✅ Cleaned ${d.table}: ${d.count} rows`));
+    if (cleanup.errors.length) console.log(`  ⚠️  Cleanup warnings: ${cleanup.errors.length}`);
+  } catch (e) {
+    console.log(`  ⚠️  Cleanup error: ${e.message}`);
   }
 
   // Write reports

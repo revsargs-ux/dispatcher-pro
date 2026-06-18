@@ -133,10 +133,55 @@ async function ensureTestAccounts() {
   return results;
 }
 
+/**
+ * Cleanup test data from DB (runs after all tests)
+ */
+async function cleanupTestData() {
+  const results = { deleted: [], errors: [] };
+  const tables = ['chat_messages', 'payments', 'shift_assignments', 'shifts', 'recurring_orders'];
+  
+  for (const table of tables) {
+    try {
+      // Get all IDs
+      const res = await request('GET', `/api/${table}?select=id&limit=1000`);
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        const ids = res.data.map(r => r.id);
+        // Delete by query (Supabase needs filter)
+        for (const id of ids) {
+          await request('DELETE', `/api/${table}?id=eq.${id}`);
+        }
+        results.deleted.push({ table, count: ids.length });
+      }
+    } catch (e) {
+      results.errors.push({ table, error: e.message });
+    }
+  }
+  
+  // Reset rate limit
+  try {
+    await request('POST', '/auth/logout', {});
+  } catch (e) {}
+  
+  return results;
+}
+
+/**
+ * Reset auth rate limit (call before auth tests)
+ */
+async function resetRateLimit() {
+  try {
+    // Just login with wrong pass to reset the window isn't needed since localhost is whitelisted
+    // But we can hit a reset endpoint if one exists
+    await request('POST', '/auth/login', { table: 'workers', phone: '+70000000000', pass: 'reset' });
+  } catch (e) {}
+}
+
 module.exports = {
   request,
   login,
   register,
   getMe,
-  ensureTestAccounts
+  ensureTestAccounts,
+  cleanupTestData,
+  resetRateLimit
 };
