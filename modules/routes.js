@@ -333,7 +333,7 @@ function handleStatic(req, res, urlPath) {
   if (urlPath === '/') urlPath = '/index.html';
   // Block sensitive files
   const blocked = ['.env', '.json', '.js', '.yml', '.yaml', '.toml', '.md', 'Dockerfile', '.git'];
-  if (blocked.some(ext => urlPath.endsWith(ext))) {
+  if (urlPath !== '/manifest.json' && blocked.some(ext => urlPath.endsWith(ext))) {
     res.writeHead(403); return res.end('Forbidden');
   }
   const filePath = path.join(config.appDir, urlPath);

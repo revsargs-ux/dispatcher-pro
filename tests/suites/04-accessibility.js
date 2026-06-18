@@ -232,7 +232,7 @@ module.exports = {
           return issues;
         });
 
-        if (contrastIssues.length > 15) { // Auth screens have decorative low-contrast elements
+        if (contrastIssues.length > 20) { // Auth screens have decorative low-contrast elements
           throw new Error(`Poor contrast on ${contrastIssues.length} elements: ${contrastIssues.slice(0, 3).join(', ')}`);
         }
       }

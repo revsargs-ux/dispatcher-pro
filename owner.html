@@ -148,10 +148,10 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
 
 <div id="panel-overview" class="panel active">
   <div class="month-nav">
-    <button onclick="changeMonth(-1)" aria-label="Предыдущий месяц">◀</button>
+    <button onclick="changeMonth(-1)" aria-label="Предыдущий месяц" style="min-height:44px;min-width:44px">◀</button>
     <span class="month-label" id="month-label"></span>
-    <button onclick="changeMonth(1)" aria-label="Следующий месяц">▶</button>
-    <button class="btn btn-outline btn-sm" onclick="exportCSV()" style="margin-left:auto;" data-i18n="btn_export_csv">📥 CSV</button>
+    <button onclick="changeMonth(1)" aria-label="Следующий месяц" style="min-height:44px;min-width:44px">▶</button>
+    <button class="btn btn-outline btn-sm" onclick="exportCSV()" style="margin-left:auto;min-height:44px" data-i18n="btn_export_csv">📥 CSV</button>
     <button class="btn btn-outline btn-sm" onclick="exportPDF()" data-i18n="btn_export_pdf">📄 PDF</button>
   </div>
   <div class="stat-grid" id="overview-stats"></div>
@@ -160,9 +160,9 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
 
 <div id="panel-analytics" class="panel">
   <div class="month-nav">
-    <button onclick="changeMonth(-1)" aria-label="Предыдущий месяц">◀</button>
+    <button onclick="changeMonth(-1)" aria-label="Предыдущий месяц" style="min-height:44px;min-width:44px">◀</button>
     <span class="month-label" id="analytics-month"></span>
-    <button onclick="changeMonth(1)" aria-label="Следующий месяц">▶</button>
+    <button onclick="changeMonth(1)" aria-label="Следующий месяц" style="min-height:44px;min-width:44px">▶</button>
   </div>
   <div class="stat-grid">
     <div class="stat-card"><div class="num" id="kpi-avg-check">—</div><div class="label">Средний чек / смена</div></div>
