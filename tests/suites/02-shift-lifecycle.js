@@ -66,8 +66,7 @@ module.exports = {
       name: '[Dispatcher] Пригласить рабочего',
       viewport: 'desktop',
       run: async ({ page }) => {
-        // Same page from test 1, just verify tabs exist
-        await sleep(1000);
+        await loginAndShow(page, 'owner');
         const tabCount = await page.evaluate(() => document.querySelectorAll('.tab').length);
         if (tabCount === 0) throw new Error('No tabs found');
       }
@@ -88,6 +87,7 @@ module.exports = {
       name: '[Worker] Нажать Подтвердить',
       viewport: 'mobile',
       run: async ({ page }) => {
+        await loginAndShow(page, 'worker');
         const hasBtn = await page.evaluate(() => !!document.querySelector('[onclick*="confirmed"], .btn-accept'));
         if (!hasBtn) console.log('    ℹ️  No pending shifts to accept');
       }
@@ -96,6 +96,7 @@ module.exports = {
       name: '[Worker] Нажать Начать работу',
       viewport: 'mobile',
       run: async ({ page }) => {
+        await loginAndShow(page, 'worker');
         const hasBtn = await page.evaluate(() => !!document.querySelector('[onclick*="startWork"], .btn-work'));
         if (!hasBtn) console.log('    ℹ️  No confirmed shifts to start');
       }
@@ -104,6 +105,7 @@ module.exports = {
       name: '[Worker] Нажать Завершить',
       viewport: 'mobile',
       run: async ({ page }) => {
+        await loginAndShow(page, 'worker');
         const hasBtn = await page.evaluate(() => !!document.querySelector('[onclick*="endWork"]'));
         if (!hasBtn) console.log('    ℹ️  No active shifts to end');
       }
@@ -145,8 +147,7 @@ module.exports = {
       name: '[Dispatcher] Закрыть смену',
       viewport: 'desktop',
       run: async ({ page }) => {
-        // Same page, just verify header visible
-        await sleep(1000);
+        await loginAndShow(page, 'owner');
         const header = await page.evaluate(() => {
           const h = document.querySelector('.header');
           return h && getComputedStyle(h).display !== 'none';
