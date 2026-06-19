@@ -147,7 +147,7 @@ async function handleChatPost(req, res, cors, urlPath) {
     return json(res, { error: 'Неверный JSON' }, 400, cors);
   }
 
-  const message = (parsed.message || '').trim();
+  const message = (parsed.message || '').trim().replace(/<[^>]*>/g, '');
   if (!message) return json(res, { error: 'Пустое сообщение' }, 400, cors);
   if (message.length > 2000) return json(res, { error: 'Сообщение слишком длинное' }, 400, cors);
 
