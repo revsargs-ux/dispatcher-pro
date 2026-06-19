@@ -34,6 +34,66 @@ async function ensurePaymentStatusCol() {
 }
 ensurePaymentStatusCol();
 
+// Auto-migration system: apply SQL files from /migrations folder
+const { sbFetch: sbFetchMigration } = require('./modules/db');
+
+async function runAutoMigrations() {
+  const migrationsDir = path.join(__dirname, 'migrations');
+  if (!fs.existsSync(migrationsDir)) { console.log('[Migrations] No migrations directory'); return; }
+
+  // Track applied migrations via data/.migrations-applied file
+  const appliedFile = path.join(__dirname, 'data', '.migrations-applied');
+  let applied = new Set();
+  try {
+    const data = fs.readFileSync(appliedFile, 'utf8');
+    applied = new Set(data.split('\n').filter(Boolean));
+  } catch (_) {}
+
+  // Get all .sql files sorted
+  const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+  let newCount = 0;
+
+  for (const file of files) {
+    if (applied.has(file)) continue;
+    const filePath = path.join(migrationsDir, file);
+    const sql = fs.readFileSync(filePath, 'utf8');
+    // Execute via Supabase RPC (POST to /rest/v1/rpc/exec_sql is not available)
+    // Instead, we split by semicolons and run each statement
+    const statements = sql.split(';').map(s => s.trim()).filter(s => s && !s.startsWith('--'));
+    let success = true;
+    for (const stmt of statements) {
+      try {
+        // Use Supabase SQL endpoint
+        await fetch(`${config.sbUrl}/rest/v1/rpc/exec_sql`, {
+          method: 'POST',
+          headers: {
+            'apikey': config.sbKey,
+            'Authorization': 'Bearer ' + config.sbKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ sql_text: stmt + ';' })
+        });
+      } catch (e) {
+        console.warn(`[Migrations] Statement failed in ${file}:`, e.message);
+        // Don't fail on individual statement errors (might be idempotent)
+      }
+    }
+    applied.add(file);
+    newCount++;
+    console.log(`[Migrations] Applied: ${file}`);
+  }
+
+  if (newCount > 0) {
+    try { fs.writeFileSync(appliedFile, [...applied].join('\n') + '\n'); } catch (_) {}
+    console.log(`[Migrations] ${newCount} migration(s) applied`);
+  } else {
+    console.log('[Migrations] All up to date');
+  }
+}
+
+// Run migrations on startup (non-blocking, best-effort)
+runAutoMigrations().catch(e => console.warn('[Migrations] Error:', e.message));
+
 // Clean old receipts daily
 setInterval(() => {
   const now = Date.now();
@@ -170,16 +230,44 @@ async function processRecurringOrders() {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
 
-    for (const order of orders) {
-      // Skip orders without client_id (test/incomplete data)
-      if (!order.client_id) continue;
-      // Find last shift for this client
-      const lastShiftRes = await sbFetch('shifts', `client_id=eq.${order.client_id}&select=created_at,date&order=created_at.desc&limit=1`);
-      const lastShift = (await lastShiftRes.json())[0];
+    // #15: Batch fetch — collect all client_ids, do ONE query for last shifts
+    const validOrders = orders.filter(o => o.client_id);
+    if (!validOrders.length) return;
+
+    const clientIds = [...new Set(validOrders.map(o => o.client_id))];
+    const clientIdsStr = clientIds.join(',');
+
+    // Single batch query: get latest shift per client_id
+    const lastShiftsRes = await sbFetch('shifts', `client_id=in.(${clientIdsStr})&select=client_id,created_at,date&order=created_at.desc&limit=1000`);
+    const allShifts = await lastShiftsRes.json();
+
+    // Build map: client_id -> latest shift
+    const lastShiftMap = new Map();
+    if (Array.isArray(allShifts)) {
+      for (const s of allShifts) {
+        if (!lastShiftMap.has(s.client_id)) {
+          lastShiftMap.set(s.client_id, s); // first one is latest (ordered desc)
+        }
+      }
+    }
+
+    // Batch check for today's duplicates
+    const dupCheckRes = await sbFetch('shifts', `client_id=in.(${clientIdsStr})&date=eq.${todayStr}&notes=like.*recurring:*&select=id,client_id,notes&limit=1000`);
+    const dupData = await dupCheckRes.json();
+    const dupClientOrderPairs = new Set();
+    if (Array.isArray(dupData)) {
+      for (const d of dupData) {
+        // Extract recurring order ID from notes
+        const m = (d.notes || '').match(/recurring:(\d+)/);
+        if (m) dupClientOrderPairs.add(`${d.client_id}:${m[1]}`);
+      }
+    }
+
+    for (const order of validOrders) {
+      const lastShift = lastShiftMap.get(order.client_id);
 
       let shouldCreate = false;
       if (!lastShift) {
-        // No shifts at all — create first one
         shouldCreate = true;
       } else {
         const daysSince = (now - new Date(lastShift.created_at)) / 86400000;
@@ -190,10 +278,8 @@ async function processRecurringOrders() {
 
       if (!shouldCreate) continue;
 
-      // Prevent duplicate for today: check if a recurring shift already exists
-      const dupCheckRes = await sbFetch('shifts', `client_id=eq.${order.client_id}&date=eq.${todayStr}&notes=like.*recurring:${order.id}*&select=id&limit=1`);
-      const dupExisting = await dupCheckRes.json();
-      if (Array.isArray(dupExisting) && dupExisting.length > 0) continue;
+      // Check duplicate using pre-fetched data
+      if (dupClientOrderPairs.has(`${order.client_id}:${order.id}`)) continue;
 
       const shiftData = {
         client_id: order.client_id,

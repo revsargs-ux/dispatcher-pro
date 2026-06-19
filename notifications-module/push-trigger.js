@@ -8,6 +8,20 @@ const { config } = require('../modules/config');
 const EDGE_FUNCTION_URL = `${config.sbUrl}/functions/v1/send-notification`;
 const WEBHOOK_SECRET = process.env.PUSH_SECRET || '';
 
+const fs = require('fs');
+const path = require('path');
+
+const PUSH_LOG = path.join(__dirname, '..', 'data', 'push-errors.log');
+
+function logPushError(context, error) {
+  const ts = new Date().toISOString();
+  const line = `[${ts}] ${context}: ${error.message || error}\n`;
+  console.error(line.trim());
+  try {
+    fs.appendFileSync(PUSH_LOG, line);
+  } catch (_) {}
+}
+
 /**
  * Отправляет push-уведомление через Edge Function
  * Вызывается АСИНХРОННО — не блокирует основную логику
@@ -46,8 +60,8 @@ function sendPushNotification({ userId, userRole, eventType, title, body, priori
       }
     })
     .catch((e) => {
-      // Ошибка push НЕ ломает основную логику
-      console.error('[Push] Error:', e.message);
+      // Ошибка push НЕ ломает основную логику, но логируем с деталями
+      logPushError(`[Push] userId=${userId}, eventType=${eventType}, title=${title}`, e);
     });
 }
 
@@ -65,7 +79,7 @@ async function sendPushToRole(role, { eventType, title, body, priority = 'normal
       sendPushNotification({ userId: u.id, userRole: role, eventType, title, body, priority, deepLink });
     }
   } catch (e) {
-    console.error('[Push] Role broadcast error:', e.message);
+    logPushError(`[Push] Role broadcast role=${role}, eventType=${eventType}`, e);
   }
 }
 

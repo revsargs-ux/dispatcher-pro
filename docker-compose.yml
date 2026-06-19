@@ -7,14 +7,16 @@ services:
     restart: unless-stopped
     ports:
       - '3000:8080'
+    env_file: .env
     environment:
-      - SB_URL=https://YOUR-PROJECT.supabase.co
-      - SB_KEY=sb_secret_7oItz51qISepnzMSsd8wEA_6vsbQbkK
-      - TG_BOT_TOKEN=8362493681:AAGki_5MPHrG0E0jdyaiKJxucTu5nWCgxy8
-      - MAX_BOT_TOKEN=f9LHodD0cOL_gerzW5lmO757Iljbw3W37i4k2du0aZlemfir6wpeu3n5di5rpvlP5w-tPUiaxcpMfaYcURiD
-      - GAS_URL=https://script.google.com/macros/s/AKfycbxAaSeSu4r9XWofF60y6BnMURQMqg8wRPr2MUhKAymh4_yQZsTe5WQr3yF5dn5CCeOj/exec
-      - GAS_WEBHOOK_SECRET=dp_gas_sync_2026
-      - GEMINI_API_KEY=debb7da5d58f4471bbf01d319907c8cb.iyJ1bR3rVgkVMcFN
+      - SB_URL=${SB_URL}
+      - SB_KEY=${SB_KEY}
+      - TG_BOT_TOKEN=${TG_BOT_TOKEN}
+      - MAX_BOT_TOKEN=${MAX_BOT_TOKEN}
+      - GAS_URL=${GAS_URL}
+      - GAS_WEBHOOK_SECRET=${GAS_WEBHOOK_SECRET}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DADATA_API_KEY=${DADATA_API_KEY}
     volumes:
       - ./server.js:/app/server.js:ro
       - ./modules:/app/modules:ro

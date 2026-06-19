@@ -77,6 +77,15 @@ if [ "$HEALTH_OK" = false ]; then
   echo "  ✗ Health check FAILED after 60s"
   echo "  Showing last logs:"
   docker logs n8n-dispatcher-1 --tail 20
+  # Rollback to previous commit if we updated
+  if [ -n "$BEFORE" ] && [ "$BEFORE" != "unknown" ] && [ "$BEFORE" != "$AFTER" ]; then
+    echo "  ⚠️  Rolling back to ${BEFORE:0:8}..."
+    git checkout "$BEFORE"
+    docker build -t n8n-dispatcher:latest -t n8n-dispatcher . 2>&1
+    docker compose down 2>&1
+    docker compose up -d 2>&1
+    echo "  ↩️  Rolled back to ${BEFORE:0:8}"
+  fi
   exit 1
 fi
 

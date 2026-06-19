@@ -16,7 +16,7 @@ try {
   JWT_SECRET = fs.readFileSync(SECRET_FILE, 'utf8').trim();
 } catch(e) {
   JWT_SECRET = crypto.randomBytes(64).toString('hex');
-  try { fs.writeFileSync(SECRET_FILE, JWT_SECRET); } catch(e2) {}
+  try { fs.writeFileSync(SECRET_FILE, JWT_SECRET); } catch(e2) { console.error('[Auth] Cannot write JWT secret file:', e2.message); throw new Error('Cannot write JWT secret file — aborting'); }
 }
 
 function createToken(userId, role, table) {
