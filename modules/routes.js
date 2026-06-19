@@ -31,14 +31,24 @@ const MIME_TYPES = {
 };
 
 // --- Health ---
-function handleHealth(req, res, cors) {
+async function handleHealth(req, res, cors) {
+  let dbOk = false;
+  try {
+    const { sbFetch } = require('./db');
+    const dbRes = await sbFetch('service_types', 'select=id&limit=1', { signal: AbortSignal.timeout(3000) });
+    dbOk = dbRes.ok;
+  } catch (e) {
+    console.error('[Health] DB check failed:', e.message);
+  }
+  const status = dbOk ? 200 : 503;
   json(res, {
-    status: 'ok',
+    status: dbOk ? 'ok' : 'degraded',
+    database: dbOk ? 'connected' : 'disconnected',
     uptime: process.uptime(),
     memory: process.memoryUsage().rss,
     timestamp: new Date().toISOString(),
     version: '1.0.0'
-  }, 200, cors);
+  }, status, cors);
 }
 
 // --- Stats ---
@@ -205,6 +215,46 @@ async function handleApiProxy(req, res, cors, urlPath) {
         }
       }
 
+      // #6: Валидация статусов смен
+      const VALID_STATUSES = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'];
+      if (table === 'shifts' && parsed.status !== undefined && !VALID_STATUSES.includes(parsed.status)) {
+        return json(res, { error: 'Недопустимый статус. Допустимые: ' + VALID_STATUSES.join(', ') }, 400, cors);
+      }
+
+      // #7: Дата при PATCH смен — не должна быть в прошлом
+      if (table === 'shifts' && req.method === 'PATCH' && parsed.date) {
+        const shiftDate = new Date(parsed.date);
+        const today = new Date(); today.setHours(0,0,0,0);
+        if (isNaN(shiftDate.getTime())) {
+          return json(res, { error: 'Неверный формат даты' }, 400, cors);
+        }
+        if (shiftDate < today) {
+          return json(res, { error: 'Дата смены не может быть в прошлом' }, 400, cors);
+        }
+      }
+
+      // #9: Валидация часов и ставок при создании/редактировании shift_assignments
+      if (table === 'shift_assignments' && (req.method === 'POST' || req.method === 'PATCH')) {
+        if (parsed.hours_worked !== undefined && parsed.hours_worked !== null) {
+          const hw = parseFloat(parsed.hours_worked);
+          if (isNaN(hw) || hw < 0.5 || hw > 24) {
+            return json(res, { error: 'Часы работы должны быть от 0.5 до 24' }, 400, cors);
+          }
+        }
+        if (parsed.rate_per_hour !== undefined && parsed.rate_per_hour !== null) {
+          const rph = parseFloat(parsed.rate_per_hour);
+          if (isNaN(rph) || rph < 1) {
+            return json(res, { error: 'Ставка должна быть не менее 1' }, 400, cors);
+          }
+        }
+        if (parsed.client_rate_per_hour !== undefined && parsed.client_rate_per_hour !== null) {
+          const crph = parseFloat(parsed.client_rate_per_hour);
+          if (isNaN(crph) || crph < 0) {
+            return json(res, { error: 'Ставка клиента не может быть отрицательной' }, 400, cors);
+          }
+        }
+      }
+
       // F6: P63 — Client cannot edit shift that's already started/completed
       if (table === 'shifts' && req.method === 'PATCH' && session.role === 'client') {
         // Fetch the shift being edited to check its date
@@ -295,8 +345,36 @@ async function handleApiProxy(req, res, cors, urlPath) {
     const opts = { method: req.method, headers: sbHeaders() };
     if (req.method === 'POST' || req.method === 'PATCH') opts.headers['Prefer'] = 'return=representation';
     if (parsedBody && req.method !== 'GET' && req.method !== 'DELETE') opts.body = parsedBody;
+
+    // #14: Pagination support — add .range() if page/limit query params present
+    let paginationHeaders = {};
+    if (req.method === 'GET') {
+      const urlObj = new URL(req.url, 'http://localhost');
+      const page = parseInt(urlObj.searchParams.get('page'));
+      const limit = parseInt(urlObj.searchParams.get('limit'));
+      if (page > 0 && limit > 0 && limit <= 200) {
+        const offset = (page - 1) * limit;
+        // Remove page/limit from query for Supabase
+        query = query.replace(/(^|&)page=[^&]*/g, '').replace(/(^|&)limit=[^&]*/g, '').replace(/^&/, '');
+        // Add Supabase range header
+        const rangeStart = offset;
+        const rangeEnd = offset + limit - 1;
+        opts.headers['Range'] = `${rangeStart}-${rangeEnd}`;
+        opts.headers['Prefer'] = 'count=exact';
+      }
+    }
+
     const sbRes = await fetch(`${config.sbUrl}/rest/v1/${table}${query ? '?' + query : ''}`, opts);
     const data = await sbRes.text();
+
+    // #14: Extract total count for pagination
+    if (req.method === 'GET') {
+      const total = sbRes.headers.get('content-range');
+      if (total) {
+        const match = total.match(/\/(\d+)$/);
+        if (match) paginationHeaders['X-Total-Count'] = match[1];
+      }
+    }
 
     // Post-processing hooks (sync + notifications)
     if (sbRes.status < 300) {
@@ -320,7 +398,7 @@ async function handleApiProxy(req, res, cors, urlPath) {
         responseData = JSON.stringify(parsed);
       } catch(e) {}
     }
-    res.writeHead(sbRes.status, { 'Content-Type': 'application/json', ...cors });
+    res.writeHead(sbRes.status, { 'Content-Type': 'application/json', ...cors, ...paginationHeaders });
     res.end(responseData);
   } catch (e) {
     console.error('Proxy error:', e.message);
@@ -499,9 +577,11 @@ function createRouter() {
       const q = new URL(req.url, 'http://localhost').searchParams.get('q');
       if (!q) return json(res, [], 200, cors);
       try {
+        const dadataKey = process.env.DADATA_API_KEY || '';
+        if (!dadataKey) return json(res, [], 200, cors);
         const r = await fetch(`https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Token cd57e4b2e13f49cfb1eb1fbed9f1d7f49ba685b1' },
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Token ' + dadataKey },
           body: JSON.stringify({ query: q, count: 5 }),
           signal: AbortSignal.timeout(5000)
         });

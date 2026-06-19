@@ -68,13 +68,30 @@ function check2FARateLimit(ip) {
     twoFARateLimit.set(ip, { count: 1, resetAt: now + 5 * 60 * 1000 });
     return true;
   }
-  if (entry.count >= 10) return false;
+  if (entry.count >= 3) return false;
   entry.count++;
   return true;
 }
 
 function generate2FACode() {
   return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// --- Password reset rate limit: IP -> { count, resetAt } ---
+const passwordResetLimit = new Map();
+const RESET_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+const RESET_LIMIT_MAX = 3;
+
+function checkPasswordResetLimit(ip) {
+  const now = Date.now();
+  const entry = passwordResetLimit.get(ip);
+  if (!entry || now > entry.resetAt) {
+    passwordResetLimit.set(ip, { count: 1, resetAt: now + RESET_LIMIT_WINDOW });
+    return true;
+  }
+  if (entry.count >= RESET_LIMIT_MAX) return false;
+  entry.count++;
+  return true;
 }
 
 // --- Auth login ---
@@ -226,6 +243,11 @@ async function handleRegister(req, res, cors) {
 
 // --- Forgot password ---
 async function handleForgot(req, res, cors) {
+  // Rate limit password resets: max 3 per hour per IP
+  const ip = extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress);
+  if (ip && !checkPasswordResetLimit(ip)) {
+    return json(res, { ok: false, error: 'Слишком много попыток сброса пароля. Попробуйте позже.' }, 429, cors);
+  }
   const body = await readBody(req);
   try {
     const { table, phone } = JSON.parse(body);
