@@ -1,6 +1,9 @@
 node_modules/
 *.bak
 *.bak.*
+*.bak2
+*.bak3
+*.bak4
 backups/
 receipts/
 audit/
@@ -8,3 +11,5 @@ data/
 monitor.log
 *.log
 .env
+supabase/.temp/
+*.tar.gz
