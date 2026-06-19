@@ -126,6 +126,19 @@ const server = http.createServer(async (req, res) => {
   try {
     // Shift photo upload endpoint
     const urlPath = req.url.split('?')[0];
+
+    // Healthcheck with database connectivity test
+    if (urlPath === '/health') {
+      try {
+        const healthRes = await sbFetch('service_types', 'select=id&limit=1');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', database: 'connected' }));
+      } catch (e) {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'error', database: 'unreachable', error: e.message }));
+      }
+      return;
+    }
     if (urlPath === '/api/upload-shift-photo' && req.method === 'POST') {
       const authSession = requireAuth(req);
       if (!authSession) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'Auth required' })); }
@@ -188,6 +201,10 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ error: 'Internal server error' }));
   }
 });
+
+// Healthcheck endpoint — checks database connectivity
+// Must be before server.listen; http.createServer uses a single callback
+// so we handle /health inside the main request handler
 
 server.listen(config.port, '0.0.0.0', () => {
   console.log(`[Dispatcher.PRO] v${VERSION} started on :${config.port} | ${new Date().toISOString()}`);
