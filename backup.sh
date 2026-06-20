@@ -3,7 +3,7 @@
 # Runs daily via cron, keeps last 30 days
 
 SB_URL="https://bzozrjgfnpdhlymfuobd.supabase.co"
-SB_KEY="sb_publishable_dwkjPYCtvHhmIT2ivOe8dQ_bUuj2tm5"
+SB_KEY="${SUPABASE_ANON_KEY:-}"
 BACKUP_DIR="/home/n8n/dispatcher-deploy/backups"
 DATE=$(date +%Y-%m-%d_%H%M)
 BACKUP_FILE="$BACKUP_DIR/backup_$DATE.json"
