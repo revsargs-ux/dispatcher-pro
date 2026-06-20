@@ -12,4 +12,4 @@ monitor.log
 *.log
 .env
 supabase/.temp/
-*.tar.gz
+*.tar.gzTANO_TEST_BRIEF.md
