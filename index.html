@@ -1040,7 +1040,7 @@ async function saveClient(btn){
 // ===== Dispatchers (owner only) =====
 async function loadDispatchers(){
   if(currentUser.role!=='owner')return;
-  const dispatchers=await api('users','GET',null,"?role=eq.dispatcher&order=full_name&select=id,full_name,phone,rate_per_hour,monthly_target_hours,is_active,telegram_chat_id,password");
+  const dispatchers=await api('users','GET',null,"?role=eq.dispatcher&order=full_name&select=id,full_name,phone,rate_per_hour,monthly_target_hours,is_active,telegram_chat_id");
   const monthStart=new Date().toISOString().split('T')[0].slice(0,8)+'01';
   // Single batch fetch instead of N+1
   const allAsgn=await api('shift_assignments','GET',null,`?select=hours_worked,shifts!inner(date,created_by)&shifts.date=gte.${monthStart}&limit=2000`);
