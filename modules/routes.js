@@ -65,8 +65,12 @@ async function handleApiProxy(req, res, cors, urlPath) {
   if (!table) return json(res, { error: 'Missing table' }, 400, cors);
   if (!ALLOWED_TABLES.has(table)) return json(res, { error: 'Forbidden table' }, 403, cors);
 
-  // Query validation
-  if (query.match(/select=\*/)) query = query.replace(/select=\*/, 'select=id');
+  // Query validation — owner can use select=* safely
+  if (query.match(/select=\*/) && session.role === 'owner') {
+    query = query.replace(/select=\*/, 'select=id,full_name,phone,city,role,is_active,rate_per_hour,monthly_target_hours,telegram_chat_id,created_at');
+  } else if (query.match(/select=\*/)) {
+    query = query.replace(/select=\*/, 'select=id');
+  }
   if (!query.match(/limit=/)) query += '&limit=50';
 
   const session = requireAuth(req);
