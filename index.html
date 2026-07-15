@@ -49,7 +49,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
 /* Stat cards */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
-.stat-card{background:var(--card);border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:4px solid var(--primary)}
+.stat-card{background:var(--card);border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:4px solid var(--primary);cursor:pointer;transition:transform .15s,box-shadow .15s}.stat-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.12)}
 .stat-card .num{font-size:22px;font-weight:700;color:var(--primary)}
 .stat-card .label{font-size:12px;color:var(--text-light);margin-top:2px}
 .stat-card.accent{border-left-color:var(--accent)}
@@ -726,6 +726,13 @@ document.getElementById('tabs-bar').addEventListener('click',e=>{
   const loaders={dashboard:loadDashboard,shifts:loadShifts,workers:loadWorkers,clients:loadClients,payments:loadPayments,dispatchers:loadDispatchers,settings:()=>{},recurring:loadRecurring};
   if(loaders[panel.replace('panel-','')])loaders[panel.replace('panel-','')]();
 });
+function switchTab(panelId){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>{t.classList.toggle('active',t.dataset.panel===panelId);});
+  const el=document.getElementById(panelId);if(el)el.classList.add('active');
+  const loaders={dashboard:loadDashboard,shifts:loadShifts,workers:loadWorkers,clients:loadClients,payments:loadPayments,dispatchers:loadDispatchers,settings:()=>{},recurring:loadRecurring};
+  if(loaders[panelId.replace('panel-','')])loaders[panelId.replace('panel-','')]();
+}
 
 // ===== Dashboard =====
 async function loadDashboard(){
@@ -772,10 +779,10 @@ async function loadDashboard(){
     }
     // Render stats while todayAsgn loads
     document.getElementById('dashboard-stats').innerHTML=`
-      <div class="stat-card"><div class="num">${totalH.toLocaleString('ru')}</div><div class="label">Часов за месяц</div></div>
-      <div class="stat-card accent"><div class="num">${mySalary.toLocaleString('ru')}₽</div><div class="label">Моя зарплата</div></div>
-      <div class="stat-card warning"><div class="num">${unpaid.toLocaleString('ru')}₽</div><div class="label">К выплате рабочим</div></div>
-      <div class="stat-card"><div class="num">${activeShifts}</div><div class="label">Активных смен</div></div>
+      <div class="stat-card" onclick="switchTab('panel-shifts')"><div class="num">${totalH.toLocaleString('ru')}</div><div class="label">Часов за месяц</div></div>
+      <div class="stat-card accent" onclick="switchTab('panel-shifts')"><div class="num">${mySalary.toLocaleString('ru')}₽</div><div class="label">Моя зарплата</div></div>
+      <div class="stat-card warning" onclick="switchTab('panel-payments')"><div class="num">${unpaid.toLocaleString('ru')}₽</div><div class="label">К выплате рабочим</div></div>
+      <div class="stat-card" onclick="switchTab('panel-shifts')"><div class="num">${activeShifts}</div><div class="label">Активных смен</div></div>
     `;
     // Motivation block
     document.getElementById('dashboard-motivation').innerHTML=`

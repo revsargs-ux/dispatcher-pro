@@ -30,7 +30,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .tab:hover{color:var(--primary)}.tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
 .panel{display:none;padding:16px;max-width:1200px;margin:0 auto}.panel.active{display:block}
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
-.stat-card{background:var(--card);border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:4px solid var(--primary)}
+.stat-card{background:var(--card);border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:4px solid var(--primary);cursor:pointer;transition:transform .15s,box-shadow .15s}.stat-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.12)}
 .stat-card .num{font-size:20px;font-weight:700;color:var(--primary)}
 .stat-card .label{font-size:11px;color:var(--text-light);margin-top:2px}
 .stat-card.green{border-left-color:var(--accent)}.stat-card.green .num{color:var(--accent)}
@@ -362,6 +362,12 @@ document.getElementById('tabs-bar').addEventListener('click',e=>{
   document.getElementById(p).classList.add('active');t.classList.add('active');
   const fn={overview:loadOverview,analytics:loadAnalytics,dispatchers:loadDispatchers,finances:loadFinances,clients:loadClients,shifts:loadAllShifts};
   if(fn[p.replace('panel-','')])fn[p.replace('panel-','')]();
+}
+function switchTab(panelId){
+  document.querySelectorAll('.tab').forEach(t=>{t.classList.toggle('active',t.dataset.panel===panelId);});
+  document.querySelectorAll('.panel').forEach(p=>{p.classList.toggle('active',p.id===panelId);});
+  const fn={overview:loadOverview,analytics:loadAnalytics,dispatchers:loadDispatchers,finances:loadFinances,clients:loadClients,shifts:loadAllShifts,system:null};
+  if(fn[panelId.replace('panel-','')])fn[panelId.replace('panel-','')]();
 });
 
 async function loadCache(){cachedWorkers=await api('workers','GET',null,'?select=id,full_name&order=full_name&limit=300');}
@@ -429,12 +435,12 @@ async function loadOverview(){
   window._analytics={byDay,byClient,byWorker,totalClientRev,totalH,shiftCount,avgCheck,fillRate,marginPct,margin};
 
   document.getElementById('overview-stats').innerHTML=`
-    <div class="stat-card green"><div class="num">${totalClientRev.toLocaleString('ru')}₽</div><div class="label">Выручка</div></div>
-    <div class="stat-card red"><div class="num">${totalWorkerPay.toLocaleString('ru')}₽</div><div class="label">Рабочим</div></div>
-    <div class="stat-card orange"><div class="num">${totalSalary.toLocaleString('ru')}₽</div><div class="label">ЗП диспетчеров</div></div>
-    <div class="stat-card green"><div class="num">${netProfit.toLocaleString('ru')}₽</div><div class="label">Чистая прибыль</div></div>
-    <div class="stat-card"><div class="num">${totalH.toLocaleString('ru')}ч</div><div class="label">Часов</div></div>
-    <div class="stat-card orange"><div class="num">${totalUnpaid.toLocaleString('ru')}₽</div><div class="label">Долги клиентов</div></div>
+    <div class="stat-card green" onclick="switchTab('panel-finances')"><div class="num">${totalClientRev.toLocaleString('ru')}₽</div><div class="label">Выручка</div></div>
+    <div class="stat-card red" onclick="switchTab('panel-finances')"><div class="num">${totalWorkerPay.toLocaleString('ru')}₽</div><div class="label">Рабочим</div></div>
+    <div class="stat-card orange" onclick="switchTab('panel-dispatchers')"><div class="num">${totalSalary.toLocaleString('ru')}₽</div><div class="label">ЗП диспетчеров</div></div>
+    <div class="stat-card green" onclick="switchTab('panel-finances')"><div class="num">${netProfit.toLocaleString('ru')}₽</div><div class="label">Чистая прибыль</div></div>
+    <div class="stat-card" onclick="switchTab('panel-shifts')"><div class="num">${totalH.toLocaleString('ru')}ч</div><div class="label">Часов</div></div>
+    <div class="stat-card orange" onclick="switchTab('panel-clients')"><div class="num">${totalUnpaid.toLocaleString('ru')}₽</div><div class="label">Долги клиентов</div></div>
     <div class="stat-card"><div class="num">${shiftCount}</div><div class="label">Смен</div></div>
     <div class="stat-card"><div class="num">${avgCheck.toLocaleString('ru')}₽</div><div class="label">Средний чек</div></div>
   `;
