@@ -7,8 +7,9 @@ const { config } = require('../modules/config');
 
 const EDGE_FUNCTION_URL = `${config.sbUrl}/functions/v1/send-notification`;
 const WEBHOOK_SECRET = process.env.PUSH_SECRET || '';
+const PUSH_ENABLED = !!WEBHOOK_SECRET;
 if (!WEBHOOK_SECRET) {
-  console.error('[Push] FATAL: PUSH_SECRET not set — push disabled for security');
+  console.error('[Push] FATAL: PUSH_SECRET not set — push notifications disabled');
 }
 
 const fs = require('fs');
@@ -38,6 +39,9 @@ function logPushError(context, error) {
  * @param {string} [params.deepLink] - ссылка для перехода при клике
  */
 function sendPushNotification({ userId, userRole, eventType, title, body, priority = 'normal', deepLink }) {
+  if (!PUSH_ENABLED) return;
+  // Validate deepLink — prevent javascript: URIs
+  const safeDeepLink = (deepLink && deepLink.startsWith('/')) || (deepLink && deepLink.startsWith('https://')) ? deepLink : '/';
   // Асинхронный вызов — не ждём результат, не блокируем
   fetch(EDGE_FUNCTION_URL, {
     method: 'POST',
@@ -53,7 +57,7 @@ function sendPushNotification({ userId, userRole, eventType, title, body, priori
       priority,
       title,
       body,
-      deepLink: deepLink || '/',
+      deepLink: safeDeepLink,
     }),
   })
     .then((res) => res.json())
@@ -72,17 +76,25 @@ function sendPushNotification({ userId, userRole, eventType, title, body, priori
  * Отправляет push всем пользователям определённой роли
  */
 async function sendPushToRole(role, { eventType, title, body, priority = 'normal', deepLink }) {
-  try {
-    const res = await fetch(
-      `${config.sbUrl}/rest/v1/users?role=eq.${role}&is_active=eq.true&select=id`,
-      { headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey } }
-    );
-    const users = await res.json();
-    for (const u of users) {
-      sendPushNotification({ userId: u.id, userRole: role, eventType, title, body, priority, deepLink });
+  const BATCH_SIZE = 50;
+  let offset = 0;
+  while (true) {
+    try {
+      const res = await fetch(
+        `${config.sbUrl}/rest/v1/users?role=eq.${role}&is_active=eq.true&select=id&limit=${BATCH_SIZE}&offset=${offset}`,
+        { headers: { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey } }
+      );
+      const users = await res.json();
+      if (!users.length) break;
+      for (const u of users) {
+        sendPushNotification({ userId: u.id, userRole: role, eventType, title, body, priority, deepLink });
+      }
+      offset += BATCH_SIZE;
+      if (users.length === BATCH_SIZE) await new Promise(r => setTimeout(r, 100));
+    } catch (e) {
+      logPushError(`[Push] Role broadcast role=${role}, eventType=${eventType}`, e);
+      break;
     }
-  } catch (e) {
-    logPushError(`[Push] Role broadcast role=${role}, eventType=${eventType}`, e);
   }
 }
 

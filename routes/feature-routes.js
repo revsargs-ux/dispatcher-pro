@@ -47,6 +47,8 @@ async function handleBulkHours(req, res, cors) {
     const { worker_id, hours_worked } = entry;
     if (!worker_id || hours_worked === undefined) { results.push({ worker_id, ok: false, error: 'missing fields' }); continue; }
     if (!/^[0-9a-f-]{36}$/.test(worker_id)) { results.push({ worker_id, ok: false, error: 'invalid worker_id' }); continue; }
+    const hours = parseFloat(hours_worked);
+    if (isNaN(hours) || hours < 0 || hours > 24) { results.push({ worker_id, ok: false, error: 'hours_worked: 0–24' }); continue; }
 
     try {
       const patchRes = await sbFetch('shift_assignments',
@@ -54,6 +56,7 @@ async function handleBulkHours(req, res, cors) {
         {
           method: 'PATCH',
           body: JSON.stringify({
+            hours_worked: hours,
             hours_worked: parseFloat(hours_worked),
             hours_submitted_at: nowIso,
             client_hours_status: 'pending'
@@ -223,7 +226,7 @@ async function handleRecurringShiftsCreate(req, res, cors) {
       body: JSON.stringify(insertData)
     });
     const data = await sbRes.json();
-    audit('recurring_create', `client:${client_id}`, session.userId, session.role, req.socket.remoteAddress);
+    audit('recurring_create', `client:${client_id}`, session.userId, session.role, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
     json(res, data, sbRes.status, cors);
   } catch(e) {
     json(res, { error: e.message }, 500, cors);

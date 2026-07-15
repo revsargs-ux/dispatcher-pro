@@ -27,6 +27,7 @@ async function sbFetch(table, query, opts = {}) {
   const url = `${config.sbUrl}/rest/v1/${table}${query ? '?' + query : ''}`;
   const fetchOpts = { method: opts.method || 'GET', headers };
   if (opts.body && opts.method !== 'GET' && opts.method !== 'DELETE') fetchOpts.body = opts.body;
+  fetchOpts.signal = AbortSignal.timeout(opts.timeout || 10000);
   return fetch(url, fetchOpts);
 }
 

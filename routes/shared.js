@@ -3,10 +3,19 @@
  */
 
 // --- Helper: read request body ---
-function readBody(req) {
+function readBody(req, maxBytes) {
+  const limit = maxBytes || 1024 * 1024; // 1MB default
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on('data', c => chunks.push(c));
+    let size = 0;
+    req.on('data', c => {
+      size += c.length;
+      if (size > limit) {
+        req.destroy();
+        return reject(Object.assign(new Error('Body too large'), { statusCode: 413 }));
+      }
+      chunks.push(c);
+    });
     req.on('end', () => resolve(Buffer.concat(chunks).toString()));
     req.on('error', reject);
   });

@@ -149,7 +149,7 @@ function requireAuth(req) {
   if (!token) return null;
   if (isBlacklisted(token)) return null;
   try {
-    return jwt.verify(token, JWT_SECRET);
+    return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
   } catch(e) {
     return null;
   }
@@ -169,8 +169,8 @@ function getTokenFromReq(req) {
  */
 const LEGACY_SALT = 'dp_pro_2026_salt';
 
-function hashPassword(password) {
-  if (bcrypt) return bcrypt.hashSync(password, 10);
+async function hashPassword(password) {
+  if (bcrypt) return bcrypt.hash(password, 10);
   return crypto.createHash('sha256').update(password + LEGACY_SALT).digest('hex');
 }
 
@@ -178,13 +178,11 @@ function legacyHash(password) {
   return crypto.createHash('sha256').update(password + LEGACY_SALT).digest('hex');
 }
 
-function checkPassword(inputPassword, storedPassword) {
+async function checkPassword(inputPassword, storedPassword) {
   if (bcrypt && storedPassword.startsWith('$2')) {
-    return bcrypt.compareSync(inputPassword, storedPassword);
+    return bcrypt.compare(inputPassword, storedPassword);
   }
-  const shaHash = legacyHash(inputPassword);
-  if (storedPassword === shaHash) return true;
-  return false;
+  return legacyHash(inputPassword) === storedPassword;
 }
 
 function needsUpgrade(storedPassword) {

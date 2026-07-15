@@ -91,9 +91,13 @@ async function handleTrackingLocation(req, res, cors) {
     }
     if (!validateUUID(session_id) || !validateUUID(worker_id)) return json(res, { error: 'Invalid ID format' }, 400, cors);
     if (!checkTrackingAccess(req, worker_id)) return json(res, { error: 'Access denied' }, 403, cors);
+    const pLat = parseFloat(lat), pLng = parseFloat(lng);
+    if (!isFinite(pLat) || !isFinite(pLng) || pLat < -90 || pLat > 90 || pLng < -180 || pLng > 180) {
+      return json(res, { error: 'Invalid coordinates' }, 400, cors);
+    }
     const location = {
       session_id, worker_id,
-      lat: parseFloat(lat), lng: parseFloat(lng),
+      lat: pLat, lng: pLng,
       accuracy: accuracy ? parseFloat(accuracy) : null,
       speed: speed ? parseFloat(speed) : null,
       heading: heading ? parseFloat(heading) : null,
@@ -118,22 +122,33 @@ async function handleTrackingWorkersLocation(req, res, cors) {
   if (!session) return json(res, { error: 'Auth required' }, 401, cors);
   try {
     const q = new URL(req.url, 'http://localhost').searchParams;
-    const workerIds = (q.get('worker_ids') || '').split(',').filter(Boolean);
+    const workerIds = (q.get('worker_ids') || '').split(',').filter(Boolean).slice(0, 50);
     if (!workerIds.length) return json(res, [], 200, cors);
+    // Batch: fetch all active sessions for these workers in one query
+    const validIds = workerIds.filter(id => /^[0-9a-f-]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+    if (!validIds.length) return json(res, [], 200, cors);
+    const sessRes = await sbFetch('tracking_sessions', `worker_id=in.(${validIds.join(',')}),status=eq.active&select=id,worker_id&limit=100`, {});
+    const activeSessions = await sessRes.json();
+    if (!activeSessions?.length) return json(res, [], 200, cors);
+    const sidMap = {};
+    for (const s of activeSessions) {
+      const ts = trackingSessions[s.worker_id];
+      sidMap[s.worker_id] = ts?.session_id || s.id;
+    }
+    const sessionIds = [...new Set(Object.values(sidMap))];
+    const locRes = await sbFetch('tracking_locations', `session_id=in.(${sessionIds.join(',')}),order=created_at.desc&select=session_id,lat,lng,accuracy,speed,battery_level,created_at&limit=100`, {});
+    const locations = await locRes.json();
+    const latestLoc = {};
+    for (const loc of (locations || [])) {
+      if (!latestLoc[loc.session_id]) latestLoc[loc.session_id] = loc;
+    }
     const results = [];
-    for (const wid of workerIds) {
-      const session = trackingSessions[wid];
-      let sessionId = session?.session_id;
-      if (!sessionId) {
-        const sbRes = await sbFetch('tracking_sessions', `worker_id=eq.${wid}&status=eq.active&order=created_at.desc&limit=1`, {});
-        const sessions = await sbRes.json();
-        if (sessions?.length) sessionId = sessions[0].id;
-      }
-      if (!sessionId) continue;
-      const locRes = await sbFetch('tracking_locations', `session_id=eq.${sessionId}&order=created_at.desc&limit=1`, {});
-      const locs = await locRes.json();
-      if (locs?.length) {
-        results.push({ worker_id: wid, lat: locs[0].lat, lng: locs[0].lng, accuracy: locs[0].accuracy, speed: locs[0].speed, battery_level: locs[0].battery_level, recorded_at: locs[0].created_at });
+    for (const wid of validIds) {
+      const sid = sidMap[wid];
+      if (!sid) continue;
+      const loc = latestLoc[sid];
+      if (loc) {
+        results.push({ worker_id: wid, lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy, speed: loc.speed, battery_level: loc.battery_level, recorded_at: loc.created_at });
       }
     }
     return json(res, results, 200, cors);

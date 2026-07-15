@@ -113,13 +113,13 @@ async function handleLogin(req, res, cors) {
     if (!users.length) { audit('login_failure', `not found: ${cleanPhone} (${table})`, null, null, ip); return json(res, { ok: false, error: 'Пользователь не найден' }, 401, cors); }
     const u = users[0];
 
-    if (!checkPassword(pass, u.password)) { audit('login_failure', `wrong pass: ${u.full_name || u.name} (${table})`, u.id, u.role, ip); return json(res, { ok: false, error: 'Неверный пароль' }, 401, cors); }
+    if (!(await checkPassword(pass, u.password))) { audit('login_failure', `wrong pass: ${u.full_name || u.name} (${table})`, u.id, u.role, ip); return json(res, { ok: false, error: 'Неверный пароль' }, 401, cors); }
     if (role && u.role !== role) return json(res, { ok: false, error: 'Нет доступа' }, 403, cors);
     if (u.is_active === false) return json(res, { ok: false, error: 'Аккаунт отключён' }, 403, cors);
 
     // Upgrade plaintext or SHA-256 to bcrypt
     if (needsUpgrade(u.password)) {
-      await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: hashPassword(pass) }) });
+      await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: await hashPassword(pass) }) });
     }
 
     resetRateLimit(ip);
@@ -212,7 +212,7 @@ async function handleRegister(req, res, cors) {
       }
     }
 
-    if (data.password) data.password = hashPassword(data.password);
+    if (data.password) data.password = await hashPassword(data.password);
 
     const sbRes = await sbFetch(table, '', { method: 'POST', body: JSON.stringify(data) });
     const result = await sbRes.text();
@@ -261,7 +261,7 @@ async function handleForgot(req, res, cors) {
     if (!u.telegram_chat_id) return json(res, { ok: false, error: 'Telegram не привязан. Обратитесь к администратору.' });
 
     const newPass = Math.random().toString(36).slice(2, 8);
-    await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: hashPassword(newPass) }) });
+    await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: await hashPassword(newPass) }) });
     await tgSendMessage(u.telegram_chat_id, `🔑 Ваш новый пароль: <code>${newPass}</code>\n\nВойдите в систему и смените его в настройках.`);
     console.log('[TG] Password reset for', u.full_name);
     audit('password_reset', u.full_name, u.id, table, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));

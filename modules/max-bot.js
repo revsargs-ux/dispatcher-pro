@@ -17,6 +17,8 @@ function canAskAI(chatId) {
   _aiRateLimit.set(chatId, now);
   return true;
 }
+// Cleanup old entries every hour
+setInterval(() => { const cutoff = Date.now() - 3600000; for (const [k,v] of _aiRateLimit) if (v < cutoff) _aiRateLimit.delete(k); }, 3600000);
 
 let knowledgeBase = '';
 try {
