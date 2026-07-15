@@ -372,13 +372,13 @@ document.getElementById('tabs-bar').addEventListener('click',e=>{
   document.getElementById(p).classList.add('active');t.classList.add('active');
   const fn={overview:loadOverview,analytics:loadAnalytics,dispatchers:loadDispatchers,finances:loadFinances,clients:loadClients,shifts:loadAllShifts};
   if(fn[p.replace('panel-','')])fn[p.replace('panel-','')]();
-}
+});
 function switchTab(panelId){
   document.querySelectorAll('.tab').forEach(t=>{t.classList.toggle('active',t.dataset.panel===panelId);});
   document.querySelectorAll('.panel').forEach(p=>{p.classList.toggle('active',p.id===panelId);});
   const fn={overview:loadOverview,analytics:loadAnalytics,dispatchers:loadDispatchers,finances:loadFinances,clients:loadClients,shifts:loadAllShifts,system:null};
   if(fn[panelId.replace('panel-','')])fn[panelId.replace('panel-','')]();
-});
+}
 
 async function loadCache(){cachedWorkers=await api('workers','GET',null,'?select=id,full_name&order=full_name&limit=300');}
 
