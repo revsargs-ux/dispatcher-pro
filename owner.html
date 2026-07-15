@@ -115,6 +115,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
     <button onclick="doRegister()" style="width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:6px;cursor:pointer;min-height:44px;">Зарегистрироваться</button>
   </div>
   <button onclick="toggleRegister()" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;padding:8px;" id="toggle-reg-btn">Нет аккаунта? Зарегистрироваться</button>
+  <button onclick="forgotPassword()" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;padding:8px;">Забыли пароль?</button>
   <!-- 2FA Modal -->
   <div id="twofa-modal" style="display:none;text-align:center;margin-top:16px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--bg);">
     <p style="margin:0 0 12px;font-weight:600;">🔐 Код подтверждения отправлен в Telegram</p>
@@ -347,6 +348,7 @@ function completeOwnerLogin(u){
   updateMonthLabels();loadCache();loadOverview();
 }
 function showErr(m){const e=document.getElementById('auth-error');e.textContent=m;e.style.display='block';}
+function forgotPassword(){const phone=norm(document.getElementById('auth-phone').value);if(!phone||phone.length<11){showErr('Введите номер телефона');return;}showErr('Отправляем...');fetch('/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',phone:'+'+phone})}).then(r=>r.json()).then(d=>{if(d.ok){showErr('Новый пароль отправлен в Telegram. Если Telegram не привязан — обратитесь к администратору.');}else{showErr(d.error||'Ошибка');}}).catch(()=>showErr('Ошибка подключения'));}
 function toggleRegister(){const f=document.getElementById('register-form');const b=document.getElementById('toggle-reg-btn');if(f.style.display==='none'){f.style.display='block';b.textContent='Уже есть аккаунт? Войти';}else{f.style.display='none';b.textContent='Нет аккаунта? Зарегистрироваться';}}
 async function doRegister(){const phone=norm(document.getElementById('auth-phone').value);const pass=document.getElementById('auth-pass').value;const pass2=document.getElementById('reg-pass2').value;const name=document.getElementById('reg-name').value.trim();if(!phone||!pass||!name){showErr('Заполните все поля');return;}if(!validatePhone(phone)){showErr('Телефон: 11 цифр');return;}if(pass.length<4){showErr('Пароль минимум 4 символов');return;}if(pass!==pass2){showErr('Пароли не совпадают');return;}try{const r=await fetch('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',data:{full_name:name,phone,password:pass,role:'owner',is_active:true,city:null}})});const u=await r.json();if(!u.ok){showErr(u.error||'Ошибка регистрации');return;}completeOwnerLogin(u);}catch(e){showErr('Ошибка подключения');}}
 function doLogout(){const tk=localStorage.getItem('dp_token');if(tk)fetch('/auth/logout',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk}}).catch(()=>{});localStorage.removeItem('dp_rop');localStorage.removeItem('dp_token');location.reload();}
