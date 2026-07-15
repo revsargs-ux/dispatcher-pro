@@ -32,6 +32,7 @@ const config = {
     'https://bot.plus-rabochie.ru',
 // localhost removed — production only
   ],
+  corsRejectLog: false, // set to true for debugging CORS issues
   
   // Paths
   appDir: path.resolve(__dirname + '/..'),

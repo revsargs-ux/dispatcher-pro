@@ -9,7 +9,6 @@ const { checkNotifsTable } = require('./shift-routes');
 
 // --- Client pay method ---
 function handleClientPayMethodGet(req, res, cors) {
-  const { requireAuth } = require('../modules/auth');
   const session = requireAuth(req);
   if (!session) return json(res, { error: 'Auth required' }, 401, cors);
   const cid = new URL('http://localhost' + req.url).searchParams.get('client_id');
@@ -36,8 +35,9 @@ function handleClientPayMethodPost(req, res, cors) {
 
 // --- Notifications ---
 async function handleNotificationsGet(req, res, cors) {
+  const session = requireAuth(req);
+  if (!session) return json(res, { error: 'Auth required' }, 401, cors);
   try {
-    const session = requireAuth(req);
     const userId = session?.sub || session?.userId;
     const role = session?.role;
     if (await checkNotifsTable()) {
@@ -55,8 +55,9 @@ async function handleNotificationsGet(req, res, cors) {
   json(res, filtered, 200, cors);
 }
 async function handleNotificationsDelete(req, res, cors) {
+  const session = requireAuth(req);
+  if (!session) return json(res, { error: 'Auth required' }, 401, cors);
   try {
-    const session = requireAuth(req);
     const userId = session?.sub || session?.userId;
     const role = session?.role;
     if (await checkNotifsTable()) {

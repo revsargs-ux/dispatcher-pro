@@ -3,7 +3,10 @@
 # Runs daily via cron, keeps last 30 days
 
 SB_URL="${SB_URL:-}"
-SB_KEY="${SUPABASE_ANON_KEY:-}"
+SB_KEY="${SB_KEY:-}"
+if [ -z "$SB_URL" ] || [ -z "$SB_KEY" ]; then
+  echo "ERROR: SB_URL and SB_KEY must be set in environment"; exit 1
+fi
 BACKUP_DIR="/home/n8n/dispatcher-deploy/backups"
 DATE=$(date +%Y-%m-%d_%H%M)
 BACKUP_FILE="$BACKUP_DIR/backup_$DATE.json"

@@ -65,7 +65,7 @@ echo ""
 echo "[5/6] Health check..."
 HEALTH_OK=false
 for i in $(seq 1 30); do
-  if docker exec n8n-dispatcher-1 node -e "const h=require('http');h.get('http://localhost:8080/',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))" 2>/dev/null; then
+  if docker exec n8n-dispatcher-1 node -e "const h=require('http');h.get('http://localhost:8080/health',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))" 2>/dev/null; then
     HEALTH_OK=true
     echo "  ✓ Healthy (attempt $i)"
     break

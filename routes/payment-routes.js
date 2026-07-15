@@ -11,6 +11,13 @@ const { audit } = require('../modules/audit');
 const { verifyGasSignature } = require('../modules/gas-sync');
 
 // --- Export CSV ---
+function csvEsc(val) {
+  const s = String(val || '');
+  const dangerous = s.match(/^[=+\-@\t\r]/);
+  const escaped = s.replace(/"/g, '""');
+  return dangerous ? `'${escaped}` : escaped;
+}
+
 async function handleExportCsv(req, res, cors) {
   const session = requireAuth(req);
   if (!session || (session.role !== 'owner' && session.role !== 'dispatcher')) {
@@ -25,7 +32,7 @@ async function handleExportCsv(req, res, cors) {
     let csv = '\uFEFFДата,Рабочий,Клиент,Часы,Рабочему,От клиента,Маржа,Статус\n';
     (asgn || []).filter(a => parseFloat(a.hours_worked) > 0).forEach(a => {
       const h = parseFloat(a.hours_worked), r = parseFloat(a.rate_per_hour) || 400, cr = parseFloat(a.client_rate_per_hour) || 520, ex = parseFloat(a.extra_amount) || 0;
-      csv += `${a.shifts?.date || ''},"${wMap[a.worker_id] || ''}","${a.shifts?.clients?.name || ''}",${h},${h*r+ex},${h*cr+ex},${(cr-r)*h},${a.payment_status}\n`;
+      csv += `${a.shifts?.date || ''},"${csvEsc(wMap[a.worker_id] || '')}","${csvEsc(a.shifts?.clients?.name || '')}",${h},${h*r+ex},${h*cr+ex},${(cr-r)*h},${a.payment_status}\n`;
     });
     audit('export', 'payments.csv', session.userId, session.role, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
     res.writeHead(200, { ...cors, 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename=payments.csv' });
@@ -114,6 +121,10 @@ function handleReceipt(req, res, cors, urlPath) {
 // --- GAS webhook ---
 async function handleGasWebhook(req, res, cors) {
   const body = req._rawBody || await readBody(req);
+  if (!verifyGasSignature(req.headers, body)) {
+    console.warn('[GAS-Webhook] Unauthorized request from', req.socket.remoteAddress);
+    return json(res, { error: 'Unauthorized' }, 401, cors);
+  }
   try {
     const { table, id, data } = JSON.parse(body);
     if (!table || !id || !data) return json(res, { error: 'Missing table, id or data' }, 400, cors);

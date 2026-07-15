@@ -195,8 +195,16 @@ function isPlaintext(password) {
   return password.length < 50 && !password.startsWith('$2');
 }
 
-// Rate limiting
-const loginAttempts = {};
+// Rate limiting (persistent via file)
+const { loadJson, saveJson } = require('./config');
+const RL_FILE = 'rate-limits.json';
+let loginAttempts = loadJson(RL_FILE) || {};
+const _rlSaveTimer = { pending: false };
+function _debounceSaveRL() {
+  if (_rlSaveTimer.pending) return;
+  _rlSaveTimer.pending = true;
+  setTimeout(() => { try { saveJson(RL_FILE, loginAttempts); } catch(e) {} _rlSaveTimer.pending = false; }, 60000);
+}
 function checkRateLimit(ip) {
   const now = Date.now();
   if (!loginAttempts[ip]) loginAttempts[ip] = { count: 0, lastAttempt: 0 };
@@ -204,6 +212,7 @@ function checkRateLimit(ip) {
   if (now - a.lastAttempt > config.rateLimit.windowMs) { a.count = 0; }
   a.count++;
   a.lastAttempt = now;
+  _debounceSaveRL();
   return a.count <= config.rateLimit.max;
 }
 

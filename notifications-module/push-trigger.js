@@ -7,6 +7,9 @@ const { config } = require('../modules/config');
 
 const EDGE_FUNCTION_URL = `${config.sbUrl}/functions/v1/send-notification`;
 const WEBHOOK_SECRET = process.env.PUSH_SECRET || '';
+if (!WEBHOOK_SECRET) {
+  console.error('[Push] FATAL: PUSH_SECRET not set — push disabled for security');
+}
 
 const fs = require('fs');
 const path = require('path');

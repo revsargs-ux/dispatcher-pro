@@ -7,6 +7,17 @@ const fs = require('fs');
 const path = require('path');
 const { cmdHelp, cmdShifts, cmdEarnings, cmdOrders, cmdSelfEmployed, askAI } = require('./bot-common');
 
+// AI rate limiting: 1 request per 5 seconds per user
+const _aiRateLimit = new Map();
+const AI_COOLDOWN_MS = 5000;
+function canAskAI(chatId) {
+  const now = Date.now();
+  const last = _aiRateLimit.get(chatId) || 0;
+  if (now - last < AI_COOLDOWN_MS) return false;
+  _aiRateLimit.set(chatId, now);
+  return true;
+}
+
 let knowledgeBase = '';
 try {
   knowledgeBase = fs.readFileSync(path.join(__dirname, '..', 'bot-knowledge.md'), 'utf8');
@@ -265,6 +276,10 @@ async function handleMaxMessage(update) {
   if (chatForwarded) return;
 
   // === AI (из bot-common) ===
+  if (!canAskAI(chatId)) {
+    await maxSendMessage(chatId, '⏳ Подождите несколько секунд перед следующим вопросом');
+    return;
+  }
   await askAI(chatId, user, text, maxSendMessage, knowledgeBase);
 }
 

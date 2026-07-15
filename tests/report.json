@@ -1,280 +1,252 @@
 {
-  "timestamp": "2026-06-18T03:04:26.161Z",
+  "timestamp": "2026-07-06T17:01:00.781Z",
   "stats": {
-    "total": 38,
-    "passed": 35,
-    "failed": 3,
+    "total": 34,
+    "passed": 32,
+    "failed": 2,
     "warnings": 0,
     "skipped": 0,
-    "pct": 92,
-    "duration": "200.1"
+    "pct": 94,
+    "duration": "190.2"
   },
   "results": [
     {
       "suite": "Auth Tests",
       "name": "Worker регистрация + автовход",
       "status": "pass",
-      "duration": 3345,
+      "duration": 3384,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Client регистрация + автовход",
       "status": "pass",
-      "duration": 3422,
+      "duration": 3437,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Dispatcher регистрация (через index)",
       "status": "pass",
-      "duration": 2447,
+      "duration": 2544,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Owner вход (существующий)",
       "status": "pass",
-      "duration": 5336,
+      "duration": 5328,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Wrong password → ошибка видна",
       "status": "pass",
-      "duration": 3092,
+      "duration": 3275,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Дубликат регистрации → ошибка видна",
       "status": "pass",
-      "duration": 2524,
+      "duration": 2591,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Logout → возвращается на форму входа",
       "status": "pass",
-      "duration": 5321,
+      "duration": 5391,
       "details": ""
     },
     {
       "suite": "Auth Tests",
       "name": "Авторизация на всех 4 страницах",
       "status": "pass",
-      "duration": 8334,
+      "duration": 8409,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Dispatcher] Создать смену на завтра",
       "status": "pass",
-      "duration": 5356,
+      "duration": 5373,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Dispatcher] Пригласить рабочего",
       "status": "pass",
-      "duration": 5298,
+      "duration": 5442,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Worker] Смена видна в списке",
       "status": "pass",
-      "duration": 5201,
+      "duration": 5154,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Worker] Нажать Подтвердить",
       "status": "pass",
-      "duration": 5242,
+      "duration": 5285,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Worker] Нажать Начать работу",
       "status": "pass",
-      "duration": 5261,
+      "duration": 5315,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Worker] Нажать Завершить",
       "status": "pass",
-      "duration": 5240,
+      "duration": 5262,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Dispatcher] Ввести часы",
       "status": "pass",
-      "duration": 5342,
+      "duration": 5420,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Client] Подтвердить часы",
       "status": "pass",
-      "duration": 5290,
+      "duration": 5314,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Dispatcher] Ввести оплату",
       "status": "pass",
-      "duration": 5297,
+      "duration": 5327,
       "details": ""
     },
     {
       "suite": "Shift Lifecycle Tests",
       "name": "[Dispatcher] Закрыть смену",
       "status": "pass",
-      "duration": 5312,
+      "duration": 5304,
       "details": ""
     },
     {
       "suite": "UX Audit",
       "name": "Все кнопки имеют читаемый текст (не пустые)",
       "status": "pass",
-      "duration": 7011,
+      "duration": 7008,
       "details": ""
     },
     {
       "suite": "UX Audit",
       "name": "Placeholder'ы в input информативны",
       "status": "pass",
-      "duration": 7012,
+      "duration": 7006,
       "details": ""
     },
     {
       "suite": "UX Audit",
       "name": "Toast-сообщения появляются при действии",
       "status": "pass",
-      "duration": 5701,
+      "duration": 5735,
       "details": ""
     },
     {
       "suite": "UX Audit",
       "name": "Пустые состояния (📭) на страницах без данных",
       "status": "fail",
-      "duration": 8786,
+      "duration": 8821,
       "error": "listHtml is not defined"
     },
     {
       "suite": "UX Audit",
       "name": "При ошибке сети показывается toast",
       "status": "pass",
-      "duration": 4741,
+      "duration": 4771,
       "details": ""
     },
     {
       "suite": "UX Audit",
       "name": "Пароль скрывается за точками (type=password)",
       "status": "pass",
-      "duration": 8020,
+      "duration": 8017,
       "details": ""
     },
     {
       "suite": "UX Audit",
       "name": "Телефон форматируется при вводе",
       "status": "pass",
-      "duration": 2128,
+      "duration": 2141,
       "details": ""
     },
     {
       "suite": "UX Audit",
       "name": "Спиннер появляется при загрузке данных",
       "status": "pass",
-      "duration": 4797,
+      "duration": 4813,
       "details": ""
     },
     {
       "suite": "UX Audit",
       "name": "Кнопки имеют min-height:44px",
       "status": "pass",
-      "duration": 7550,
+      "duration": 7537,
       "details": ""
     },
     {
       "suite": "UX Audit",
       "name": "Заголовки страниц корректны",
       "status": "pass",
-      "duration": 8020,
+      "duration": 8012,
       "details": ""
     },
     {
       "suite": "UX Audit",
       "name": "Ссылки кабинетов на index.html видны",
       "status": "pass",
-      "duration": 1535,
+      "duration": 1572,
       "details": ""
     },
     {
       "suite": "UX Audit",
       "name": "confirm() появляется при удалении",
       "status": "pass",
-      "duration": 1025,
+      "duration": 1033,
       "details": ""
     },
     {
       "suite": "Accessibility Tests",
       "name": "Кнопки с emoji имеют aria-label",
-      "status": "fail",
-      "duration": 1535,
-      "error": "dispatcher: 6 emoji buttons without aria-label: <button class=\"btn btn-sm btn-outline\" onclick=\"document.getElementById('worker-password').value=Str, <button class=\"btn btn-sm btn-outline\" onclick=\"document.getElementById('client-password').value=Str, <button class=\"btn btn-sm btn-outline\" onclick=\"document.getElementById('dispatcher-password').value"
+      "status": "pass",
+      "duration": 7717,
+      "details": ""
     },
     {
       "suite": "Accessibility Tests",
       "name": "Tab order логичный (вход → пароль → кнопка)",
       "status": "pass",
-      "duration": 1658,
+      "duration": 1676,
       "details": ""
     },
     {
       "suite": "Accessibility Tests",
       "name": "Focus сохраняется после закрытия модалки",
       "status": "pass",
-      "duration": 2081,
+      "duration": 2080,
       "details": ""
     },
     {
       "suite": "Accessibility Tests",
       "name": "Alt text на изображениях",
-      "status": "pass",
-      "duration": 6646,
-      "details": ""
-    },
-    {
-      "suite": "Accessibility Tests",
-      "name": "Color contrast — текст читаем на фоне",
-      "status": "pass",
-      "duration": 1531,
-      "details": ""
-    },
-    {
-      "suite": "Accessibility Tests",
-      "name": "Focus visible indicator при tab navigation",
-      "status": "pass",
-      "duration": 1251,
-      "details": ""
-    },
-    {
-      "suite": "Security Tests",
-      "name": "Нет API ключей Supabase в HTML",
-      "status": "pass",
-      "duration": 7617,
-      "details": ""
-    },
-    {
-      "suite": "Security Tests",
-      "name": "Нет Dadata токенов в HTML",
       "status": "fail",
-      "duration": 6179,
-      "error": "Navigating frame was detached"
+      "duration": 5469,
+      "error": "Attempted to use detached Frame 'C103C7413421CD2BD96015000C5B69CD'."
     }
   ]
 }

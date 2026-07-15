@@ -2,7 +2,7 @@
  * Feature routes: bulk-hours, force-confirm, reassign-workers,
  * recurring-shifts, confirm-payment, iCal export, PDF export
  */
-const { readBody, json } = require('./shared');
+const { readBody, json, extractPublicIp } = require('./shared');
 const { config } = require('../modules/config');
 const { sbFetch, sbHeaders } = require('../modules/db');
 const { requireAuth } = require('../modules/auth');
@@ -67,7 +67,7 @@ async function handleBulkHours(req, res, cors) {
     }
   }
 
-  audit('bulk_hours', `shift:${shift_id} entries:${entries.length}`, session.userId, session.role, req.socket.remoteAddress);
+  audit('bulk_hours', `shift:${shift_id} entries:${entries.length}`, session.userId, session.role, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
   json(res, { ok: true, results }, 200, cors);
 }
 
@@ -110,7 +110,7 @@ async function handleForceConfirm(req, res, cors) {
       })
     });
     const data = await sbRes.json();
-    audit('force_confirm', `assignment:${assignment_id}`, session.userId, session.role, req.socket.remoteAddress);
+    audit('force_confirm', `assignment:${assignment_id}`, session.userId, session.role, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
     json(res, { ok: true, data }, 200, cors);
   } catch(e) {
     json(res, { error: e.message }, 500, cors);
@@ -149,7 +149,7 @@ async function handleReassignWorkers(req, res, cors) {
     );
     const data = await sbRes.json();
     const resetCount = Array.isArray(data) ? data.length : 0;
-    audit('reassign_workers', `shift:${shift_id} reset:${resetCount}`, session.userId, session.role, req.socket.remoteAddress);
+    audit('reassign_workers', `shift:${shift_id} reset:${resetCount}`, session.userId, session.role, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
     json(res, { ok: true, reset_count: resetCount, data }, 200, cors);
   } catch(e) {
     json(res, { error: e.message }, 500, cors);
@@ -248,6 +248,12 @@ async function handleRecurringShiftsUpdate(req, res, cors, id) {
   delete parsed.created_by;
 
   try {
+    // IDOR check: dispatcher can only edit own recurring orders
+    if (session.role === 'dispatcher') {
+      const own = await (await sbFetch('recurring_orders', `id=eq.${id}&created_by=eq.${session.userId}&select=id&limit=1`)).json();
+      if (!own?.length) return json(res, { error: 'Нет доступа к этому заказу' }, 403, cors);
+    }
+
     const sbRes = await sbFetch('recurring_orders', `id=eq.${id}`, {
       method: 'PATCH',
       body: JSON.stringify(parsed)
@@ -322,7 +328,7 @@ async function handleConfirmPayment(req, res, cors) {
       }
     );
     const data = await sbRes.json();
-    audit('confirm_payment', `assignment:${assignment_id}`, session.userId, session.role, req.socket.remoteAddress);
+    audit('confirm_payment', `assignment:${assignment_id}`, session.userId, session.role, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
     json(res, { ok: true, data }, 200, cors);
   } catch(e) {
     json(res, { error: e.message }, 500, cors);
@@ -427,6 +433,11 @@ async function handleExportPdf(req, res, cors) {
     let totalWorker = 0, totalClient = 0, totalMargin = 0;
     const validRows = (asgn || []).filter(a => parseFloat(a.hours_worked) > 0);
 
+    // HTML escaping function for PDF export
+    function esc(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     validRows.forEach(a => {
       const h = parseFloat(a.hours_worked);
       const r = parseFloat(a.rate_per_hour) || 400;
@@ -448,14 +459,14 @@ async function handleExportPdf(req, res, cors) {
       };
 
       rowsHtml += `<tr>
-        <td>${a.shifts?.date || ''}</td>
-        <td>${wMap[a.worker_id] || ''}</td>
-        <td>${a.shifts?.clients?.name || ''}</td>
+        <td>${esc(a.shifts?.date || '')}</td>
+        <td>${esc(wMap[a.worker_id] || '')}</td>
+        <td>${esc(a.shifts?.clients?.name || '')}</td>
         <td style="text-align:right">${h}</td>
         <td style="text-align:right">${workerPay.toLocaleString('ru-RU')} ₽</td>
         <td style="text-align:right">${clientPay.toLocaleString('ru-RU')} ₽</td>
         <td style="text-align:right">${margin.toLocaleString('ru-RU')} ₽</td>
-        <td>${statusLabels[a.payment_status] || a.payment_status || ''}</td>
+        <td>${statusLabels[a.payment_status] || esc(a.payment_status) || ''}</td>
       </tr>`;
     });
 
@@ -501,7 +512,7 @@ async function handleExportPdf(req, res, cors) {
 </body>
 </html>`;
 
-    audit('export_pdf', 'payments.pdf', session.userId, session.role, req.socket.remoteAddress);
+    audit('export_pdf', 'payments.pdf', session.userId, session.role, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
 
     // Return as HTML with content-type for browser print-to-PDF
     // Also provide download header

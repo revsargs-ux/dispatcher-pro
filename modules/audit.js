@@ -38,6 +38,9 @@ function trimLog() {
   }
 }
 
+// Counter-based trim check (guaranteed every 100 writes)
+let _auditWriteCount = 0
+
 function audit(action, details, userId, role, ip) {
   const entry = {
     timestamp: new Date().toISOString(),
@@ -60,8 +63,7 @@ function audit(action, details, userId, role, ip) {
     console.log(`[AUDIT] ${action} | user=${entry.userId} role=${entry.role} ip=${entry.ip} | ${details}`)
   }
 
-  // Check size every 100 writes (lazy counter)
-  if (Math.random() < 0.01) trimLog()
+  if (++_auditWriteCount % 100 === 0) trimLog()
 }
 
 module.exports = { audit }

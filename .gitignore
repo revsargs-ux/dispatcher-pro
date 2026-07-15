@@ -12,4 +12,7 @@ monitor.log
 *.log
 .env
 supabase/.temp/
-*.tar.gzTANO_TEST_BRIEF.md
+*.tar.gz
+TANO_TEST_BRIEF.md
+client-pay-methods.json
+notifications.json

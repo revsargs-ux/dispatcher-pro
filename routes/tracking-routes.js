@@ -16,24 +16,26 @@ function checkTrackingAccess(req, workerId) {
   const session = requireAuth(req);
   if (!session) return false;
   if (['owner', 'dispatcher'].includes(session.role)) return true;
-  if (session.role === 'worker' && session.id === workerId) return true;
+  if (session.role === 'worker' && session.userId === workerId) return true;
   return false;
 }
 
 const trackingSessions = {}; // In-memory: worker_id -> { session_id, started_at }
 
 async function handleTrackingStatus(req, res, cors, urlPath) {
+  const session = requireAuth(req);
+  if (!session) return json(res, { error: 'Auth required' }, 401, cors);
   const q = new URL(req.url, 'http://localhost').searchParams;
   const workerId = q.get('worker_id');
   if (!workerId) return json(res, { error: 'worker_id required' }, 400, cors);
-  const session = trackingSessions[workerId];
-  if (session) {
+  const ts = trackingSessions[workerId];
+  if (ts) {
     try {
-      const sbRes = await sbFetch('tracking_locations', `session_id=eq.${session.session_id}&order=created_at.desc&limit=1`, {});
+      const sbRes = await sbFetch('tracking_locations', `session_id=eq.${ts.session_id}&order=created_at.desc&limit=1`, {});
       const locations = await sbRes.json();
-      return json(res, { active: true, session_id: session.session_id, started_at: session.started_at, last_location: locations?.[0] || null }, 200, cors);
+      return json(res, { active: true, session_id: ts.session_id, started_at: ts.started_at, last_location: locations?.[0] || null }, 200, cors);
     } catch (e) {
-      return json(res, { active: true, session_id: session.session_id, started_at: session.started_at }, 200, cors);
+      return json(res, { active: true, session_id: ts.session_id, started_at: ts.started_at }, 200, cors);
     }
   }
   try {
@@ -112,6 +114,8 @@ async function handleTrackingLocation(req, res, cors) {
 }
 
 async function handleTrackingWorkersLocation(req, res, cors) {
+  const session = requireAuth(req);
+  if (!session) return json(res, { error: 'Auth required' }, 401, cors);
   try {
     const q = new URL(req.url, 'http://localhost').searchParams;
     const workerIds = (q.get('worker_ids') || '').split(',').filter(Boolean);
