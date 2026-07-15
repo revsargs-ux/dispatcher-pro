@@ -13,10 +13,10 @@ function validateUUID(value) {
 }
 
 function checkTrackingAccess(req, workerId) {
-  const session = requireAuth(req);
-  if (!session) return false;
-  if (['owner', 'dispatcher'].includes(session.role)) return true;
-  if (session.role === 'worker' && session.userId === workerId) return true;
+  const auth = requireAuth(req);
+  if (!auth) return false;
+  if (['owner', 'dispatcher'].includes(auth.role)) return true;
+  if (auth.role === 'worker' && auth.userId === workerId) return true;
   return false;
 }
 

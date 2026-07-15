@@ -104,8 +104,13 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
 <div id="auth-screen" class="auth-screen"><div class="auth-box">
   <h1>👑 РОП</h1>
   <p class="subtitle" data-i18n="auth_subtitle_owner">Руководитель · Dispatcher.PRO</p>
-  <input type="tel" id="auth-phone" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15">
-  <input type="password" id="auth-pass" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
+  <div style="position:relative;">
+  <input type="tel" id="auth-phone" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);">
+  </div>
+  <div style="position:relative;">
+  <input type="password" id="auth-pass" data-i18n-placeholder="placeholder_password" placeholder="Пароль" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);">
+  <button type="button" onclick="togglePassVis()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-light);" aria-label="Показать пароль" id="pass-eye">👁</button>
+  </div>
   <button onclick="doLogin()" data-i18n="btn_login">Войти</button>
   <div class="auth-error" id="auth-error"></div>
   <p style="text-align:center;margin-top:12px;font-size:13px;color:var(--text-light);" id="auth-hint"></p>
@@ -310,6 +315,7 @@ function updateMonthLabels(){
 function changeMonth(d){viewMonth+=d;if(viewMonth>11){viewMonth=0;viewYear++;}if(viewMonth<0){viewMonth=11;viewYear--;}updateMonthLabels();loadOverview();}
 
 // Auth
+function togglePassVis(){const p=document.getElementById('auth-pass'),e=document.getElementById('pass-eye');if(p.type==='password'){p.type='text';e.textContent='🔒';}else{p.type='password';e.textContent='👁';}}
 async function doLogin(){
   const rawPhone=document.getElementById('auth-phone').value.trim(),pass=document.getElementById('auth-pass').value;
   const phone=norm(rawPhone);

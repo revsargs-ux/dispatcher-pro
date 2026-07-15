@@ -196,7 +196,10 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
   <p class="subtitle">Система управления персоналом</p>
   <div id="auth-login">
     <input type="tel" id="auth-phone" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15">
+    <div style="position:relative;">
     <input type="password" id="auth-pass" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
+    <button type="button" onclick="togglePassVis()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--text-light);" id="idx-pass-eye">👁</button>
+    </div>
     <button onclick="doLogin()" data-i18n="btn_login">Войти</button>
     <div class="link" style="margin-top:16px;">Нет аккаунта? <a onclick="showRegForm()">Зарегистрироваться</a></div>
     <div class="link" style="margin-top:8px;"><a onclick="forgotPassword()" style="color:var(--primary);">Забыли пароль?</a></div>
@@ -598,6 +601,7 @@ let cachedWorkers=null,cachedClients=null,cachedServiceTypes=null;
 let _inviteShiftId=null,_inviteClientId=null,_inviteRates={};
 
 // ===== Auth =====
+function togglePassVis(){const p=document.getElementById('auth-pass'),e=document.getElementById('idx-pass-eye');if(p.type==='password'){p.type='text';e.textContent='🔒';}else{p.type='password';e.textContent='👁';}}
 async function doLogin(){
   const phone=norm(document.getElementById('auth-phone').value);
   const pass=document.getElementById('auth-pass').value;
