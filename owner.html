@@ -786,7 +786,8 @@ function loadSystemMonitor(){
 }
 function copyCred(){var el=document.getElementById('cred-text');if(!el)return;el.focus();el.select();el.setSelectionRange(0,99999);var ok=document.execCommand('copy');if(ok){toast('📋 Скопировано!');}else{toast('Нажмите Ctrl+C');}}
 function shareCred(){var el=document.getElementById('cred-text');if(navigator.share){navigator.share({title:'Данные для входа',text:el.value}).catch(function(){});}else{el.focus();el.select();el.setSelectionRange(0,99999);toast('Нажмите Ctrl+C');}}
-document.addEventListener('click',function(e){var b=e.target.closest('.cpb');if(!b)return;var r=b.dataset.role,p=b.dataset.phone,n=b.dataset.name||'';var L={worker:'https://xn----gtbdan3bddhceo9d.xn--p1ai/worker.html',dispatcher:'https://xn----gtbdan3bddhceo9d.xn--p1ai',client:'https://xn----gtbdan3bddhceo9d.xn--p1ai/client.html'};var t=n+'\nТелефон: '+p+'\nСсылка: '+L[r];document.getElementById('cred-text').value=t;openModal('modal-credentials');setTimeout(function(){var el=document.getElementById('cred-text');el.focus();el.select();el.setSelectionRange(0,99999);},100);});
+document.addEventListener('click',function(e){var b=e.target.closest('.cpb');if(!b)return;var r=b.dataset.role,p=b.dataset.phone,n=b.dataset.name||'';var L={worker:'https://xn----gtbdan3bddhceo9d.xn--p1ai/worker.html',dispatcher:'https://xn----gtbdan3bddhceo9d.xn--p1ai',client:'https://xn----gtbdan3bddhceo9d.xn--p1ai/client.html'};var t=n+'\nТелефон: '+p+'\nСсылка: '+L[r];document.getElementById('cred-text').value=t;document.getElementById('cred-text').dataset.phone=p;document.getElementById('cred-text').dataset.role=r;openModal('modal-credentials');setTimeout(function(){var el=document.getElementById('cred-text');el.focus();el.select();el.setSelectionRange(0,99999);},100);});
+async function resetCredPassword(){var el=document.getElementById('cred-text');var phone=el.dataset.phone;if(!phone){toast('❌ Телефон не указан');return;}var role=el.dataset.role||'users';var table=role==='worker'?'workers':role==='client'?'clients':'users';toast('⏳ Отправляем новый пароль в Telegram...');try{var res=await fetch('/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:table,phone:phone})});var data=await res.json();if(data.ok){toast('✅ Новый пароль отправлен в Telegram');}else{toast('❌ '+data.error||'Ошибка');}}catch(e){toast('❌ Ошибка подключения');}}
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
 setInterval(()=>{if(currentUser&&document.visibilityState==='visible'){loadOverview();}},30000);
@@ -798,6 +799,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.qu
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="btn btn-primary" style="flex:1;padding:12px;" onclick="copyCred()" data-i18n="btn_copy">📋 Скопировать</button>
         <button class="btn btn-outline" style="flex:1;padding:12px;" onclick="shareCred()" data-i18n="btn_share">📤 Поделиться</button>
+        <button class="btn btn-outline" style="flex:1;padding:12px;background:var(--warning);color:#fff;border:none;" onclick="resetCredPassword()">🔑 Сбросить пароль</button>
       </div>
     </div></div>
 <script src="/push-client.js"></script>
