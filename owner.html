@@ -596,7 +596,7 @@ async function loadDispatchers(){
     const active=d.is_active!==false;
     html+=`<div class="dispatcher-card">
       <div class="dc-header">
-        <div><div class="dc-name">${esc(d.full_name)}</div><div style="font-size:12px;color:var(--text-light);">${esc(d.phone)}${d.city?' · 📍'+esc(d.city):''}</div></div>
+        <div><div class="dc-name">${esc(d.full_name||d.phone||'Без имени')}</div><div style="font-size:12px;color:var(--text-light);">${d.full_name&&d.phone?esc(d.phone):''}${d.city?' · 📍'+esc(d.city):''}</div></div>
         <div style="display:flex;gap:6px;align-items:center;">
           <span class="badge ${active?'badge-green':'badge-red'}">${active?'Активен':'Отключён'}</span>
           <button class="btn btn-sm btn-outline cpb" aria-label="Скопировать контакт" data-role="dispatcher" data-name="${esc(d.full_name||'')}" data-phone="${esc(d.phone||'')}">📋</button> <button class="btn btn-sm btn-outline" aria-label="Редактировать" onclick="editDispatcher('${d.id}')">✏️</button>
