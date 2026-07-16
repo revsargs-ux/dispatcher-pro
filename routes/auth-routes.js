@@ -258,7 +258,14 @@ async function handleForgot(req, res, cors) {
     const users = await (await sbFetch(table, `${phoneCol}=ilike.%25${cleanPhone.slice(-10)}%25&select=id,full_name,telegram_chat_id&limit=1`)).json();
     if (!users.length) return json(res, { ok: false, error: 'Пользователь не найден' });
     const u = users[0];
-    if (!u.telegram_chat_id) return json(res, { ok: false, error: 'Telegram не привязан. Обратитесь к администратору.' });
+    if (!u.telegram_chat_id) {
+      // No Telegram — still generate password and return it (owner can share manually)
+      const newPass = Math.random().toString(36).slice(2, 8);
+      await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: await hashPassword(newPass) }) });
+      audit('password_reset', u.full_name, u.id, table, ip);
+      json(res, { ok: true, password: newPass });
+      return;
+    }
 
     const newPass = Math.random().toString(36).slice(2, 8);
     await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: await hashPassword(newPass) }) });
