@@ -65,6 +65,9 @@ async function handleApiProxy(req, res, cors, urlPath) {
   if (!table) return json(res, { error: 'Missing table' }, 400, cors);
   if (!ALLOWED_TABLES.has(table)) return json(res, { error: 'Forbidden table' }, 403, cors);
 
+  const session = requireAuth(req);
+  if (!session) return json(res, { error: 'Требуется авторизация', code: 'AUTH_REQUIRED' }, 401, cors);
+
   // Query validation — owner gets full access (trusted, authenticated)
   if (session.role === 'owner') {
     // select=* allowed for owner — do not restrict
@@ -72,9 +75,6 @@ async function handleApiProxy(req, res, cors, urlPath) {
     query = query.replace(/select=\*/, 'select=id');
   }
   if (!query.match(/limit=/)) query += '&limit=50';
-
-  const session = requireAuth(req);
-  if (!session) return json(res, { error: 'Требуется авторизация', code: 'AUTH_REQUIRED' }, 401, cors);
 
   // Role-based access
   // BUG-003: payments — owner+client full; dispatcher GET only
