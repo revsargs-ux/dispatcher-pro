@@ -891,6 +891,33 @@ async function loadShifts(){
         if(h>0&&(hoursStatus==='pending'||hoursStatus==='disputed')){actions.push(`<button class="btn btn-sm btn-outline" title="Подтвердить принудительно" onclick="event.stopPropagation();clientConfirm('${a.id}')">🏢✅</button>`);}
         if(h>0&&(hoursStatus==='confirmed'||hoursStatus==='auto_confirmed'||clientConfirmed))actions.push(`<button class="btn btn-sm btn-success" aria-label=\"Оплатить\" onclick=\"event.stopPropagation();openPayment('${a.id}')\">💰</button>`);
         return `<div class="worker-row"><div><div class="worker-name">${name}</div><div class="worker-meta">Начало: ${startT} · Окончание: ${endT} · <strong>${h}ч</strong>${h?' · '+((h*r)+ex).toLocaleString('ru')+'₽':''}${confirmBadge}</div><div class="worker-meta">${payLabel}</div></div><div class="worker-actions">${actions.join('')}</div></div>`;
+      }).join('')||'<p style="color:var(--text-light);padding:8px;">Нет подтвердивших</p>';
+      const summaryParts=[];
+      if(invitedCount)summaryParts.push('📞 '+invitedCount+' ожидают');
+      if(declinedCount)summaryParts.push('❌ '+declinedCount+' отказ');
+      const summaryHtml=summaryParts.length?`<div style="padding:6px 0;font-size:12px;color:var(--text-light);border-top:1px solid var(--border);">${summaryParts.join(' · ')}</div>`:'';
+      let sep='';
+      if(shift.status==='completed'&&!completedHeader){completedHeader=true;sep='<div style="margin:16px 0 8px;padding:8px;background:var(--bg);border-radius:8px;font-weight:600;color:var(--text-light);">📋 Завершённые смены</div>';}
+      return sep+`<div class="card">
+        <div class="card-header" onclick="toggleCard('${shift.id}')">
+          <div>
+            <div style="font-size:12px;color:var(--text-light);">📅 ${formatDate(shift.date)}${shift.start_time?' '+shift.start_time:''}${shift.comment?" · 💬 "+esc(shift.comment):""}</div>
+            <div style="font-size:17px;font-weight:700;margin:2px 0;">${esc(shift.clients?.name)||"—"}</div>
+            <div style="font-size:13px;color:var(--text-light);">${servicesHtml}</div>
+          </div>
+          <div style="text-align:right;">
+            <div><span class="badge ${countCls}">${confCount}/${totalReq}</span></div>
+            ${shift.status!=='completed'?`<div style="margin-top:6px;display:flex;gap:4px;justify-content:flex-end;">${confCount<totalReq?`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();restartSearch('${shift.id}')">🔄 Поиск</button>`:''}<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();closeShift('${shift.id}')">✖ Закрыть</button></div>`:'<div style="font-size:12px;color:var(--accent);margin-top:4px;">✅ Завершено</div>'}
+          </div>
+        </div>
+        <div class="card-body" id="card-body-${shift.id}">
+        ${confirmedWorkers.length?`<button class="btn btn-sm btn-outline" style="margin-bottom:8px;width:100%;" onclick="openMassHours('${shift.id}',[${confirmedWorkers.map(a=>`{id:'${a.id}',name:'${(wMap[a.worker_id]||'').replace(/'/g,"\\\\'")}',hours:${a.hours_worked||0}}`).join(',')}],'${shift.date||''}')">⏱ Ввести часы всем (${confirmedWorkers.length})</button>`:''}
+        <button class="btn btn-sm btn-outline" style="margin-bottom:8px;width:100%;" onclick="openChat('${shift.id}')">💬 Чат</button>
+        ${workersHtml}${summaryHtml}</div>
+      </div>`;
+    }).join('');
+  }catch(e){console.error('loadShifts:',e);}
+}
 async function clientConfirm(id){
   await fetch('/api/client-hours-confirm',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({assignment_id:id,action:'confirm'})});
   loadShifts();
