@@ -423,7 +423,7 @@ function handleStatic(req, res, urlPath) {
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('Not found'); }
     const ext = path.extname(filePath);
-    res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream', ...SEC_HEADERS, 'Cache-Control': 'no-cache' });
+    res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream', ...SEC_HEADERS, 'Cache-Control': 'no-cache, no-store, must-revalidate' });
     res.end(data);
   });
 }
