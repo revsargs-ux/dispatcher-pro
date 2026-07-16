@@ -265,7 +265,7 @@ async function handleForgot(req, res, cors) {
     await tgSendMessage(u.telegram_chat_id, `🔑 Ваш новый пароль: <code>${newPass}</code>\n\nВойдите в систему и смените его в настройках.`);
     console.log('[TG] Password reset for', u.full_name);
     audit('password_reset', u.full_name, u.id, table, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
-    json(res, { ok: true });
+    json(res, { ok: true, password: newPass }); // owner получает пароль в ответе
   } catch (e) {
     console.error('[Forgot] Error:', e.message);
     json(res, { ok: false, error: 'Ошибка сервера' }, 500, cors);
