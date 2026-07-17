@@ -143,7 +143,7 @@ async function linkTgUser(chatId, phone, username) {
       body: JSON.stringify({ telegram_chat_id: chatId })
     });
     const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
-    await tgSendMessage(chatId, `✅ Привет, ${found.full_name}!\n\n${roleNames[found.role] || found.role}\n\nТеперь буду присылать уведомления о сменах.\nПиши /help — покажу что умею.`);
+    await tgSendMessage(chatId, `✅ Привет, ${found.full_name}!\n\n${roleNames[found.role] || found.role}\n\nТеперь буду присылать уведомления о сменах.\n\n• /shifts — ближайшие смены\n• /earnings — сколько заработал\n• /app — открыть приложение\n\nИли просто спроси что-нибудь — отвечу.`);
     console.log('[TG] Linked', found.full_name, '->', chatId);
   } catch (e) { console.error('[TG] Link error:', e.message); }
 }
@@ -243,7 +243,7 @@ async function handleTgMessage(body) {
     const existingUser = await identifyUser(chatId);
     if (existingUser) {
       const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
-      await tgSendMessage(chatId, `Привет, ${existingUser.full_name}! 👋\n\n${roleNames[existingUser.role] || existingUser.role}\n\nНужна помощь — пиши /help`);
+      await tgSendMessage(chatId, `С возвращением, ${existingUser.full_name}! 👋\n\n${roleNames[existingUser.role] || existingUser.role}\n\n• /shifts — ближайшие смены\n• /earnings — сколько заработал\n• /app — открыть приложение\n\nИли просто спроси что-нибудь — отвечу.`);
       return;
     }
     const startPhone = text.split(' ')[1];

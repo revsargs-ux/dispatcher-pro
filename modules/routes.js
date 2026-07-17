@@ -13,6 +13,7 @@ const { audit } = require('./audit');
 const { verifyGasSignature } = require('./gas-sync');
 const { recordRequest, getStats } = require('./monitoring');
 const { tgNotify, tgNotifyRole, handleTgMessage, startPolling } = require('./telegram');
+const { maxNotify, maxNotifyRole, startMaxPolling } = require('./max-bot');
 
 // Sub-modules
 const authRoutes = require('../routes/auth-routes');
@@ -29,6 +30,36 @@ const MIME_TYPES = {
   '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.ico': 'image/x-icon', '.svg': 'image/svg+xml'
 };
+
+// --- Notify pending workers when someone declines ---
+async function notifyPendingWorkers(shiftId, declinedWorkerId) {
+  try {
+    const aRes = await sbFetch('shift_assignments',
+      `shift_id=eq.${shiftId}&invite_status=in.(pending,invited)&select=worker_id,shifts!inner(date,start_time,address,clients(name))&limit=50`
+    );
+    const assignments = await aRes.json();
+    if (!Array.isArray(assignments) || !assignments.length) return;
+    const shiftInfo = assignments[0]?.shifts || {};
+    const dateFmt = shiftInfo.date ? shiftInfo.date.split('-').reverse().join('.') : '—';
+    const timeStr = shiftInfo.start_time ? shiftInfo.start_time.slice(0,5) : '—';
+    const clientName = shiftInfo.clients?.name || '—';
+    const address = shiftInfo.address || '—';
+    const text = `📢 Освободилась смена!\n\n🏢 ${clientName}\n📅 ${dateFmt} в ${timeStr}\n📍 ${address}\n\nЗаказ снова доступен — подтвердите в приложении.`;
+    for (const a of assignments) {
+      if (a.worker_id === declinedWorkerId) continue;
+      const wRes = await sbFetch('workers',
+        `id=eq.${a.worker_id}&select=telegram_chat_id,max_chat_id,phone&limit=1`
+      );
+      const workers = await wRes.json();
+      if (!Array.isArray(workers) || !workers[0]) continue;
+      const w = workers[0];
+      if (w.telegram_chat_id) tgNotify('workers', w.phone || w.telegram_chat_id, text);
+      if (w.max_chat_id) maxNotify('workers', w.phone || w.max_chat_id, text);
+    }
+  } catch(e) {
+    console.error('[notifyPendingWorkers] error:', e.message);
+  }
+}
 
 // --- Health ---
 async function handleHealth(req, res, cors) {
@@ -383,6 +414,15 @@ async function handleApiProxy(req, res, cors, urlPath) {
     // Post-processing hooks (sync + notifications)
     if (sbRes.status < 300) {
       await shiftRoutes.handlePostProcess(table, req.method, data, body, query, req);
+      // Notify pending workers when someone declines a shift
+      if (req.method === 'PATCH' && table === 'shift_assignments' && parsed?.invite_status === 'declined') {
+        try {
+          const declinedData = JSON.parse(data);
+          const shiftId = Array.isArray(declinedData) ? declinedData[0]?.shift_id : declinedData?.shift_id;
+          const workerId = Array.isArray(declinedData) ? declinedData[0]?.worker_id : declinedData?.worker_id;
+          if (shiftId) notifyPendingWorkers(shiftId, workerId);
+        } catch(e) { console.error('[declined notify] parse error:', e.message); }
+      }
       const methodMap = { POST: 'data_create', PATCH: 'data_update', DELETE: 'data_delete' };
       const action = methodMap[req.method];
       if (action) audit(action, `${table} ${req.method}`, session?.userId, session?.role, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
@@ -636,4 +676,4 @@ function createRouter() {
   };
 }
 
-module.exports = { createRouter, startPolling, handlePostProcess: shiftRoutes.handlePostProcess };
+module.exports = { createRouter, startPolling, handlePostProcess: shiftRoutes.handlePostProcess, maxNotify, maxNotifyRole, tgNotify, tgNotifyRole };

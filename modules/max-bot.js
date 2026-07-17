@@ -126,7 +126,7 @@ async function linkMaxUser(chatId, phone) {
       body: JSON.stringify({ max_chat_id: chatId })
     });
     const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
-    await maxSendMessage(chatId, `✅ Привязка успешна!\n\n👤 ${found.full_name}\n${roleNames[found.role] || found.role}\n\nТеперь буду присылать уведомления о сменах.\n\nПиши /help — покажу что умею.`);
+    await maxSendMessage(chatId, `✅ Привет, ${found.full_name}!\n\n${roleNames[found.role] || found.role}\n\nТеперь буду присылать уведомления о сменах.\n\n• /shifts — ближайшие смены\n• /earnings — сколько заработал\n• /app — открыть приложение\n\nИли просто спроси что-нибудь — отвечу.`);
     console.log('[MAX] Linked', found.full_name, '->', chatId);
   } catch (e) { console.error('[MAX] Link error:', e.message); }
 }
@@ -217,7 +217,7 @@ async function handleMaxMessage(update) {
     const existingUser = await identifyMaxUser(chatId);
     if (existingUser) {
       const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
-      await maxSendMessage(chatId, `Привет, ${existingUser.full_name}! 👋\n\n${roleNames[existingUser.role] || existingUser.role}\n\nНужна помощь — пиши /help`);
+      await maxSendMessage(chatId, `С возвращением, ${existingUser.full_name}! 👋\n\n${roleNames[existingUser.role] || existingUser.role}\n\n• /shifts — ближайшие смены\n• /earnings — сколько заработал\n• /app — открыть приложение\n\nИли просто спроси что-нибудь — отвечу.`);
     } else {
       await maxSendMessage(chatId, 'Привет! 👋 Отправь номер телефона, чтобы привязаться:\n\nФормат: +7XXXXXXXXXX');
     }
@@ -239,7 +239,7 @@ async function handleMaxMessage(update) {
     const existingUser = await identifyMaxUser(chatId);
     if (existingUser) {
       const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
-      await maxSendMessage(chatId, `Привет, ${existingUser.full_name}! 👋\n\n${roleNames[existingUser.role] || existingUser.role}\n\nНужна помощь — пиши /help`);
+      await maxSendMessage(chatId, `С возвращением, ${existingUser.full_name}! 👋\n\n${roleNames[existingUser.role] || existingUser.role}\n\n• /shifts — ближайшие смены\n• /earnings — сколько заработал\n• /app — открыть приложение\n\nИли просто спроси что-нибудь — отвечу.`);
       return;
     }
     await maxSendMessage(chatId, 'Привет! 👋 Отправь номер телефона, чтобы привязаться:\n\nФормат: +7XXXXXXXXXX', [

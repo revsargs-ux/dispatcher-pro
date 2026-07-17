@@ -3,6 +3,9 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👷</text></svg>"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Рабочий — Dispatcher.PRO</title>
 <link rel="manifest" href="/manifest.json">
@@ -135,7 +138,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
 </div></div>
 
 <div id="main-screen" style="display:none;"><div class="container">
-  <div class="header" style="display:flex;justify-content:space-between;align-items:center;"><div><h2 id="worker-name">👷</h2><p id="worker-stats"></p></div><div style="display:flex;gap:6px;align-items:center;"><button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button><button id="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему" style="background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">🌙</button><button onclick="doLogout()" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 10px;border-radius:4px;cursor:pointer;font-size:12px;color:#fff;margin-left:4px">🚪 Выход</button></div></div>
+  <div class="header" style="display:flex;justify-content:space-between;align-items:center;"><div><h2 id="worker-name">👷</h2><p id="worker-stats"></p></div><div style="display:flex;gap:6px;align-items:center;"><button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button><button id="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему" style="background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">🌙</button><button onclick="location.reload()" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" title="Обновить страницу">🔄</button><button onclick="doLogout()" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 10px;border-radius:4px;cursor:pointer;font-size:12px;color:#fff;margin-left:4px">🚪 Выход</button></div></div>
   <div id="messenger-bar" style="display:flex;gap:6px;margin-bottom:12px;justify-content:center;">
     <div id="tg-banner" style="display:none;flex:1;text-align:center;">
       <a href="javascript:linkTelegram()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;">📱 TG</a>
@@ -442,7 +445,8 @@ async function render(){
     _workerAllAssignments=await api('shift_assignments','GET',null,
       `?worker_id=eq.${worker.id}&select=*,shifts(date,start_time,planned_end_time,comment,clients(name),service_types(name),status)&order=created_at.desc`);
     let assignments=_workerAllAssignments;
-    if(_workerTab==='tab-active'){
+    if(_workerTab==='tab-active'||_workerTab==='tab-my-orders'){
+      // Don't show declined or completed in any worker tab
       assignments=assignments.filter(a=>a.invite_status!=='declined'&&a.invite_status!=='completed'&&(!a.actual_end_time));
     }else if(_workerTab==='tab-payments'){
       assignments=assignments.filter(a=>parseFloat(a.hours_worked)>0);
@@ -508,14 +512,14 @@ async function render(){
       // Status
       let statusHtml='';
       if(status==='declined'){statusHtml='<div class="status-declined">❌ Вы отказались</div>';}
-      else if(status==='invited'){statusHtml='<div class="status-invited">📞 Приглашение</div>';}
+      else if(status==='pending'||status==='invited'){statusHtml='<div class="status-invited">📞 Приглашение</div>';}
       else if(status==='confirmed'&&a.actual_start_time&&!a.actual_end_time){statusHtml='<div class="status-working">🔄 Вы на смене</div>';}
       else if(status==='confirmed'&&a.actual_end_time){statusHtml='<div class="status-done">✅ Смена завершена'+(clientConfirmed?' · Подтверждено':'')+'</div>';}
       else if(status==='confirmed'&&!a.actual_start_time){statusHtml='<div class="status-confirmed">✅ Вы подтвердили</div>';}
 
       // Time block
       let timeBlock='';
-      if(status==='confirmed'||status==='invited'){
+      if(status==='confirmed'||status==='invited'||status==='pending'){
         timeBlock=`<div class="time-block">
           <div><strong>📅 Дата:</strong> ${dateStr}</div>
           ${startTime?`<div><strong>🕐 Начало:</strong> ${startTime}</div>`:''}
@@ -542,7 +546,7 @@ async function render(){
 
       // Actions
       let actionsHtml='';
-      if(status==='invited'){
+      if(status==='pending'||status==='invited'){
         actionsHtml=`<div class="actions">
           <button class="btn btn-accept" onclick="respond('${a.id}','confirmed',this)">✅ Подтвердить</button>
           <button class="btn btn-decline" onclick="respond('${a.id}','declined')">❌ Отказаться</button>
@@ -593,7 +597,7 @@ async function respond(id,status,btn){if(btn)btnLoading(btn,true);try{
   if(status==='declined'){if(!confirm('Вы уверены? Это действие нельзя отменить.'))return;}
     await api('shift_assignments','PATCH',{invite_status:status},`?id=eq.${id}`);
     render();
-  toast(status==='confirmed'?'✅ Подтверждено':'❌ Отклонено');
+  toast(status==='confirmed'?'✅ Подтверждено':'❌ Отказались. Рабочим отправлено уведомление');
 }catch(e){toast('Ошибка');}finally{if(btn)btnLoading(btn,false);}
 }
 async function startWork(id){try{
@@ -861,6 +865,22 @@ document.addEventListener('DOMContentLoaded',async()=>{
     }else{localStorage.removeItem('dp_token');localStorage.removeItem('dp_auth');}
   }catch(e){console.error('restore error:',e);localStorage.removeItem('dp_token');localStorage.removeItem('dp_auth');}
 });
+
+// Force cache refresh for Telegram in-app browser
+(function(){
+  const BUILD_TS = '20260717-2350';
+  const cached = localStorage.getItem('dp_build_ts');
+  if (cached && cached !== BUILD_TS) {
+    localStorage.setItem('dp_build_ts', BUILD_TS);
+    // Clear service worker caches
+    if ('caches' in window) {
+      caches.keys().then(names => names.forEach(name => caches.delete(name)));
+    }
+    location.reload(true);
+  } else if (!cached) {
+    localStorage.setItem('dp_build_ts', BUILD_TS);
+  }
+})();
 </script>
 </body>
 </html>
