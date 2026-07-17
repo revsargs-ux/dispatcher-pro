@@ -1991,6 +1991,8 @@ async function closeShift(id){
   loadShifts();loadDashboard();
 }
 
+function toggleCard(id){const el=document.getElementById('card-body-'+id);if(el)el.classList.toggle('open');}
+
 // ===== Restart Search =====
 async function restartSearch(shiftId){
   try{
@@ -2008,9 +2010,117 @@ async function restartSearch(shiftId){
     document.getElementById('invite-services').innerHTML=(reqs||[]).map(r=>{const st=(cachedServiceTypes||[]).find(t=>t.id===r.service_type_id);return(st?.name||'?')+': '+r.required_count+' чел';}).join(' · ');
     document.getElementById('shift-step1').style.display='none';
     document.getElementById('shift-step2').style.display='block';
-    loadWorkers();
+    openModal('modal-shift');
+    doShowInviteByService();
   }catch(e){alert('Ошибка: '+e.message);}
 }
+
+// ===== Create Shift Step 1 =====
+function createShiftStep1(){
+  const date=document.getElementById('shift-date').value,clientId=document.getElementById('shift-client').value;
+  const startTime=document.getElementById('shift-time').value||null;
+  const comment=document.getElementById('shift-comment')?.value?.trim();
+  const serviceRows=[...document.querySelectorAll('.service-row')];
+  const requirements=[];
+  serviceRows.forEach(row=>{
+    const count=parseInt(row.querySelector('.svc-count').value)||0;
+    if(count>0)requirements.push({service_type_id:row.dataset.sid,required_count:count,worker_rate:parseFloat(row.dataset.wr)||400,client_rate:parseFloat(row.dataset.cr)||520});
+  });
+  if(!date||!clientId||!requirements.length){alert('Заполните дату, клиента и количество');return;}
+  const address=document.getElementById('shift-address')?.value?.trim();
+  const shiftData={date,client_id:clientId,status:'planned',created_by:currentUser?.id};
+  if(startTime)shiftData.start_time=startTime;
+  if(comment)shiftData.comment=comment;
+  if(address)shiftData.address=address;
+  const endTime=document.getElementById('shift-end-time')?.value||null;
+  if(endTime)shiftData.planned_end_time=endTime;
+  api('shifts','POST',shiftData).then(shift=>{
+    if(!shift||!shift.length){alert('Ошибка');return;}
+    const s=shift[0];
+    const reqBatch=requirements.map(r=>({shift_id:s.id,service_type_id:r.service_type_id,required_count:r.required_count}));
+    api('shift_requirements','POST',reqBatch).then(()=>{
+      _inviteShiftId=s.id;_inviteClientId=clientId;
+      _inviteRequirements=requirements;
+      const clientName=(cachedClients||[]).find(c=>c.id===clientId)?.name||'—';
+      document.getElementById('invite-info').textContent=formatDate(date)+' '+(startTime||'')+' \u00b7 '+clientName;
+      document.getElementById('invite-services').innerHTML=requirements.map(r=>{const st=(cachedServiceTypes||[]).find(t=>t.id===r.service_type_id);return(st?.name||'?')+': '+r.required_count+' чел';}).join(' \u00b7 ');
+      document.getElementById('shift-step1').style.display='none';
+      document.getElementById('shift-step2').style.display='block';
+      doShowInviteByService();
+    });
+  });
+}
+
+// ===== Do Send Invites =====
+function doSendInvites(){
+  try{
+    const btn=document.getElementById('send-invites-btn');
+    btn.disabled=true;btn.textContent='\u23f3 \u041e\u0442\u043f\u0440\u0430\u0432\u043a\u0430...';
+    const existing=await api('shift_assignments','GET',null,'?shift_id=eq.'+_inviteShiftId+'&select=worker_id');
+    const existingIds=new Set((existing||[]).map(a=>a.worker_id));
+    const batch=[];
+    _inviteRequirements.forEach((req,idx)=>{
+      const checked=document.querySelectorAll('.iscb[data-idx="'+idx+'"]:checked');
+      checked.forEach(cb=>{
+        const wid=cb.dataset.wid;
+        if(!existingIds.has(wid)){
+          batch.push({shift_id:_inviteShiftId,worker_id:wid,invite_status:'invited',rate_per_hour:req.worker_rate||400,client_rate_per_hour:req.client_rate||520});
+          existingIds.add(wid);
+        }
+      });
+    });
+    if(batch.length)await api('shift_assignments','POST',batch);
+    closeModal('modal-shift');loadDashboard();loadShifts();
+    toast(batch.length?'\u041f\u0440\u0438\u0433\u043b\u0430\u0448\u0435\u043d\u0438\u044f \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u044b '+batch.length+' \u0440\u0430\u0431\u043e\u0447\u0438\u043c':'\u0412\u0441\u0435 \u0443\u0436\u0435 \u043f\u0440\u0438\u0433\u043b\u0430\u0448\u0435\u043d\u044b');
+  }catch(e){alert('\u041e\u0448\u0438\u0431\u043a\u0430: '+e.message);}
+}
+
+// ===== Do Show Invite By Service =====
+function doShowInviteByService(){
+  const container=document.getElementById('invite-by-service');
+  if(!_inviteRequirements.length){container.innerHTML='<p style="color:var(--text-light);">\u041d\u0435\u0442 \u0443\u0441\u043b\u0443\u0433</p>';return;}
+  let allWorkers=cachedWorkers;
+  if(!allWorkers||!allWorkers.length){
+    api('workers','GET',null,'?select=id,full_name,phone,is_active,archived&order=full_name').then(w=>{cachedWorkers=w;renderInviteByService(container);});
+  }else renderInviteByService(container);
+}
+function renderInviteByService(container){
+  const activeWorkers=(cachedWorkers||[]).filter(w=>w.is_active!==false&&!w.archived);
+  let prevWorkerIds=new Set();
+  if(_inviteClientId){
+    api('shift_assignments','GET',null,'?select=worker_id,shifts!inner(client_id)&shifts.client_id=eq.'+_inviteClientId).then(asgn=>{
+      (asgn||[]).forEach(a=>prevWorkerIds.add(a.worker_id));
+      container.innerHTML=_inviteRequirements.map((req,idx)=>{
+        const st=(cachedServiceTypes||[]).find(t=>t.id===req.service_type_id);
+        const workers=activeWorkers.filter(w=>prevWorkerIds.has(w.id)).concat(activeWorkers.filter(w=>!prevWorkerIds.has(w.id)));
+        return '<div style="margin-bottom:12px;"><div style="font-weight:600;margin-bottom:4px;">'+(st?.name||'?')+'</div>'+
+          '<div class="worker-list">'+workers.map(w=>
+            '<label class="worker-item" style="display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;">'+
+            '<input type="checkbox" class="iscb" data-idx="'+idx+'" data-wid="'+w.id+'" onclick="updateInviteCount()">'+
+            '<span>'+esc(w.full_name)+'</span></label>'
+          ).join('')+'</div></div>';
+      }).join('');
+      updateInviteCount();
+    });
+    return;
+  }
+  container.innerHTML=_inviteRequirements.map((req,idx)=>{
+    const st=(cachedServiceTypes||[]).find(t=>t.id===req.service_type_id);
+    return '<div style="margin-bottom:12px;"><div style="font-weight:600;margin-bottom:4px;">'+(st?.name||'?')+'</div>'+
+      '<div class="worker-list">'+activeWorkers.map(w=>
+        '<label class="worker-item" style="display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;">'+
+        '<input type="checkbox" class="iscb" data-idx="'+idx+'" data-wid="'+w.id+'" onclick="updateInviteCount()">'+
+        '<span>'+esc(w.full_name)+'</span></label>'
+      ).join('')+'</div></div>';
+  }).join('');
+  updateInviteCount();
+}
+function updateInviteCount(){
+  const total=document.querySelectorAll('.iscb:checked').length;
+  document.getElementById('invite-selected-count').textContent=total;
+  document.getElementById('send-invites-btn').disabled=total===0;
+}
+
 </script>
 
 <!-- Edit Shift Modal -->
