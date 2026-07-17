@@ -57,7 +57,7 @@ function handleStats(req, res, cors) {
 }
 
 // --- API proxy (generic Supabase) with sync + notifications ---
-const ALLOWED_TABLES = new Set(['users','workers','clients','shifts','shift_assignments','service_types','payments','recurring_orders']);
+const ALLOWED_TABLES = new Set(['users','workers','clients','shifts','shift_assignments','service_types','payments','recurring_orders','shift_requirements','reviews']);
 
 async function handleApiProxy(req, res, cors, urlPath) {
   const table = urlPath.replace('/api/', '').split('/')[0];
@@ -99,9 +99,9 @@ async function handleApiProxy(req, res, cors, urlPath) {
 
   // Dispatcher GET: restrict to own shifts (created_by), but workers/clients — show all (no created_by column)
   if (session.role === 'dispatcher' && req.method === 'GET') {
-    const dispTablesWithCreatedBy = ['shifts', 'reviews', 'orders'];
-    const dispTablesWithShiftId = ['shift_assignments']; // filter via shift → created_by
-    const dispTablesAll = ['workers', 'clients']; // no created_by filter — show all
+    const dispTablesWithCreatedBy = ['shifts', 'reviews']; // orders: table does NOT exist in DB (PGRST205)
+    const dispTablesWithShiftId = ['shift_assignments', 'shift_requirements']; // filter via shift → created_by
+    const dispTablesAll = ['workers', 'clients', 'recurring_orders']; // no created_by filter — show all
     if (dispTablesWithCreatedBy.includes(table)) {
       const sep = query ? '&' : '';
       const filter = `created_by=eq.${session.userId}`;
@@ -414,8 +414,12 @@ async function handleApiProxy(req, res, cors, urlPath) {
 function handleStatic(req, res, urlPath) {
   if (urlPath === '/') urlPath = '/index.html';
   // Block sensitive files
-  const blocked = ['.env', '.json', '.js', '.yml', '.yaml', '.toml', '.md', 'Dockerfile', '.git'];
+  const blocked = ['.env', '.json', '.yml', '.yaml', '.toml', '.md', 'Dockerfile', '.git'];
+  const jsBlocked = ['/server.js', '/modules/', '/routes/', '/push-client.js', '/bot-knowledge.md', '/notifications-module/'];
   if (urlPath !== '/manifest.json' && blocked.some(ext => urlPath.endsWith(ext))) {
+    res.writeHead(403); return res.end('Forbidden');
+  }
+  if (jsBlocked.some(p => urlPath.startsWith(p))) {
     res.writeHead(403); return res.end('Forbidden');
   }
   const filePath = path.join(config.appDir, urlPath);
@@ -510,15 +514,17 @@ function createRouter() {
       return await shiftRoutes.handleGetWorkerReviews(req, res, cors, wId);
     }
 
-    // Recurring orders
-    if (urlPath === '/api/recurring' && req.method === 'GET') { if (!auth()) return; return await shiftRoutes.handleRecurringList(req, res, cors); }
-    if (urlPath === '/api/recurring' && req.method === 'POST') { if (!auth()) return; return await shiftRoutes.handleRecurringCreate(req, res, cors); }
-    if (urlPath.match(/^\/api\/recurring\/[0-9a-f-]{36}$/) && req.method === 'PATCH') {
+    // Recurring orders (both legacy /api/recurring and canonical /api/recurring_orders)
+    const isRecurring = urlPath === '/api/recurring' || urlPath === '/api/recurring_orders';
+    const isRecurringId = urlPath.match(/^\/api\/(?:recurring|recurring_orders)\/[0-9a-f-]{36}$/);
+    if (isRecurring && req.method === 'GET') { if (!auth()) return; return await shiftRoutes.handleRecurringList(req, res, cors); }
+    if (isRecurring && req.method === 'POST') { if (!auth()) return; return await shiftRoutes.handleRecurringCreate(req, res, cors); }
+    if (isRecurringId && req.method === 'PATCH') {
       if (!auth()) return;
       const id = urlPath.split('/').pop();
       return await shiftRoutes.handleRecurringUpdate(req, res, cors, id);
     }
-    if (urlPath.match(/^\/api\/recurring\/[0-9a-f-]{36}$/) && req.method === 'DELETE') {
+    if (isRecurringId && req.method === 'DELETE') {
       if (!auth()) return;
       const id = urlPath.split('/').pop();
       return await shiftRoutes.handleRecurringDelete(req, res, cors, id);

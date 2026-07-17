@@ -27,8 +27,8 @@ CREATE INDEX IF NOT EXISTS idx_workers_is_active ON workers(is_active);
 CREATE INDEX IF NOT EXISTS idx_clients_contact ON clients(contact);
 
 -- Recurring orders: filtered by client_id, is_active
-CREATE INDEX IF NOT EXISTS idx_recurring_client_id ON recurring(client_id);
-CREATE INDEX IF NOT EXISTS idx_recurring_is_active ON recurring(is_active);
+CREATE INDEX IF NOT EXISTS idx_recurring_orders_client_id ON recurring_orders(client_id);
+CREATE INDEX IF NOT EXISTS idx_recurring_orders_is_active ON recurring_orders(is_active);
 
 -- Reviews: filtered by worker_id
 CREATE INDEX IF NOT EXISTS idx_reviews_worker_id ON reviews(worker_id);

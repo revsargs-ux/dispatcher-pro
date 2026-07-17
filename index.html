@@ -30,10 +30,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .auth-error{color:var(--danger);text-align:center;font-size:13px;margin-top:8px;display:none}
 
 /* Header */
-.header{background:var(--primary);color:#fff;padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100}
-.header h1{font-size:18px;font-weight:700;letter-spacing:.5px}
-.header .user-info{display:flex;align-items:center;gap:12px;font-size:13px}
+.header{background:var(--primary);color:#fff;padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;flex-wrap:nowrap;overflow:hidden;min-width:0}
+.header h1{font-size:18px;font-weight:700;letter-spacing:.5px;flex-shrink:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.header .user-info{display:flex;align-items:center;gap:12px;font-size:13px;flex-shrink:0;flex-wrap:nowrap}
 .header .user-info .role-badge{background:var(--accent);padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;text-transform:uppercase}
+.user-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-light));color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;text-transform:uppercase;letter-spacing:0.5px}
 .header .btn-logout{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;transition:.2s}
 .header .btn-logout:hover{background:rgba(255,255,255,.25)}
 
@@ -148,7 +149,30 @@ tr:hover{background:var(--border)}
 .toast.show{display:block}
 
 /* Responsive */
-@media(max-width:600px){.stat-grid{grid-template-columns:1fr 1fr}.form-row{flex-direction:column}.header h1{font-size:15px}}
+@media(max-width:600px){
+  .stat-grid{grid-template-columns:1fr 1fr}
+  .form-row{flex-direction:column;gap:0}
+  .header h1{font-size:15px}
+  .header .user-info{gap:6px;font-size:12px}
+  .header .user-info .role-badge{font-size:10px;padding:2px 6px}
+  .header .btn-logout{padding:4px 10px;font-size:11px}
+  .panel{padding:10px!important}
+  .modal-content{padding:16px}
+  .detail-totals{grid-template-columns:1fr 1fr;gap:6px}
+  .detail-totals .t-item .t-val{font-size:15px}
+  .detail-totals .t-item .t-label{font-size:10px}
+  .detail-pay-section{flex-direction:column;align-items:stretch}
+  .detail-pay-section input[type=number],.detail-pay-section select{min-width:0;width:100%}
+  .stat-card .num{font-size:18px}
+  .card-header{padding:10px 12px}
+  .card-body{padding:10px 12px}
+  .worker-row{padding:8px 0}
+  .worker-actions{flex-wrap:wrap;gap:4px}
+  .worker-actions .btn{font-size:11px;padding:4px 8px;min-height:32px;min-width:32px}
+  .auth-box{padding:24px 20px;margin:10px}
+  .auth-box h1{font-size:20px}
+  .auth-box input{font-size:16px;padding:12px 14px}/* 16px prevents iOS zoom */
+}
 
 /* Tracking panel removed */
 
@@ -158,15 +182,52 @@ th[data-sort]::after{content:" ↕";font-size:10px;opacity:0.5;}
 th.sort-asc::after{content:" ↑";opacity:1;}
 th.sort-desc::after{content:" ↓";opacity:1;}
 
+/* Tablet */
 @media(max-width:768px){
-  table{font-size:12px;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  table{font-size:12px;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;}
+  table::-webkit-scrollbar{height:4px;}
+  table::-webkit-scrollbar-thumb{background:var(--primary);border-radius:2px;}
   th,td{padding:6px 8px;white-space:nowrap;}
   .toolbar{flex-direction:column;gap:8px;}
   .toolbar input,.toolbar select,.toolbar button{width:100%!important;}
   .modal-content{margin:10px;width:95%;max-height:90vh;overflow-y:auto;}
+  .modal-content.wide{max-width:100%;width:98%}
   .card{padding:12px;}
   .dispatcher-card .dc-stats{grid-template-columns:1fr 1fr;}
   .stat-card{padding:12px;}
+}
+
+/* Phone (narrow) */
+@media(max-width:480px){
+  .header{height:50px;padding:0 12px}
+  .header h1{font-size:14px}
+  .header .user-info{gap:4px}
+  #user-name{display:none!important}
+  .user-avatar{width:30px;height:30px;font-size:12px}
+  .tab{padding:10px 12px;font-size:12px}
+  .panel{padding:8px!important}
+  .stat-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .stat-card{padding:10px}
+  .stat-card .num{font-size:16px}
+  .stat-card .label{font-size:11px}
+  .btn{padding:8px 12px;font-size:12px}
+  .form-group input,.form-group select,.form-group textarea{font-size:16px;padding:10px}/* 16px prevents iOS zoom on all inputs */
+  .form-group label{font-size:11px}
+  .detail-table{font-size:11px}
+  .detail-table th,.detail-table td{padding:5px 4px}
+  .chat-box{height:80vh}
+  .chat-msg{font-size:13px}
+  .chat-foot input{font-size:16px}/* iOS zoom prevention */
+}
+
+/* Very small phones (iPhone SE, etc.) */
+@media(max-width:375px){
+  .stat-grid{grid-template-columns:1fr 1fr;gap:6px}
+  .stat-card{padding:8px}
+  .stat-card .num{font-size:14px}
+  .stat-card .label{font-size:10px}
+  .header .role-badge{display:none}
+  .tab{padding:8px 10px;font-size:11px}
 }
 /* Chat */
 .chat-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10001;display:flex;align-items:flex-end;justify-content:center}
@@ -188,8 +249,11 @@ th.sort-desc::after{content:" ↓";opacity:1;}
 .spinner{display:inline-block;width:20px;height:20px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.1);display:flex;align-items:center;justify-content:center;z-index:9999}
-/* Touch-friendly buttons */
-button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
+/* Touch-friendly buttons (only on touch devices) */
+@media(hover:none)and(pointer:coarse){
+  button,.btn,[role="button"]{min-height:44px;min-width:44px}
+}
+button,.btn,[role="button"]{padding:8px 14px}
 </style>
 </head>
 <body>
@@ -241,6 +305,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
 <div class="header">
   <h1>Dispatcher.PRO</h1>
   <div class="user-info">
+    <div class="user-avatar" id="user-avatar"></div>
     <span id="user-name"></span>
     <span class="role-badge" id="user-role"></span>
     <span id="notif-count" style="display:none;background:var(--danger);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;text-align:center;line-height:20px;cursor:pointer;margin-right:4px;" onclick="showNotifications()">0</span>
@@ -366,7 +431,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
   <div class="card" style="padding:16px;margin-top:12px;">
     <h4 style="margin:0 0 12px;">💬 Мессенджеры</h4>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <a href="https://t.me/DispetcherPro_bot" target="_blank" style="text-decoration:none;padding:10px 16px;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;border-radius:8px;font-size:13px;font-weight:500;">📱 Telegram бот</a>
+      <a href="https://t.me/DispatcherPRO1_bot" target="_blank" style="text-decoration:none;padding:10px 16px;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;border-radius:8px;font-size:13px;font-weight:500;">📱 Telegram бот</a>
       <a href="https://max.ru/id4100044993_bot" target="_blank" style="text-decoration:none;padding:10px 16px;background:linear-gradient(135deg,#6b3fa0,#8b5cf6);color:#fff;border-radius:8px;font-size:13px;font-weight:500;">💬 МАКС бот</a>
     </div>
   </div>
@@ -650,6 +715,8 @@ function completeLogin(user){
     document.getElementById('app').style.display='block';
     document.getElementById('user-name').textContent=user.user.full_name;
     document.getElementById('user-role').textContent=user.user.role==='owner'?'Владелец':'Диспетчер';
+    const initials=(user.user.full_name||'U').split(' ').map(w=>w[0]).join('').substring(0,2);
+    document.getElementById('user-avatar').textContent=initials;
     if(user.user.role==='owner')document.getElementById('tab-dispatchers').style.display='';
     if(user.user.role==='owner'){
       document.getElementById('settings-rate').removeAttribute('readonly');
@@ -1709,7 +1776,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.qu
 const DAY_NAMES = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
 
 async function loadRecurring() {
-  const list = await api('recurring','GET',null,'?select=*,clients(id,name),workers(id,full_name),service_types(id,name)&is_active=eq.true&order=created_at.desc&limit=100');
+  const list = await api('recurring_orders','GET',null,'?select=*,clients(id,name),workers(id,full_name),service_types(id,name)&is_active=eq.true&order=created_at.desc&limit=100');
   const el = document.getElementById('recurring-list');
   if (!el) return;
   if (!Array.isArray(list) || !list.length) {
@@ -1754,19 +1821,19 @@ async function saveRecurring() {
   const object_address = document.getElementById('rec-address').value || null;
   const notes = document.getElementById('rec-notes').value || null;
   if (!client_id) return alert('Выберите клиента');
-  await api('recurring','POST',{client_id,worker_id,service_type_id,day_of_week,time_start,hours,object_address,notes,created_by:window.currentUser?.id});
+  await api('recurring_orders','POST',{client_id,worker_id,service_type_id,day_of_week,time_start,hours,object_address,notes,created_by:window.currentUser?.id});
   closeModal('modal-recurring');
   loadRecurring();
 }
 
 async function toggleRecurring(id,active) {
-  await api('recurring','PATCH',{is_active:active},'?id=eq.'+id);
+  await api('recurring_orders','PATCH',{is_active:active},'?id=eq.'+id);
   loadRecurring();
 }
 
 async function deleteRecurring(id) {
   if (!confirm('Удалить подписку?')) return;
-  await api('recurring','DELETE',null,'?id=eq.'+id);
+  await api('recurring_orders','DELETE',null,'?id=eq.'+id);
   loadRecurring();
 }
 

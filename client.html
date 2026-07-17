@@ -192,7 +192,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
         <p>После создания заказ имеет статус «Ожидание». Когда диспетчер принимает заказ, статус меняется на «В работе» и начинается поиск рабочих. Вы увидите подтверждённых рабочих в реальном времени.</p>
         <br>
         <p><strong>3️⃣ Подключите Telegram</strong></p>
-        <p>После входа нажмите синий баннер «📱 Подключить уведомления» сверху. Откроется бот @DispetcherPro_bot — отправьте свой номер телефона. Вы будете получать уведомления о статусе заказов и счетах.</p>
+        <p>После входа нажмите синий баннер «📱 Подключить уведомления» сверху. Откроется бот @DispatcherPRO1_bot — отправьте свой номер телефона. Вы будете получать уведомления о статусе заказов и счетах.</p>
         <br>
         <p><strong>4️⃣ Вкладка «💰 Платежи»</strong></p>
         <p>Когда приходит счёт — он появляется здесь. Нажмите «Оплатить» и загрузите фото чека или скриншот перевода.</p>
@@ -336,7 +336,7 @@ function submitForgot(){
   err.innerHTML='<div style="text-align:center;padding:10px;color:var(--primary);">⏳ Отправляем...</div>';
   fetch('/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'clients',phone:'+'+ph})})
   .then(r=>r.json()).then(d=>{
-    if(d.ok) err.innerHTML='<div style="text-align:center;padding:10px;color:var(--accent);font-weight:600;">✅ Новый пароль отправлен в Telegram!\n\nПроверьте сообщения от бота @DispetcherPro_bot и вернитесь ко входу.</div><div style="text-align:center;margin-top:8px;"><a href="javascript:void(0)" onclick="hideForgot()" style="font-size:13px;color:var(--primary);font-weight:600;">← Вернуться ко входу</a></div>';
+    if(d.ok) err.innerHTML='<div style="text-align:center;padding:10px;color:var(--accent);font-weight:600;">✅ Новый пароль отправлен в Telegram!\n\nПроверьте сообщения от бота @DispatcherPRO1_bot и вернитесь ко входу.</div><div style="text-align:center;margin-top:8px;"><a href="javascript:void(0)" onclick="hideForgot()" style="font-size:13px;color:var(--primary);font-weight:600;">← Вернуться ко входу</a></div>';
     else err.innerHTML='<div style="text-align:center;padding:10px;color:var(--danger);">❌ '+esc(d.error)+'</div><div style="text-align:center;margin-top:8px;"><a href="javascript:void(0)" onclick="hideForgot()" style="font-size:13px;color:var(--text-light);">← Вернуться ко входу</a></div>';
   }).catch(()=>{ err.innerHTML='<div style="text-align:center;padding:10px;color:var(--danger);">❌ Ошибка подключения</div>'; });
 }
@@ -403,14 +403,14 @@ async function checkTelegramStatus(){
   try{
     const r=await fetch('/api/telegram-status?phone='+norm(client.contact||client.phone||'')+'&table=clients');
     const d=await r.json();
-    if(d.linked){document.getElementById('tg-linked').style.display='block';}
-    else{document.getElementById('tg-banner').style.display='block';}
+    if(d.linked){document.getElementById('tg-linked').style.display='block';document.getElementById('tg-banner').style.display='none';}
+    else{document.getElementById('tg-banner').style.display='block';document.getElementById('tg-linked').style.display='none';}
   }catch(e){document.getElementById('tg-banner').style.display='block';}
 }
 function linkTelegram(){
   const ph=norm(client.contact||client.phone||'');
-  if(ph) window.open('https://t.me/DispetcherPro_bot?start='+ph,'_blank');
-  else window.open('https://t.me/DispetcherPro_bot','_blank');
+  if(ph) window.open('https://t.me/DispatcherPRO1_bot?start='+ph,'_blank');
+  else window.open('https://t.me/DispatcherPRO1_bot','_blank');
 }
 
 async function checkMaxStatus(){
@@ -459,9 +459,10 @@ async function render(){
       _prevClientShiftStatus[s.id]=s.status;
     });
     const shiftIds=(shifts||[]).map(s=>s.id);
-    if(!assignments||!assignments.length){document.getElementById('client-stats').textContent='Нет смен';document.getElementById('tab-shifts').innerHTML='<div class="empty"><div style="font-size:48px;margin-bottom:16px">📭</div><p>Нет смен</p></div>';return;}
+    if(!shiftIds||!shiftIds.length){document.getElementById('client-stats').textContent='Нет смен';document.getElementById('tab-shifts').innerHTML='<div class="empty"><div style="font-size:48px;margin-bottom:16px">📭</div><p>Нет смен</p></div>';return;}
     const idList=shiftIds.map(id=>`"${id}"`).join(',');
     const assignments=await api('shift_assignments','GET',null,`?shift_id=in.(${idList})&select=*&order=created_at.desc&limit=500`);
+    if(!assignments||!assignments.length){document.getElementById('client-stats').textContent='Нет смен';document.getElementById('tab-shifts').innerHTML='<div class="empty"><div style="font-size:48px;margin-bottom:16px">📭</div><p>Нет смен</p></div>';return;}
     _allAssignments=assignments;
 
     // Get payments for all assignments
@@ -524,7 +525,7 @@ function renderShifts(shiftMap,wMap){
       if(a.actual_end_time)status='✅ Завершил';
       else if(a.actual_start_time)status='🔧 Работает';
       else if(a.invite_status==='confirmed')status='✅ Подтверждён';
-      return \`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,.05)"><span>\${name}</span><span style="color:var(--text-light)">\${status}</span></div>\`;
+      return `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,.05)"><span>${name}</span><span style="color:var(--text-light)">${status}</span></div>`;
     }).join('');
     const workersHtml=`<div style="margin-top:6px"><div style="font-size:13px;color:var(--text-light);margin-bottom:4px">👥 ${confirmed.length} чел.${doneCount>0?' · '+doneCount+' завершено':''}${onShift>0?' · '+onShift+' на смене':''}</div>${workerList}</div>`;
 
@@ -797,8 +798,8 @@ async function submitPayment(btn){
   if(amt<=0){alert('Введите сумму');return;}
 
   // Show loading
-  const btn=document.querySelector('#modal-pay .btn-primary');
-  if(btn){btn.disabled=true;btn.textContent='⏳ Отправка...';}
+  const payBtn=document.querySelector('#modal-pay .btn-primary');
+  if(payBtn){payBtn.disabled=true;payBtn.textContent='⏳ Отправка...';}
 
   try{
     // Upload receipt if provided
@@ -845,13 +846,10 @@ async function submitPayment(btn){
     }
     closeModal('modal-pay');
     toast('Оплата '+amt.toLocaleString('ru')+'₽ отправлена ✓');
+    render();
   }catch(e){
-    console.error('Payment error:',e);
     alert('Ошибка: '+e.message);
-    if(btn){btn.disabled=false;btn.textContent='💳 Отправить';}
-    return;
-  }
-  render();
+    if(payBtn){payBtn.disabled=false;payBtn.textContent='💳 Отправить';}
   }finally{if(btn)btnLoading(btn,false);}
 }
 // ===== New Order (Заказчик) =====
@@ -1016,8 +1014,10 @@ async function submitNewOrder(btn){
     comment: comment || null
   };
   try{
+    console.log('[Order] Creating shift:', JSON.stringify(shiftData));
     const result = await api('shifts','POST',shiftData);
-    if(!result || !result[0]){ toast('Ошибка создания заказа'); return; }
+    console.log('[Order] Shift result:', JSON.stringify(result));
+    if(!result || !result[0]){ toast('Ошибка создания заказа — проверьте данные'); return; }
     const shiftId = result[0].id;
     // Create requirements for each service
     for(const row of validRows){
@@ -1035,11 +1035,13 @@ async function submitNewOrder(btn){
     render();
   }catch(e){
     toast('Ошибка: ' + e.message);
+  }
   }finally{if(btn)btnLoading(btn,false);}
 }
 
 (async()=>{const ok=await autoLogin();})();
-if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);if(navigator.serviceWorker.controller){navigator.serviceWorker.controller.postMessage({type:'CHECK_VERSION'});}}).catch(function(e){console.warn('[SW] error',e);});}
+navigator.serviceWorker.addEventListener('message',function(e){if(e.data&&e.data.type==='VERSION_UPDATED'){location.reload();}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
 initPhoneMasks();
 loadLang(currentLang);
@@ -1090,7 +1092,7 @@ const DAY_NAMES_RU = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
 async function loadClientSubscriptions(){
   const el = document.getElementById('tab-subscriptions');
   if(!el) return;
-  const recs = await api('recurring','GET',null,'?select=*,service_types(id,name)&client_id=eq.'+client.id+'&is_active=eq.true');
+  const recs = await api('recurring_orders','GET',null,'?select=*,service_types(id,name)&client_id=eq.'+client.id+'&is_active=eq.true');
   if(!Array.isArray(recs)||!recs.length){
     el.innerHTML='<div class="empty">У вас нет активных подписок</div>';
     return;
