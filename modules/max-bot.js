@@ -282,7 +282,7 @@ async function handleMaxMessage(update) {
     await maxSendMessage(chatId, '⏳ Подождите несколько секунд перед следующим вопросом');
     return;
   }
-  await askAI(chatId, user, text, maxSendMessage, knowledgeBase);
+  await askAI(chatId, user, text, maxSendMessage, knowledgeBase, { isFirst: !_aiRateLimit.has(chatId) });
 }
 
 // ============================================================

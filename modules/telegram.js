@@ -287,7 +287,7 @@ async function handleTgMessage(body) {
     await tgSendMessage(chatId, '⏳ Подождите несколько секунд перед следующим вопросом');
     return;
   }
-  await askAI(chatId, user, text, tgSendMessage, knowledgeBase);
+  await askAI(chatId, user, text, tgSendMessage, knowledgeBase, { isFirst: !_aiRateLimit.has(chatId) });
 }
 
 // ============================================================
