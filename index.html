@@ -1982,6 +1982,35 @@ async function claimShift(id){
   toast('Заказ принят!');
   loadShifts();
 }
+
+// ===== Close Shift =====
+async function closeShift(id){
+  if(!confirm('Закрыть смену?'))return;
+  await api('shift_assignments','PATCH',{invite_status:'declined'},'?shift_id=eq.'+id+'&invite_status=eq.invited');
+  await api('shifts','PATCH',{status:'completed'},'?id=eq.'+id);
+  loadShifts();loadDashboard();
+}
+
+// ===== Restart Search =====
+async function restartSearch(shiftId){
+  try{
+    const shifts=await api('shifts','GET',null,'?id=eq.'+shiftId+'&select=*,clients(name)');
+    if(!shifts||!shifts.length){alert('Смена не найдена');return;}
+    const shift=shifts[0];
+    const reqs=await api('shift_requirements','GET',null,'?shift_id=eq.'+shiftId);
+    const clientId=shift.client_id;
+    const clientName=shift.clients?.name||'—';
+    _inviteShiftId=shiftId;
+    _inviteRates=(reqs&&reqs[0])||{};
+    _inviteClientId=clientId;
+    _inviteRequirements=reqs||[];
+    document.getElementById('invite-info').textContent=formatDate(shift.date)+' '+(shift.start_time||'')+' · '+clientName;
+    document.getElementById('invite-services').innerHTML=(reqs||[]).map(r=>{const st=(cachedServiceTypes||[]).find(t=>t.id===r.service_type_id);return(st?.name||'?')+': '+r.required_count+' чел';}).join(' · ');
+    document.getElementById('shift-step1').style.display='none';
+    document.getElementById('shift-step2').style.display='block';
+    loadWorkers();
+  }catch(e){alert('Ошибка: '+e.message);}
+}
 </script>
 
 <!-- Edit Shift Modal -->
