@@ -136,10 +136,25 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
 
 <div id="main-screen" style="display:none;"><div class="container">
   <div class="header" style="display:flex;justify-content:space-between;align-items:center;"><div><h2 id="worker-name">👷</h2><p id="worker-stats"></p></div><div style="display:flex;gap:6px;align-items:center;"><button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button><button id="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему" style="background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">🌙</button><button onclick="doLogout()" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 10px;border-radius:4px;cursor:pointer;font-size:12px;color:#fff;margin-left:4px">🚪 Выход</button></div></div>
-  <div id="tg-banner" style="display:none;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkTelegram()">📱 Подключить уведомления в Telegram</div>
-  <div id="tg-linked" style="display:none;background:#e8f5e9;color:#2e7d32;padding:10px 16px;border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px">✅ Telegram уведомления подключены</div>
-  <div id="max-banner" style="display:none;background:linear-gradient(135deg,#6b3fa0,#8b5cf6);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkMax()">💬 Подключить уведомления в МАКС</div>
-  <div id="max-linked" style="display:none;background:#f3e8ff;color:#6b21a8;padding:10px 16px;border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px">✅ МАКС уведомления подключены</div>
+  <div id="messenger-bar" style="display:flex;gap:6px;margin-bottom:12px;justify-content:center;">
+    <div id="tg-banner" style="display:none;flex:1;text-align:center;">
+      <a href="javascript:linkTelegram()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;">📱 TG</a>
+    </div>
+    <div id="tg-linked" style="display:none;flex:1;text-align:center;">
+      <a href="javascript:linkTelegram()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:#e8f5e9;color:#2e7d32;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;" title="Открыть Telegram">✅ TG</a>
+    </div>
+    <div id="max-banner" style="display:none;flex:1;text-align:center;">
+      <a href="javascript:linkMax()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#6b3fa0,#8b5cf6);color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;">💬 MAX</a>
+    </div>
+    <div id="max-linked" style="display:none;flex:1;text-align:center;">
+      <a href="javascript:linkMax()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:#f3e8ff;color:#6b21a8;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;" title="Открыть MAX">✅ MAX</a>
+    </div>
+  </div>
+  </div>
+  <div id="worker-tabs" style="display:flex;gap:6px;margin-bottom:12px;">
+    <div class="wtab active" data-wtab="tab-my-orders" style="flex:1;text-align:center;padding:10px;background:var(--primary);color:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">📅 Мои заказы</div>
+    <div class="wtab" data-wtab="tab-active" style="flex:1;text-align:center;padding:10px;background:var(--card);color:var(--text-light);border:2px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🔄 Активные</div>
+    <div class="wtab" data-wtab="tab-payments" style="flex:1;text-align:center;padding:10px;background:var(--card);color:var(--text-light);border:2px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">💰 Мои оплаты</div>
   </div>
   <div id="shifts-list"></div>
   <details style="margin-top:15px;background:var(--card);border-radius:10px;padding:14px;border:1px solid var(--border);">
@@ -252,6 +267,8 @@ function formatTimeKam(ts){if(!ts)return'—';try{return new Date(ts).toLocaleTi
 function formatTime(ts){if(!ts)return'—';try{return new Date(ts).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});}catch{return'—';}}
 
 let worker=null;
+let _workerTab='tab-my-orders';
+let _workerAllAssignments=[];
 function showReg(){
   document.getElementById('auth-login').style.display='none';
   document.getElementById('auth-reg').style.display='block';
@@ -350,8 +367,14 @@ async function showMain(){
 let _prevShiftStatus={};
 async function render(){
   try{
-    const assignments=await api('shift_assignments','GET',null,
+    _workerAllAssignments=await api('shift_assignments','GET',null,
       `?worker_id=eq.${worker.id}&select=*,shifts(date,start_time,planned_end_time,comment,clients(name),service_types(name),status)&order=created_at.desc`);
+    let assignments=_workerAllAssignments;
+    if(_workerTab==='tab-active'){
+      assignments=assignments.filter(a=>a.invite_status!=='declined'&&a.invite_status!=='completed'&&(!a.actual_end_time));
+    }else if(_workerTab==='tab-payments'){
+      assignments=assignments.filter(a=>parseFloat(a.hours_worked)>0);
+    }
     
     // Detect status changes
     (assignments||[]).forEach(a=>{
@@ -645,6 +668,26 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
 initPhoneMasks();
 loadLang(currentLang);
+
+// Worker tabs
+function switchWorkerTab(tabId,el){
+  _workerTab=tabId;
+  document.querySelectorAll('.wtab').forEach(t=>{
+    t.style.background='var(--card)';
+    t.style.color='var(--text-light)';
+    t.style.border='2px solid var(--border)';
+  });
+  if(el){
+    el.style.background='var(--primary)';
+    el.style.color='#fff';
+    el.style.border='2px solid var(--primary)';
+  }
+  render();
+}
+document.getElementById('worker-tabs').onclick=function(e){
+  const tab=e.target.closest('.wtab');
+  if(tab)switchWorkerTab(tab.dataset.wtab,tab);
+};
 
 // --- Shift photo upload ---
 // --- Chat ---
