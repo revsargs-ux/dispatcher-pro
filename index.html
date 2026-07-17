@@ -983,7 +983,8 @@ async function loadShifts(){
         ${workersHtml}${summaryHtml}</div>
       </div>`;
     }).join('');
-  }catch(e){console.error('loadShifts:',e);}
+  }catch(e){console.error('loadShifts:',e);
+  }finally{hideLoading('shifts-loading');}
 }
 async function clientConfirm(id){
   await fetch('/api/client-hours-confirm',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({assignment_id:id,action:'confirm'})});
@@ -1046,7 +1047,8 @@ async function loadWorkers(){
       const ratingHtml=rat?`<span style="color:#f59e0b;">⭐ ${(rat.sum/rat.count).toFixed(1)}</span> <span style="font-size:11px;color:var(--text-light);">(${rat.count})</span>`:'';
       return`<tr style="cursor:pointer" onclick="openWorkerDetail('${w.id}')"><td>${esc(w.full_name)} ${ratingHtml}</td><td>${esc(w.phone)||"\u2014"}</td><td>${hMap[w.id]||0}ч</td>\n      <td style="white-space:nowrap;" onclick="event.stopPropagation()"><button class="btn btn-sm btn-outline cpb" aria-label="Скопировать контакт" data-role="worker" data-name="${esc(w.full_name)||""}" data-phone="${esc(w.phone)||""}">📋</button> <button class="btn btn-sm btn-outline" aria-label="Редактировать" onclick="editWorker('${w.id}')">✏️</button></td></tr>`;
     }).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-light);padding:40px;"><div style="font-size:48px;margin-bottom:16px">📭</div><div>Нет рабочих</div></td></tr>';
-  }catch(e){console.error('loadWorkers',e);}
+  }catch(e){console.error('loadWorkers',e);
+  }finally{hideLoading('workers-loading');}
 }
 function openAddWorker(){
   document.getElementById('worker-edit-id').value='';
