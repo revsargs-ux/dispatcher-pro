@@ -151,6 +151,16 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
     </div>
   </div>
   </div>
+  <div id="pay-period-form" style="display:none;margin-bottom:12px;background:var(--card);border-radius:10px;padding:12px;border:1px solid var(--border);">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <input type="date" id="pay-date-from" style="flex:1;min-width:100px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+      <input type="date" id="pay-date-to" style="flex:1;min-width:100px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+      <button class="btn" style="padding:6px 14px;font-size:13px;min-height:auto;background:var(--primary);color:#fff;border:none;border-radius:6px;cursor:pointer;" onclick="render()">Применить</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="pay-only-unpaid"> Только неоплаченные
+    </label>
+  </div>
   <div id="worker-tabs" style="display:flex;gap:6px;margin-bottom:12px;">
     <div class="wtab active" data-wtab="tab-my-orders" style="flex:1;text-align:center;padding:10px;background:var(--primary);color:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">📅 Мои заказы</div>
     <div class="wtab" data-wtab="tab-active" style="flex:1;text-align:center;padding:10px;background:var(--card);color:var(--text-light);border:2px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🔄 Активные</div>
@@ -291,7 +301,7 @@ function forgotPassword(){
   const ph=norm(phone);
   fetch('/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'workers',phone:'+'+ph})})
   .then(r=>r.json()).then(d=>{
-    if(d.ok)showErr('Новый пароль отправлен в Telegram. Если Telegram не привязан — обратитесь к диспетчеру.');
+    if(d.ok)showErr('Новый пароль отправлен в Telegram и/или МАКС. Если мессенджеры не привязаны — обратитесь к диспетчеру.');
     else showErr(d.error||'Ошибка');
   }).catch(()=>showErr('Ошибка подключения'));
 }
@@ -364,6 +374,68 @@ async function showMain(){
   await render();setInterval(render,30000);
 }
 
+// ===== Payments tab with date range =====
+function renderPaymentsTable(assignments,container){
+  const fromEl=document.getElementById('pay-date-from');
+  const toEl=document.getElementById('pay-date-to');
+  const onlyUnpaid=document.getElementById('pay-only-unpaid')?.checked;
+  
+  // Default to current calendar month
+  const now=new Date();
+  if(!fromEl.value){
+    fromEl.value=now.getFullYear()+'-'+(String(now.getMonth()+1).padStart(2,'0'))+'-01';
+  }
+  if(!toEl.value){
+    const lastDay=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+    toEl.value=now.getFullYear()+'-'+(String(now.getMonth()+1).padStart(2,'0'))+'-'+String(lastDay).padStart(2,'0');
+  }
+  
+  const from=fromEl.value;
+  const to=toEl.value;
+  
+  // Filter by date
+  let filtered=assignments.filter(a=>{
+    const d=a.shifts?.date||'';
+    return d>=from&&d<=to;
+  });
+  if(onlyUnpaid) filtered=filtered.filter(a=>a.payment_status!=='paid');
+  
+  // Group by date ascending
+  filtered.sort((a,b)=>(a.shifts?.date||'').localeCompare(b.shifts?.date||''));
+  
+  let html='';
+  let totalPaid=0,totalUnpaid=0;
+  
+  filtered.forEach(a=>{
+    const date=a.shifts?.date?formatDate(a.shifts.date):'—';
+    const client=a.shifts?.clients?.name||'—';
+    const h=parseFloat(a.hours_worked)||0;
+    const rate=parseFloat(a.rate_per_hour)||400;
+    const extra=parseFloat(a.extra_amount)||0;
+    const calcSalary=parseFloat(a.calculated_salary)||0;
+    const amount=calcSalary||(h*rate)+extra;
+    const paid=parseFloat(a.paid_amount)||0;
+    const isPaid=a.payment_status==='paid'||paid>=amount;
+    
+    if(isPaid) totalPaid+=amount;
+    else totalUnpaid+=amount;
+    
+    html+='<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px;align-items:center;">'+
+      '<div><div style="font-weight:500;">'+esc(client)+'</div><div style="color:var(--text-light);font-size:12px;">'+date+(h?' · '+h+'ч':'')+'</div></div>'+
+      '<div style="text-align:right;"><div style="font-weight:600;">'+amount.toLocaleString('ru')+'₽</div>'+
+      '<div style="font-size:12px;'+(isPaid?'color:var(--accent);':'color:var(--danger);')+'">'+(isPaid?'✅ Оплачено':'❌ Не оплачено')+'</div></div></div>';
+  });
+  
+  // Totals
+  const totalsHtml='<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:15px;font-weight:700;border-top:2px solid var(--primary);margin-top:4px;">'+
+    '<div>Итого:</div><div>'+
+    '<span style="color:var(--accent);">'+totalPaid.toLocaleString('ru')+'₽ оплачено</span> · '+
+    '<span style="color:var(--danger);">'+totalUnpaid.toLocaleString('ru')+'₽ не оплачено</span>'+
+    '</div></div>';
+  
+  container.innerHTML=(html||'<div class="empty">💰<p>Нет смен за выбранный период</p></div>')+totalsHtml;
+}
+
 let _prevShiftStatus={};
 async function render(){
   try{
@@ -409,6 +481,16 @@ async function render(){
 
     const list=document.getElementById('shifts-list');
     if(!assignments||!assignments.length){list.innerHTML='<div class="empty"><div style="font-size:48px">📭</div><p>Нет смен</p></div>';return;}
+
+    // Payments tab — full table with date range
+    if(_workerTab==='tab-payments'){
+      const pForm=document.getElementById('pay-period-form');
+      if(!pForm||pForm.style.display==='none'){
+        // render period picker + table
+        renderPaymentsTable(assignments,list);
+        return;
+      }
+    }
 
     list.innerHTML=assignments.map(a=>{
       const status=a.invite_status;
@@ -681,6 +763,15 @@ function switchWorkerTab(tabId,el){
     el.style.background='var(--primary)';
     el.style.color='#fff';
     el.style.border='2px solid var(--primary)';
+  }
+  // Show/hide payment period form
+  const pForm=document.getElementById('pay-period-form');
+  if(pForm){
+    if(tabId==='tab-payments'){
+      pForm.style.display='block';
+    }else{
+      pForm.style.display='none';
+    }
   }
   render();
 }

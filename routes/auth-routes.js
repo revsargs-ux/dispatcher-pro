@@ -255,11 +255,11 @@ async function handleForgot(req, res, cors) {
 
     const cleanPhone = phone.replace(/[-+()\s]/g, '').replace(/^8/, '7');
     const phoneCol = table === 'clients' ? 'contact' : 'phone';
-    const users = await (await sbFetch(table, `${phoneCol}=ilike.%25${cleanPhone.slice(-10)}%25&select=id,full_name,telegram_chat_id&limit=1`)).json();
+    const users = await (await sbFetch(table, `${phoneCol}=ilike.%25${cleanPhone.slice(-10)}%25&select=id,full_name,telegram_chat_id,max_chat_id&limit=1`)).json();
     if (!users.length) return json(res, { ok: false, error: 'Пользователь не найден' });
     const u = users[0];
-    if (!u.telegram_chat_id) {
-      // No Telegram — still generate password and return it (owner can share manually)
+    if (!u.telegram_chat_id && !u.max_chat_id) {
+      // No messenger linked — generate password and return it (owner can share manually)
       const newPass = Math.random().toString(36).slice(2, 8);
       await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: await hashPassword(newPass) }) });
       audit('password_reset', u.full_name, u.id, table, ip);
@@ -269,8 +269,15 @@ async function handleForgot(req, res, cors) {
 
     const newPass = Math.random().toString(36).slice(2, 8);
     await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: await hashPassword(newPass) }) });
-    await tgSendMessage(u.telegram_chat_id, `🔑 Ваш новый пароль: <code>${newPass}</code>\n\nВойдите в систему и смените его в настройках.`);
-    console.log('[TG] Password reset for', u.full_name);
+    const msg = `🔑 Ваш новый пароль: <code>${newPass}</code>\n\nВойдите в систему и смените его в настройках.`;
+    if (u.telegram_chat_id) await tgSendMessage(u.telegram_chat_id, msg);
+    if (u.max_chat_id) {
+      try {
+        const maxModule = require('../modules/max-bot');
+        if (maxModule?.maxSendMessage) await maxModule.maxSendMessage(u.max_chat_id, msg.replace(/<[^>]+>/g, ''));
+      } catch(e) { console.error('[Forgot] MAX send error:', e.message); }
+    }
+    console.log('[Forgot] Password reset for', u.full_name, 'channels:', u.telegram_chat_id?'TG':'', u.max_chat_id?'MAX':'');
     audit('password_reset', u.full_name, u.id, table, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
     json(res, { ok: true, password: newPass }); // owner получает пароль в ответе
   } catch (e) {

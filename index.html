@@ -737,7 +737,7 @@ function completeLogin(user){
     init();
 }
 function showAuthError(msg){const el=document.getElementById('auth-error');el.textContent=msg;el.style.display='block';}
-function forgotPassword(){const phone=document.getElementById('auth-phone').value.replace(/[^0-9]/g,'');if(!phone||phone.length<11){showAuthError('Введите номер телефона');return;}showAuthError('Отправляем...');fetch('/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',phone:'+'+phone})}).then(r=>r.json()).then(d=>{if(d.ok){showAuthError('Новый пароль отправлен в Telegram. Если не привязан — обратитесь к администратору.');}else{showAuthError(d.error||'Ошибка');}}).catch(()=>showAuthError('Ошибка подключения'));}
+function forgotPassword(){const phone=document.getElementById('auth-phone').value.replace(/[^0-9]/g,'');if(!phone||phone.length<11){showAuthError('Введите номер телефона');return;}showAuthError('Отправляем...');fetch('/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',phone:'+'+phone})}).then(r=>r.json()).then(d=>{if(d.ok){showAuthError('Новый пароль отправлен в Telegram и/или МАКС. Если не привязаны — обратитесь к администратору.');}else{showAuthError(d.error||'Ошибка');}}).catch(()=>showAuthError('Ошибка подключения'));}
 function showRegForm(){document.getElementById('auth-login').style.display='none';document.getElementById('auth-reg').style.display='block';document.getElementById('auth-error').style.display='none';}
 function showLoginForm(){document.getElementById('auth-login').style.display='block';document.getElementById('auth-reg').style.display='none';document.getElementById('auth-error').style.display='none';}
 async function doRegister(){
