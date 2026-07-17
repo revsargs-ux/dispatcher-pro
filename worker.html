@@ -486,20 +486,21 @@ async function render(){
 
 async function respond(id,status,btn){if(btn)btnLoading(btn,true);try{
   if(status==='declined'){if(!confirm('Вы уверены? Это действие нельзя отменить.'))return;}
-  try{await api('shift_assignments','PATCH',{invite_status:status},`?id=eq.${id}`);render();}
-  catch(e){toast('Ошибка');}
+    await api('shift_assignments','PATCH',{invite_status:status},`?id=eq.${id}`);
+    render();
+  toast(status==='confirmed'?'✅ Подтверждено':'❌ Отклонено');
+}catch(e){toast('Ошибка');}finally{if(btn)btnLoading(btn,false);}
 }
 async function startWork(id){try{
   // Проверяем время начала
-  try{
     const asgn=(await api('shift_assignments','GET',null,`?id=eq.${id}&select=*,shifts(date,start_time,planned_end_time,address,comment,clients(name))`))[0];
     if(!asgn){toast('Смена не найдена');return;}
-    
+
     const now=new Date();
     const shiftDate=asgn.shifts?.date||'';
     const startTime=asgn.shifts?.start_time||'';
     const address=asgn.shifts?.address||asgn.shifts?.comment||'';
-    
+
     // Проверка: не раньше времени начала
     if(shiftDate && startTime){
       const planned=new Date(shiftDate+'T'+startTime);
@@ -508,13 +509,13 @@ async function startWork(id){try{
         return;
       }
     }
-    
+
     // PATCH actual_start_time via API
     const res=await api('shift_assignments','PATCH',{invite_status:'in_progress',actual_start_time:now.toISOString()},`?id=eq.${id}`);
     if(res&&!Array.isArray(res)){toast('Ошибка сохранения');return;}
     toast('✅ Смена началась!');
     render();
-  }catch(e){toast('Ошибка: '+e.message);}finally{if(typeof btn!=='undefined'&&btn)btnLoading(btn,false);}
+}catch(e){toast('Ошибка: '+e.message);}
 }
 
 function getDistance(lat1,lon1,lat2,lon2){
@@ -526,17 +527,15 @@ function getDistance(lat1,lon1,lat2,lon2){
 }
 async function endWork(id){try{
   if(!confirm('Завершить смену?'))return;
-  try{
     const a=(await api('shift_assignments','GET',null,`?id=eq.${id}&select=actual_start_time`))[0];
     const end=new Date();let hours=0;
     if(a?.actual_start_time){hours=Math.round(((end-new Date(a.actual_start_time))/3600000)*10)/10;if(hours<0)hours=0;}
     await api('shift_assignments','PATCH',{invite_status:'completed',actual_end_time:end.toISOString(),hours_worked:hours},`?id=eq.${id}`);
     render();
-  }catch(e){toast('Ошибка');}
+}catch(e){toast('Ошибка');}
 }
 async function cancelConfirmed(id,shiftDate,shiftTime,btn){if(btn)btnLoading(btn,true);try{
   if(!confirm('Вы уверены? Отмена возможна только за 3 часа до начала.'))return;
-  try{
     await api('shift_assignments','PATCH',{invite_status:'declined'},`?id=eq.${id}`);
     const assignment=(await api('shift_assignments','GET',null,`?id=eq.${id}&select=shift_id,rate_per_hour,client_rate_per_hour`))[0];
     if(assignment){
@@ -546,7 +545,7 @@ async function cancelConfirmed(id,shiftDate,shiftTime,btn){if(btn)btnLoading(btn
     }
     toast('Смена отменена. Другие получат приглашение.');
     render();
-  }catch(e){toast('Ошибка отмены');}
+}catch(e){toast('Ошибка отмены');}finally{if(btn)btnLoading(btn,false);}
 }
 function logout(){const tk=localStorage.getItem('dp_token');if(tk)fetch('/auth/logout',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk}}).catch(()=>{});localStorage.removeItem('w_auth');localStorage.removeItem('dp_token');worker=null;location.reload();}
 
@@ -682,10 +681,9 @@ async function sendChatMsg(){const btn=document.getElementById("chat-send-btn");
   const inp=document.getElementById('chat-input');
   const msg=inp.value.trim();if(!msg)return;
   inp.value='';
-  try{
     await fetch('/api/chat/'+_chatShiftId,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({message:msg})});
     loadChatMessages();
-  }catch(e){toast('Ошибка отправки');}
+}catch(e){toast('Ошибка отправки');}finally{if(btn)btnLoading(btn,false);}
 }
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
