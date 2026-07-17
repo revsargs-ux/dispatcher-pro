@@ -2111,41 +2111,65 @@ function renderInviteByService(container){
   const sortedPrev=filtered.filter(w=>_invitePrevWorkerIds.has(w.id));
   const sortedNew=filtered.filter(w=>!_invitePrevWorkerIds.has(w.id));
   const showPrevBadge=_invitePrevWorkerIds.size>0;
-  container.innerHTML='<div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'+
-    '<input type="text" id="invite-search-input" placeholder="\uD83D\uDD0D \u041f\u043e\u0438\u0441\u043a..." style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;" oninput="onInviteFilterChange()">'+
-    (showPrevBadge?'<label style="font-size:12px;cursor:pointer;"><input type="checkbox" id="invite-filter-prev" onchange="onInviteFilterChange()"> \u0422\u043e\u043b\u044c\u043a\u043e \u0432\u044b\u0445\u043e\u0434\u0438\u043b\u0438</label>':'')+
-    '<button class="btn btn-sm" onclick="selectAllInviteWorkers()" style="font-size:12px;">\u2705 \u0412\u044b\u0431\u0440\u0430\u0442\u044c \u0432\u0441\u0435\u0445</button></div>'+
+  // Build the worker list HTML (no inline handlers on input — they break on innerHTML rerender)
+  container.innerHTML='<div class="invite-toolbar" style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'+
+    '<input type="text" id="invite-search-input" placeholder="\uD83D\uDD0D \u041f\u043e\u0438\u0441\u043a..." style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">'+
+    (showPrevBadge?'<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="invite-filter-prev"> \u0422\u043e\u043b\u044c\u043a\u043e \u0432\u044b\u0445\u043e\u0434\u0438\u043b\u0438</label>':'')+
+    '<button class="btn btn-sm" id="invite-select-all-btn" style="font-size:12px;">\u2705 \u0412\u044b\u0431\u0440\u0430\u0442\u044c \u0432\u0441\u0435\u0445</button></div>'+
     _inviteRequirements.map((req,idx)=>{
       const st=(cachedServiceTypes||[]).find(t=>t.id===req.service_type_id);
-      const workers=sortedPrev.filter(w=>true).concat(sortedNew.filter(w=>true));
+      const workers=sortedPrev.concat(sortedNew);
       return '<div style="margin-bottom:12px;"><div style="font-weight:600;margin-bottom:4px;">'+(st?.name||'?')+'</div>'+
         '<div class="worker-list">'+workers.map(w=>{
           const wasPrev=_invitePrevWorkerIds.has(w.id);
           return '<label class="worker-item" style="display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;'+(wasPrev?'background:#f0f8ff;border-radius:6px;':'')+'">'+
-            '<input type="checkbox" class="iscb" data-idx="'+idx+'" data-wid="'+w.id+'" onclick="updateInviteCount()">'+
+            '<input type="checkbox" class="iscb" data-idx="'+idx+'" data-wid="'+w.id+'">'+
             '<span>'+esc(w.full_name)+(w.phone?' <span style="color:var(--text-light);font-size:11px;">'+esc(w.phone)+'</span>':'')+(wasPrev?' <span style="color:#4a90d9;font-size:11px;">\u2139\ufe0f \u0432\u044b\u0445\u043e\u0434\u0438\u043b</span>':'')+'</span></label>';
         }).join('')+'</div></div>';
       }).join('');
   updateInviteCount();
+  // Bind events once after render (event delegation on container)
+  bindInviteEvents(container);
 }
 
-function onInviteFilterChange(){
-  _inviteFilterText=document.getElementById('invite-search-input')?.value||'';
+function bindInviteEvents(container){
+  const inp=document.getElementById('invite-search-input');
   const cb=document.getElementById('invite-filter-prev');
-  _inviteFilterPrevOnly=cb?cb.checked:false;
-  renderInviteByService(document.getElementById('invite-by-service'));
-}
-
-function selectAllInviteWorkers(){
-  const visible=document.querySelectorAll('#invite-by-service .worker-list .iscb');
-  visible.forEach(cb=>cb.checked=true);
-  updateInviteCount();
+  const btn=document.getElementById('invite-select-all-btn');
+  let timer=null;
+  if(inp){
+    inp.oninput=function(){
+      clearTimeout(timer);
+      timer=setTimeout(()=>{
+        _inviteFilterText=inp.value||'';
+        renderInviteByService(container);
+      },150);
+    };
+  }
+  if(cb){
+    cb.onchange=function(){
+      _inviteFilterPrevOnly=cb.checked;
+      renderInviteByService(container);
+    };
+  }
+  if(btn){
+    btn.onclick=function(){
+      document.querySelectorAll('#invite-by-service .worker-list .iscb').forEach(c=>c.checked=true);
+      updateInviteCount();
+    };
+  }
+  // Delegate checkbox clicks to update count
+  container.onchange=function(e){
+    if(e.target.classList.contains('iscb')) updateInviteCount();
+  };
 }
 
 function updateInviteCount(){
   const total=document.querySelectorAll('.iscb:checked').length;
-  document.getElementById('invite-selected-count').textContent=total;
-  document.getElementById('send-invites-btn').disabled=total===0;
+  const el=document.getElementById('invite-selected-count');
+  if(el)el.textContent=total;
+  const btn=document.getElementById('send-invites-btn');
+  if(btn)btn.disabled=total===0;
 }
 
 </script>
