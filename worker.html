@@ -479,7 +479,7 @@ let _prevShiftStatus={};
 async function render(){
   try{
     _workerAllAssignments=await api('shift_assignments','GET',null,
-      `?worker_id=eq.${worker.id}&select=*,shifts(date,start_time,planned_end_time,address,comment,client_name,clients(name),service_types(name),status)&order=created_at.desc`);
+      `?worker_id=eq.${worker.id}&select=*,shifts(date,start_time,planned_end_time,address,comment,client_id,service_types(name),status,clients:client_id(name))&order=created_at.desc`);
     let assignments=_workerAllAssignments;
     if(_workerTab==='tab-active'||_workerTab==='tab-my-orders'){
       // Don't show declined or completed in any worker tab
