@@ -481,6 +481,7 @@ async function render(){
     _workerAllAssignments=await api('shift_assignments','GET',null,
       `?worker_id=eq.${worker.id}&select=*,shifts(date,start_time,planned_end_time,address,comment,client_id,service_types(name),status,clients:client_id(name))&order=created_at.desc`);
     let assignments=_workerAllAssignments;
+    console.log('[worker] raw data:', JSON.stringify(assignments?.map(a=>({id:a.id,status:a.invite_status,shift_id:a.shift_id,shiftStatus:a.shifts?.status,hasEndTime:!!a.actual_end_time,date:a.shifts?.date}))).slice(0,5));
     if(_workerTab==='tab-active'||_workerTab==='tab-my-orders'){
       // Don't show declined or completed in any worker tab
       assignments=assignments.filter(a=>a.invite_status!=='declined'&&a.invite_status!=='completed'&&(!a.actual_end_time));
