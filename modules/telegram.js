@@ -99,7 +99,7 @@ async function cmdWebApp(chatId, user) {
     text = '📱 Откройте портал клиента:';
     btnText = '📱 Мои заказы';
   } else {
-    url = 'https://диспетчер-про.рф/tg-worker.html';
+    url = 'https://диспетчер-про.рф/tg-worker.html?v=3';
     text = '📱 Откройте портал исполнителя:';
     btnText = '📱 Мои смены';
   }
