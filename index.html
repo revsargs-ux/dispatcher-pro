@@ -1801,6 +1801,26 @@ async function loadRecurring() {
   </div>`).join('');
 }
 
+function openNewShift() {
+  // Populate service types and workers
+  const sSel = document.getElementById('shift-service_type_id');
+  if(sSel && typeof serviceTypes!=='undefined'){
+    sSel.innerHTML = '<option value="">Выберите услугу</option>' + (serviceTypes||[]).map(s => '<option value="'+s.id+'">'+esc(s.name)+'</option>').join('');
+  }
+  const wSel = document.getElementById('shift-worker_search');
+  const wList = document.getElementById('shift-worker_list');
+  if(wList) wList.style.display = 'none';
+  // Reset form
+  ['shift-date','shift-start_time','shift-end_time','shift-address','shift-comment'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  document.getElementById('shift-client_search').value = '';
+  const cb = document.getElementById('shift-needs_confirmation');
+  if(cb) cb.checked = false;
+  openModal('modal-shift');
+}
+
 function openNewRecurring() {
   // Populate dropdowns
   const cSel = document.getElementById('rec-client');
