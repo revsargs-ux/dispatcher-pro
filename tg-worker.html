@@ -9,13 +9,11 @@
   <title>Dispatcher.PRO</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    * { margin: 0; padding: 0; }
-    body { background: #1a1a2e; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; font-family: system-ui, sans-serif; }
-    .loading { color: #eee; text-align: center; padding: 40px; }
-    .loading .spinner { display: inline-block; width: 40px; height: 40px; border: 3px solid rgba(255,255,255,.1); border-top-color: #4ecdc4; border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 16px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .loading p { opacity: .7; font-size: 14px; }
-    .fallback { display: none; }
+    *{margin:0;padding:0}
+    body{background:#1a1a2e;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif;color:#eee;text-align:center;padding:40px}
+    .loading .spinner{display:inline-block;width:40px;height:40px;border:3px solid rgba(255,255,255,.1);border-top-color:#4ecdc4;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:16px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading p{opacity:.7;font-size:14px}
   </style>
 </head>
 <body>
@@ -24,38 +22,28 @@
     <p>Загрузка...</p>
   </div>
   <script>
-    (function() {
+    (function(){
       const tg = window.Telegram.WebApp;
       tg.ready();
       tg.expand();
 
-      const userId = tg.initDataUnsafe?.user?.id || '';
-      const firstName = tg.initDataUnsafe?.user?.first_name || '';
-      const lastName = tg.initDataUnsafe?.user?.last_name || '';
-      const username = tg.initDataUnsafe?.user?.username || '';
+      const uid = tg.initDataUnsafe?.user?.id || '';
+      const first = tg.initDataUnsafe?.user?.first_name || '';
+      const last = tg.initDataUnsafe?.user?.last_name || '';
+      const user = tg.initDataUnsafe?.user?.username || '';
 
-      // Сброс Service Worker
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(regs => {
-          regs.forEach(reg => reg.unregister());
-        });
-        caches.keys().then(names => {
-          names.forEach(name => caches.delete(name));
-        });
+      // Убираем Service Worker — он мешает загрузке
+      if('serviceWorker' in navigator){
+        navigator.serviceWorker.getRegistrations().then(r => r.forEach(r => r.unregister()));
+        caches.keys().then(k => k.forEach(k => caches.delete(k)));
       }
 
-      const params = new URLSearchParams({
-        tg_user_id: userId,
-        tg_first_name: firstName,
-        tg_last_name: lastName,
-        tg_username: username,
-        from_tg: '1',
-        _v: Date.now()
-      });
+      const q = 'tg_user_id=' + uid + '&tg_first_name=' + encodeURIComponent(first) +
+                '&tg_last_name=' + encodeURIComponent(last) + '&tg_username=' + encodeURIComponent(user) +
+                '&from_tg=1&_v=' + Date.now();
 
-      // Переходим на серверный endpoint /app-worker с параметрами
-      // Это НЕ редирект на другой домен — WebView WebApp должен пропустить
-      window.location.href = '/app-worker?' + params.toString();
+      // Переход на app-worker с параметрами
+      window.location.href = '/app-worker?' + q;
     })();
   </script>
 </body>
