@@ -101,9 +101,21 @@ async function handleChatGet(req, res, cors, urlPath) {
   if (!hasAccess) return json(res, { error: 'Нет доступа к этому чату' }, 403, cors);
 
   try {
-    const r = await sbFetch('chat_messages', `shift_id=eq.${shiftId}&order=created_at.asc&limit=100&select=id,sender_id,sender_role,sender_name,message,created_at`);
-    const data = await r.json();
+    const params = new URL(req.url, 'http://localhost').searchParams;
+    const before = params.get('before') || null;
+    const limit = parseInt(params.get('limit') || '100', 10);
+    const safeLimit = Math.min(Math.max(limit, 1), 200);
+
+    let query;
+    if (before) {
+      query = `shift_id=eq.${shiftId}&created_at=lt.${before}&order=created_at.desc&limit=${safeLimit}&select=id,sender_id,sender_role,sender_name,message,created_at`;
+    } else {
+      query = `shift_id=eq.${shiftId}&order=created_at.desc&limit=${safeLimit}&select=id,sender_id,sender_role,sender_name,message,created_at`;
+    }
+    const r = await sbFetch('chat_messages', query);
+    let data = await r.json();
     if (!Array.isArray(data)) return json(res, [], 200, cors);
+    data.reverse();
     json(res, data, 200, cors);
   } catch (e) {
     console.error('Chat GET error:', e.message);

@@ -21,6 +21,9 @@ const config = {
   maxBotToken: process.env.MAX_BOT_TOKEN || '',
   get maxApi() { return 'https://platform-api.max.ru'; },
   
+  // WebApp URL
+  webAppUrl: process.env.WEB_APP_URL || 'https://диспетчер-про.рф',
+  
   // Google Sheets
   gasUrl: process.env.GAS_URL || '',
   gasWebhookSecret: process.env.GAS_WEBHOOK_SECRET || '',

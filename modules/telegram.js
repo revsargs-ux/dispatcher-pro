@@ -93,14 +93,15 @@ async function identifyUser(chatId) {
 // ============================================================
 async function cmdWebApp(chatId, user) {
   const role = user.role;
+  const baseUrl = config.webAppUrl || 'https://диспетчер-про.рф';
   let url, text, btnText;
   if (role === 'client') {
-    url = 'https://диспетчер-про.рф/tg-client.html';
+    url = baseUrl + '/tg-client.html';
     text = '📱 Откройте портал клиента:';
     btnText = '📱 Мои заказы';
   } else {
     const cryptoR = require('crypto');
-    url = 'https://диспетчер-про.рф/tg-worker.html?v=' + Date.now() + cryptoR.randomUUID().slice(0, 8);
+    url = baseUrl + '/tg-worker.html?v=' + Date.now() + cryptoR.randomUUID().slice(0, 8);
     text = '📱 Откройте портал:';
     btnText = '📱 Мои смены';
   }
@@ -244,7 +245,7 @@ async function handleTgMessage(body) {
     const existingUser = await identifyUser(chatId);
     if (existingUser) {
       const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
-            const waUrl = "https://диспетчер-про.рф/tg-worker.html?v=" + Date.now() + require('crypto').randomUUID().slice(0, 8);
+            const waUrl = (config.webAppUrl || 'https://диспетчер-про.рф') + "/tg-worker.html?v=" + Date.now() + require('crypto').randomUUID().slice(0, 8);
       const btnTitles = { owner: "📱 Панель", dispatcher: "📱 Заказы", worker: "📱 Мои смены", client: "📱 Мои заказы" };
       const waBtn = btnTitles[existingUser.role] || "📱 Открыть";
       await tgSendMessage(chatId, `С возвращением, ${existingUser.full_name}! 👋
