@@ -194,6 +194,19 @@ const server = http.createServer(async (req, res) => {
       const cors = getCorsHeaders(req);
       return handlePushSubscription(req, res, cors);
     }
+    // Proxy: /app-worker — отдаёт worker.html с параметрами Telegram (обход кэша WebView)
+    // Proxy: /app-worker — отдаёт worker.html с встроенными TG параметрами в URL
+    if (urlPath === '/app-worker') {
+      const tgParams = new URL(req.url, 'http://localhost').searchParams;
+      let html = fs.readFileSync(path.join(config.appDir, 'worker.html'), 'utf8');
+      // Инжектим TG параметры в <head> как скрытый div (worker.html их прочитает)
+      const tgData = JSON.stringify(Object.fromEntries(tgParams));
+      const injectHtml = '<meta id="tg-proxy-data" data-tg=\' + JSON.stringify(tgData) + '>';
+      html = html.replace('<meta charset="utf-8">', '<meta charset="utf-8">' + injectHtml);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
+      res.end(html);
+      return;
+    }
     await router(req, res);
   } catch (e) {
     console.error('Unhandled route error:', e.message);

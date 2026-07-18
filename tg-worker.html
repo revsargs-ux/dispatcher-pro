@@ -15,6 +15,7 @@
     .loading .spinner { display: inline-block; width: 40px; height: 40px; border: 3px solid rgba(255,255,255,.1); border-top-color: #4ecdc4; border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 16px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading p { opacity: .7; font-size: 14px; }
+    .fallback { display: none; }
   </style>
 </head>
 <body>
@@ -23,26 +24,24 @@
     <p>Загрузка...</p>
   </div>
   <script>
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
+    (function() {
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
 
-    const userId = tg.initDataUnsafe?.user?.id || '';
-    const firstName = tg.initDataUnsafe?.user?.first_name || '';
-    const lastName = tg.initDataUnsafe?.user?.last_name || '';
-    const username = tg.initDataUnsafe?.user?.username || '';
+      const userId = tg.initDataUnsafe?.user?.id || '';
+      const firstName = tg.initDataUnsafe?.user?.first_name || '';
+      const lastName = tg.initDataUnsafe?.user?.last_name || '';
+      const username = tg.initDataUnsafe?.user?.username || '';
 
-    // Пробуем загрузить worker.html через fetch
-    // Если не получится — делаем window.location.replace
-    (async function() {
-      // Сначала чистим кеш SW
+      // Сброс Service Worker
       if ('serviceWorker' in navigator) {
-        try {
-          const regs = await navigator.serviceWorker.getRegistrations();
+        navigator.serviceWorker.getRegistrations().then(regs => {
           regs.forEach(reg => reg.unregister());
-          const keys = await caches.keys();
-          keys.forEach(k => caches.delete(k));
-        } catch(e) {}
+        });
+        caches.keys().then(names => {
+          names.forEach(name => caches.delete(name));
+        });
       }
 
       const params = new URLSearchParams({
@@ -54,26 +53,9 @@
         _v: Date.now()
       });
 
-      const targetUrl = '/worker.html?' + params.toString();
-
-      // Пробуем fetch
-      try {
-        const res = await fetch(targetUrl, { cache: 'no-store' });
-        if (res.ok) {
-          const html = await res.text();
-          // Вставляем прямо в документ
-          document.open();
-          document.write(html);
-          document.close();
-          return;
-        }
-      } catch(e) {
-        // fetch не сработал (CORS/WebView ограничения)
-        console.log('Fetch failed, using redirect:', e.message);
-      }
-
-      // fallback: редирект
-      window.location.replace(targetUrl);
+      // Переходим на серверный endpoint /app-worker с параметрами
+      // Это НЕ редирект на другой домен — WebView WebApp должен пропустить
+      window.location.href = '/app-worker?' + params.toString();
     })();
   </script>
 </body>
