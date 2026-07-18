@@ -1830,22 +1830,23 @@ async function loadRecurring() {
 }
 
 function openNewShift() {
-  // Populate service types and workers
-  const sSel = document.getElementById('shift-service_type_id');
-  if(sSel && typeof serviceTypes!=='undefined'){
-    sSel.innerHTML = '<option value="">Выберите услугу</option>' + (serviceTypes||[]).map(s => '<option value="'+s.id+'">'+esc(s.name)+'</option>').join('');
-  }
-  const wSel = document.getElementById('shift-worker_search');
-  const wList = document.getElementById('shift-worker_list');
-  if(wList) wList.style.display = 'none';
-  // Reset form
-  ['shift-date','shift-start_time','shift-end_time','shift-address','shift-comment'].forEach(id => {
+  // Reset form and open modal
+  ['shift-date','shift-time','shift-end-time','shift-address','shift-comment'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.value = '';
   });
-  document.getElementById('shift-client_search').value = '';
-  const cb = document.getElementById('shift-needs_confirmation');
-  if(cb) cb.checked = false;
+  const clientSel = document.getElementById('shift-client');
+  if(clientSel) clientSel.value = '';
+  // Reset services to one default row
+  const svcContainer = document.getElementById('shift-services');
+  if(svcContainer){
+    const defaultSvc = (cachedServiceTypes||[]).find(s => s.name==='Разнорабочий') || (cachedServiceTypes||[])[0];
+    if(defaultSvc) svcContainer.innerHTML = makeServiceRow(defaultSvc, 1);
+    else svcContainer.innerHTML = '';
+  }
+  // Hide step 2, show step 1
+  document.getElementById('shift-step2').style.display = 'none';
+  document.getElementById('shift-step1').style.display = 'block';
   openModal('modal-shift');
 }
 
