@@ -377,12 +377,40 @@ async function register(){
   document.getElementById('phone-input').value='+'+ph;
 }
 
+let _pwaInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstallPrompt=e;});
+
+function promptInstallPWA(){
+  if(_pwaInstallPrompt){
+    _pwaInstallPrompt.prompt();
+    _pwaInstallPrompt.userChoice.then(()=>{_pwaInstallPrompt=null;});
+  }
+}
+
+function requestPushSubscription(){
+  if(!('Notification' in window)||!('serviceWorker' in navigator))return;
+  if(Notification.permission==='granted'||Notification.permission==='denied')return;
+  Notification.requestPermission().then(perm=>{
+    if(perm==='granted'&&'PushManager' in window){
+      navigator.serviceWorker.ready.then(reg=>{
+        reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:null}).catch(()=>{});
+      });
+    }
+  });
+}
+
 async function showMain(){
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
   document.getElementById('worker-name').textContent='👷 '+(worker?.full_name||'');
   checkTelegramStatus();checkMaxStatus();
   await render();setInterval(render,30000);
+  // Промпты после первого входа (только один раз)
+  if(!localStorage.getItem('pwa_prompted')){
+    localStorage.setItem('pwa_prompted','1');
+    setTimeout(promptInstallPWA,1000);
+    setTimeout(requestPushSubscription,2000);
+  }
 }
 
 // ===== Payments tab with date range =====
