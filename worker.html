@@ -103,6 +103,14 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
 .auth-box button{min-height:48px}
 .pw-eye{min-height:44px;min-width:44px}
 </style>
+  <!-- Force SW cache reset -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(reg) { reg.update(); });
+      });
+    }
+  </script>
 </head>
 <body>
 <div id="auth-screen" class="auth-screen"><div class="auth-box">
@@ -220,7 +228,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
   if(p.get('from_tg')==='1'){
     const tid=p.get('tg_user_id');
     if(tid&&!localStorage.getItem('token')){
-      fetch('/auth/tg-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_chat_id:tid})}).then(r=>r.json()).then(d=>{if(d.token){localStorage.setItem('token',d.token);localStorage.setItem('user',JSON.stringify(d.user));location.href=location.pathname;}}).catch(()=>{});
+      fetch('/auth/tg-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_chat_id:tid})}).then(r=>r.json()).then(d=>{if(d.token){localStorage.setItem('token',d.token);localStorage.setItem('user',JSON.stringify(d.user));location.replace(location.pathname+'?_v='+Date.now());}}).catch(()=>{});
     }
   }
 })();

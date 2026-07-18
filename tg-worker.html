@@ -21,13 +21,25 @@
     const lastName = tg.initDataUnsafe?.user?.last_name || '';
     const username = tg.initDataUnsafe?.user?.username || '';
 
+    // Принудительный сброс кеша service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(reg => reg.unregister());
+      });
+      // Очищаем весь кеш
+      caches.keys().then(names => {
+        names.forEach(name => caches.delete(name));
+      });
+    }
+
     const baseUrl = window.location.origin + '/worker.html';
     const params = new URLSearchParams({
       tg_user_id: userId,
       tg_first_name: firstName,
       tg_last_name: lastName,
       tg_username: username,
-      from_tg: '1'
+      from_tg: '1',
+      _v: Date.now()
     });
 
     const iframe = document.createElement('iframe');
