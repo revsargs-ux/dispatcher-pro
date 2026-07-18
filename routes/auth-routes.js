@@ -74,7 +74,9 @@ function check2FARateLimit(ip) {
 }
 
 function generate2FACode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  const crypto = require('crypto');
+  const buf = crypto.randomBytes(4);
+  return String((buf.readUInt32BE(0) % 900000) + 100000);
 }
 
 // --- Password reset rate limit: IP -> { count, resetAt } ---
@@ -260,14 +262,14 @@ async function handleForgot(req, res, cors) {
     const u = users[0];
     if (!u.telegram_chat_id && !u.max_chat_id) {
       // No messenger linked — generate password and return it (owner can share manually)
-      const newPass = Math.random().toString(36).slice(2, 8);
+      const newPass = require('crypto').randomBytes(4).toString('hex');
       await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: await hashPassword(newPass) }) });
       audit('password_reset', u.full_name, u.id, table, ip);
       json(res, { ok: true, password: newPass });
       return;
     }
 
-    const newPass = Math.random().toString(36).slice(2, 8);
+    const newPass = require('crypto').randomBytes(4).toString('hex');
     await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: await hashPassword(newPass) }) });
     const msg = `🔑 Ваш новый пароль: <code>${newPass}</code>\n\nВойдите в систему и смените его в настройках.`;
     if (u.telegram_chat_id) await tgSendMessage(u.telegram_chat_id, msg);

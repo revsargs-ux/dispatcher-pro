@@ -99,7 +99,8 @@ async function cmdWebApp(chatId, user) {
     text = '📱 Откройте портал клиента:';
     btnText = '📱 Мои заказы';
   } else {
-    url = 'https://диспетчер-про.рф/tg-worker.html?v=' + Date.now() + Math.random();
+    const cryptoR = require('crypto');
+    url = 'https://диспетчер-про.рф/tg-worker.html?v=' + Date.now() + cryptoR.randomUUID().slice(0, 8);
     text = '📱 Откройте портал:';
     btnText = '📱 Мои смены';
   }
@@ -243,7 +244,7 @@ async function handleTgMessage(body) {
     const existingUser = await identifyUser(chatId);
     if (existingUser) {
       const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
-            const waUrl = "https://диспетчер-про.рф/tg-worker.html?v=" + Date.now() + Math.random();
+            const waUrl = "https://диспетчер-про.рф/tg-worker.html?v=" + Date.now() + require('crypto').randomUUID().slice(0, 8);
       const btnTitles = { owner: "📱 Панель", dispatcher: "📱 Заказы", worker: "📱 Мои смены", client: "📱 Мои заказы" };
       const waBtn = btnTitles[existingUser.role] || "📱 Открыть";
       await tgSendMessage(chatId, `С возвращением, ${existingUser.full_name}! 👋

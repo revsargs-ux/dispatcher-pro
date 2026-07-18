@@ -1,7 +1,7 @@
 // Service Worker — Dispatcher.PRO
-// Push-уведомления + Offline кэш
+// v28 — исправлен двойной respondWith, удалён мёртвый код
 
-const CACHE_NAME = 'dispatcher-v27';
+const CACHE_NAME = 'dispatcher-v28';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -17,15 +17,10 @@ const STATIC_ASSETS = [
   '/tg-worker.html'
 ];
 
-// URLs that should always go network-first (API calls)
-const NETWORK_FIRST_PATTERNS = ['/api/', '/auth/'];
-
 // === УСТАНОВКА ===
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installed');
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Caching static assets');
       return cache.addAll(STATIC_ASSETS).catch((err) => {
         console.warn('[SW] Some assets failed to cache:', err);
       });
@@ -36,7 +31,6 @@ self.addEventListener('install', (event) => {
 
 // === АКТИВАЦИЯ ===
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activated');
   event.waitUntil(
     caches.keys().then((names) =>
       Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)))
@@ -44,55 +38,32 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// === FETCH — cache-first для статики, network-first для API ===
+// === FETCH — единый respondWith ===
 self.addEventListener('fetch', (e) => {
-  const url = new URL(e.request.url);
-
-  // Skip non-GET requests
+  // Skip non-GET requests — просто пускаем без кэша
   if (e.request.method !== 'GET') {
     e.respondWith(fetch(e.request).catch(() => new Response('Offline', { status: 503 })));
     return;
   }
 
-  // Network-first for ALL requests (API, HTML, JS, CSS — always get latest)
+  // Network-first: всегда пробуем сеть, кэш — только fallback
   e.respondWith(
     fetch(e.request)
       .then((response) => {
-        // Only cache successful responses for offline fallback
         if (response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
         }
         return response;
       })
-      .catch(() => caches.match(e.request).then(cached => {
-        if (cached) return cached;
-        if (e.request.mode === 'navigate') return caches.match('/index.html');
-        return new Response('Offline', { status: 503 });
-      }))
-  )
-  e.respondWith(
-    caches.match(e.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(e.request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
-          }
-          return response;
+      .catch(() =>
+        caches.match(e.request).then((cached) => {
+          if (cached) return cached;
+          // Навигация без кэша → index.html
+          if (e.request.mode === 'navigate') return caches.match('/index.html');
+          return new Response('Offline', { status: 503 });
         })
-        .catch(() => {
-          // Offline fallback for navigation requests
-          if (e.request.mode === 'navigate') {
-            return caches.match('/index.html');
-          }
-          return new Response('<html><body style="font-family:system-ui;background:#1a1a2e;color:#eee;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><div style="text-align:center"><h2 style="color:#4ecdc4">📡 Нет соединения</h2><p>Проверьте подключение к интернету и обновите страницу</p></div></body></html>', {
-            status: 503,
-            headers: { 'Content-Type': 'text/html; charset=utf-8' }
-          });
-        });
-    })
+      )
   );
 });
 
@@ -100,8 +71,6 @@ self.addEventListener('fetch', (e) => {
 // PUSH — получение push-уведомлений
 // ============================================================
 self.addEventListener('push', (event) => {
-  console.log('[SW] Push received');
-
   let data = {
     title: 'Dispatcher.PRO',
     body: 'Новое уведомление',
@@ -119,22 +88,20 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const options = {
-    body: data.body,
-    icon: data.icon || '/icon-192.png',
-    badge: data.badge || '/badge-72.png',
-    data: data.data || { url: '/' },
-    vibrate: [200, 100, 200],
-    tag: 'dispatcher-notification',
-    requireInteraction: true,
-    actions: [
-      { action: 'open', title: '📂 Открыть' },
-      { action: 'dismiss', title: '✖ Закрыть' },
-    ],
-  };
-
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon || '/icon-192.png',
+      badge: data.badge || '/badge-72.png',
+      data: data.data || { url: '/' },
+      vibrate: [200, 100, 200],
+      tag: 'dispatcher-notification',
+      requireInteraction: true,
+      actions: [
+        { action: 'open', title: '📂 Открыть' },
+        { action: 'dismiss', title: '✖ Закрыть' },
+      ],
+    })
   );
 });
 
@@ -142,9 +109,7 @@ self.addEventListener('push', (event) => {
 // NOTIFICATION CLICK
 // ============================================================
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification click:', event.action);
   event.notification.close();
-
   if (event.action === 'dismiss') return;
 
   const targetUrl = event.notification.data?.url || '/';
@@ -168,7 +133,6 @@ self.addEventListener('notificationclick', (event) => {
 // PUSH SUBSCRIPTION CHANGE
 // ============================================================
 self.addEventListener('pushsubscriptionchange', (event) => {
-  console.log('[SW] Push subscription changed');
   event.waitUntil(
     fetch('/api/push-subscription', {
       method: 'POST',
@@ -181,10 +145,8 @@ self.addEventListener('pushsubscriptionchange', (event) => {
   );
 });
 
-// GPS tracking removed (disabled)
-
 // ============================================================
-// MESSAGE HANDLER — communication with page
+// MESSAGE HANDLER
 // ============================================================
 self.addEventListener('message', (event) => {
   const msg = event.data;

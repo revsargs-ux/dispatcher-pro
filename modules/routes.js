@@ -660,37 +660,6 @@ function createRouter() {
       } catch (e) { return json(res, [], 200, cors); }
     }
 
-    // Database migration endpoint (protected by PUSH_SECRET)
-    if (urlPath === '/api/migrate' && req.method === 'POST') {
-      const secret = process.env.PUSH_SECRET || '';
-      const body = await readBody(req);
-      let parsed;
-      try { parsed = JSON.parse(body); } catch(e) { return json(res, { error: 'Invalid JSON' }, 400, cors); }
-      if (parsed.secret !== secret) return json(res, { error: 'Forbidden' }, 403, cors);
-      if (!parsed.sql) return json(res, { error: 'SQL required' }, 400, cors);
-      try {
-        const statements = parsed.sql.split(';').map(s => s.trim()).filter(s => s && !s.startsWith('--'));
-        const results = [];
-        for (const stmt of statements) {
-          try {
-            const r = await fetch(config.sbUrl + '/rest/v1/rpc/exec_sql', {
-              method: 'POST',
-              headers: {'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey, 'Content-Type': 'application/json'},
-              body: JSON.stringify({ sql_text: stmt + ';' })
-            });
-            const text = await r.text();
-            results.push({ stmt: stmt.substring(0, 80), ok: r.ok, response: text.substring(0, 200) });
-            if (!r.ok) console.warn('[Migrate] Failed:', stmt.substring(0, 80), text.substring(0, 200));
-          } catch(e) {
-            results.push({ stmt: stmt.substring(0, 80), ok: false, response: e.message });
-          }
-        }
-        return json(res, { ok: true, results }, 200, cors);
-      } catch(e) {
-        return json(res, { error: e.message }, 500, cors);
-      }
-    }
-
     // --- Client report endpoint ---
     // GET /api/client/report?from=YYYY-MM-DD&to=YYYY-MM-DD
     // Returns CSV with hours rounded to 10 min
