@@ -1829,6 +1829,30 @@ async function loadRecurring() {
   </div>`).join('');
 }
 
+function makeServiceRow(s,count){
+  return `<div class="service-row" data-sid="${s.id}" data-wr="${s.default_worker_rate||400}" data-cr="${s.default_client_rate||520}" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:4px 0;"><span style="flex:1;font-size:14px;">${esc(s.name)}</span><input type="number" class="svc-count" value="${count||0}" min="0" style="width:60px;padding:6px;border:1px solid var(--border);border-radius:4px;"><button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--danger);font-size:16px;cursor:pointer;padding:0 4px;">✕</button></div>`;
+}
+
+function addServiceRow(){
+  var dd=document.getElementById('service-add-dropdown');
+  var sel=document.getElementById('service-add-select');
+  if(!dd||!sel)return;
+  var existing=[].slice.call(document.querySelectorAll('.service-row')).map(function(r){return r.dataset.sid;});
+  var available=(cachedServiceTypes||[]).filter(function(s){return !existing.includes(s.id);});
+  if(!available.length){toast('Все услуги добавлены');return;}
+  sel.innerHTML=available.map(function(s){return '<option value="'+s.id+'">'+esc(s.name)+'</option>';}).join('');
+  sel.onchange=function(){
+    var s=available.find(function(x){return x.id===this.value;}.bind(this));
+    if(s){
+      var container=document.getElementById('shift-services');
+      container.insertAdjacentHTML('beforeend',makeServiceRow(s,1));
+      dd.style.display='none';
+    }
+  };
+  dd.style.display='block';
+  sel.focus();
+}
+
 function openNewShift() {
   // Reset form and open modal
   ['shift-date','shift-time','shift-end-time','shift-address','shift-comment'].forEach(id => {
