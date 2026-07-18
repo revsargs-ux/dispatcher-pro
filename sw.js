@@ -1,7 +1,7 @@
 // Service Worker — Dispatcher.PRO
 // v28 — исправлен двойной respondWith, удалён мёртвый код
 
-const CACHE_NAME = 'dispatcher-v28';
+const CACHE_NAME = 'dispatcher-v29';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
