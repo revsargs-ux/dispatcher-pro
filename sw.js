@@ -1,7 +1,7 @@
 // Service Worker — Dispatcher.PRO
 // Push-уведомления + Offline кэш
 
-const CACHE_NAME = 'dispatcher-v26';
+const CACHE_NAME = 'dispatcher-v27';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -13,7 +13,8 @@ const STATIC_ASSETS = [
   '/manifest.json',
   '/assets/icon-192.png',
   '/assets/icon-512.png',
-  '/assets/badge-72.png'
+  '/assets/badge-72.png',
+  '/tg-worker.html'
 ];
 
 // URLs that should always go network-first (API calls)
@@ -71,7 +72,28 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Cache-first for static assets
+  // Network-first for HTML pages (always get latest)
+  const isHtml = url.pathname.endsWith('.html') || url.pathname === '/';
+  if (isHtml) {
+    e.respondWith(
+      fetch(e.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(e.request).then(cached => {
+          if (cached) return cached;
+          if (e.request.mode === 'navigate') return caches.match('/index.html');
+          return new Response('Offline', { status: 503 });
+        }))
+    );
+    return;
+  }
+
+  // Cache-first for other static assets
   e.respondWith(
     caches.match(e.request).then((cached) => {
       if (cached) return cached;
