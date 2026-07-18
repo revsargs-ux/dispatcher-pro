@@ -251,7 +251,7 @@ async function handleApiProxy(req, res, cors, urlPath) {
       }
 
       // #6: Валидация статусов смен
-      const VALID_STATUSES = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'];
+      const VALID_STATUSES = ['pending', 'planned', 'confirmed', 'in_progress', 'completed', 'cancelled'];
       if (table === 'shifts' && parsed.status !== undefined && !VALID_STATUSES.includes(parsed.status)) {
         return json(res, { error: 'Недопустимый статус. Допустимые: ' + VALID_STATUSES.join(', ') }, 400, cors);
       }
