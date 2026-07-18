@@ -99,8 +99,8 @@ async function cmdWebApp(chatId, user) {
     text = '📱 Откройте портал клиента:';
     btnText = '📱 Мои заказы';
   } else {
-    url = 'https://диспетчер-про.рф/tg-worker.html?v=3';
-    text = '📱 Откройте портал исполнителя:';
+    url = 'https://диспетчер-про.рф/tg-worker.html?v=' + Date.now() + Math.random();
+    text = '📱 Откройте портал:';
     btnText = '📱 Мои смены';
   }
   await tgSendMessage(chatId, text, {
@@ -243,7 +243,20 @@ async function handleTgMessage(body) {
     const existingUser = await identifyUser(chatId);
     if (existingUser) {
       const roleNames = { owner: '👑 Владелец', dispatcher: '📋 Диспетчер', worker: '👷 Исполнитель', client: '🏢 Клиент' };
-      await tgSendMessage(chatId, `С возвращением, ${existingUser.full_name}! 👋\n\n${roleNames[existingUser.role] || existingUser.role}\n\n• /shifts — ближайшие смены\n• /earnings — сколько заработал\n• /app — открыть приложение\n\nИли просто спроси что-нибудь — отвечу.`);
+            const waUrl = "https://диспетчер-про.рф/tg-worker.html?v=" + Date.now() + Math.random();
+      const btnTitles = { owner: "📱 Панель", dispatcher: "📱 Заказы", worker: "📱 Мои смены", client: "📱 Мои заказы" };
+      const waBtn = btnTitles[existingUser.role] || "📱 Открыть";
+      await tgSendMessage(chatId, `С возвращением, ${existingUser.full_name}! 👋
+
+${roleNames[existingUser.role] || existingUser.role}
+
+• /shifts — ближайшие смены
+• /earnings — сколько заработал
+• /app — открыть приложение
+
+Или просто спроси что-нибудь — отвечу.`, {
+        reply_markup: JSON.stringify({ inline_keyboard: [[{ text: waBtn, web_app: { url: waUrl } }]] })
+      });
       return;
     }
     const startPhone = text.split(' ')[1];
