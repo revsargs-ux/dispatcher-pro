@@ -10,7 +10,9 @@ const config = {
   // Supabase
   sbUrl: process.env.SB_URL || '',
   sbKey: process.env.SB_KEY || '',
+  serviceRoleKey: process.env.SERVICE_ROLE_KEY || '',
   get sbKeySet() { return !!this.sbKey && this.sbKey.length > 10; },
+  get serviceRoleKeySet() { return !!this.serviceRoleKey && this.serviceRoleKey.length > 10; },
   
   // Telegram
   tgBotToken: process.env.TG_BOT_TOKEN || '',

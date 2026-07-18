@@ -8,6 +8,12 @@ function sbHeaders() {
   return { 'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey, 'Content-Type': 'application/json' };
 }
 
+/** Headers with service_role key for privileged operations */
+function sbServiceHeaders() {
+  const key = config.serviceRoleKey || config.sbKey;
+  return { 'apikey': key, 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' };
+}
+
 /** Validate table name to prevent injection */
 const VALID_TABLE_RE = /^[a-z_][a-z0-9_]{0,63}$/;
 
@@ -31,4 +37,4 @@ async function sbFetch(table, query, opts = {}) {
   return fetch(url, fetchOpts);
 }
 
-module.exports = { sbFetch, sbHeaders };
+module.exports = { sbFetch, sbHeaders, sbServiceHeaders };

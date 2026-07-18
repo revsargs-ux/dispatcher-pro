@@ -17,6 +17,7 @@ services:
       - GAS_WEBHOOK_SECRET=${GAS_WEBHOOK_SECRET}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - DADATA_API_KEY=${DADATA_API_KEY}
+      - SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}
     volumes:
       - ./server.js:/app/server.js:ro
       - ./modules:/app/modules:ro
