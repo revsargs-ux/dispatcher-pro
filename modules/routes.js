@@ -442,6 +442,10 @@ async function handleApiProxy(req, res, cors, urlPath) {
         responseData = JSON.stringify(parsed);
       } catch(e) {}
     }
+    // Log POST shifts for debugging
+    if (req.method === 'POST' && table === 'shifts') {
+      console.log('[POST shifts] body:', parsedBody, '| sbStatus:', sbRes.status, '| sbData:', data.substring(0,200));
+    }
     res.writeHead(sbRes.status, { 'Content-Type': 'application/json', ...cors, ...paginationHeaders });
     res.end(responseData);
   } catch (e) {
