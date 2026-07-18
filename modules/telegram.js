@@ -291,7 +291,7 @@ ${roleNames[existingUser.role] || existingUser.role}
   // === Команды ===
   const cmd = text.toLowerCase().split('@')[0];
   if (cmd === '/webapp' || cmd === '/app') return await cmdWebApp(chatId, user);
-  // /help, /shifts и прочие — через AI, не шаблоны
+  if (cmd === '/shifts' || cmd === '/earnings') return await cmdWebApp(chatId, user);
 
   // === Чат пересылка ===
   const chatForwarded = await tryForwardChat(chatId, user, text);
