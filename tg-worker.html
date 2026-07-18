@@ -9,53 +9,87 @@
   <title>Dispatcher.PRO</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    * { margin: 0; padding: 0; }
-    body { background: #1a1a2e; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; font-family: system-ui, sans-serif; }
-    .loading { color: #eee; text-align: center; padding: 40px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #1a1a2e; font-family: system-ui, sans-serif; }
+    .loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #1a1a2e; }
     .loading .spinner { display: inline-block; width: 40px; height: 40px; border: 3px solid rgba(255,255,255,.1); border-top-color: #4ecdc4; border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 16px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading p { opacity: .7; font-size: 14px; }
+    .loading p { color: #eee; text-align: center; padding: 40px; opacity: .7; font-size: 14px; }
   </style>
 </head>
 <body>
   <div class="loading" id="loading">
-    <div class="spinner"></div>
-    <p>Загрузка...</p>
+    <div>
+      <div class="spinner"></div>
+      <p>Загрузка...</p>
+    </div>
   </div>
+
   <script>
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-    const userId = tg.initDataUnsafe?.user?.id || '';
-    const firstName = tg.initDataUnsafe?.user?.first_name || '';
-    const lastName = tg.initDataUnsafe?.user?.last_name || '';
-    const username = tg.initDataUnsafe?.user?.username || '';
+    (async function() {
+      try {
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
 
-    // Принудительный сброс кеша service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        regs.forEach(reg => reg.unregister());
-      });
-      caches.keys().then(names => {
-        names.forEach(name => caches.delete(name));
-      });
-    }
+        const userId = tg.initDataUnsafe?.user?.id || '';
+        const firstName = tg.initDataUnsafe?.user?.first_name || '';
+        const lastName = tg.initDataUnsafe?.user?.last_name || '';
+        const username = tg.initDataUnsafe?.user?.username || '';
 
-    // Вместо iframe — редирект на worker.html с параметрами
-    // Это обходит X-Frame-Options: DENY от хостинга
-    const params = new URLSearchParams({
-      tg_user_id: userId,
-      tg_first_name: firstName,
-      tg_last_name: lastName,
-      tg_username: username,
-      from_tg: '1',
-      _v: Date.now()
-    });
+        // Сброс Service Worker кеша
+        if ('serviceWorker' in navigator) {
+          try {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            regs.forEach(reg => reg.unregister());
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+          } catch(e) { /* ignore */ }
+        }
 
-    // Даём время на очистку кеша, потом редирект
-    setTimeout(() => {
-      window.location.replace('/worker.html?' + params.toString());
-    }, 100);
+        // Загружаем worker.html через fetch (обход X-Frame-Options)
+        const params = new URLSearchParams({
+          tg_user_id: userId,
+          tg_first_name: firstName,
+          tg_last_name: lastName,
+          tg_username: username,
+          from_tg: '1',
+          _v: Date.now()
+        });
+
+        console.log('Fetching worker.html...');
+        const res = await fetch('/worker.html?' + params.toString(), {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        
+        let html = await res.text();
+        console.log('Loaded', html.length, 'bytes');
+
+        // Вставляем параметры Telegram в URL скриптов/стилей для кешбастинга
+        const v = Date.now();
+        html = html.replace(/(src|href)=["']([^"']+\.(js|css))["']/g, (m, attr, url, ext) => {
+          if (url.startsWith('http')) return m;
+          return attr + '="' + url + (url.includes('?') ? '&' : '?') + '_v=' + v + '"';
+        });
+
+        // Заменяем содержимое страницы
+        document.open();
+        document.write(html);
+        document.close();
+
+        console.log('App ready');
+      } catch(e) {
+        console.error('Failed to load app:', e);
+        document.body.innerHTML = '<div style="color:#ff6b6b;text-align:center;padding:60px 20px;font-family:system-ui">' +
+          '<h2>Ошибка загрузки</h2>' +
+          '<p style="margin:16px 0;opacity:.7">' + e.message + '</p>' +
+          '<a href="#" onclick="location.reload()" style="color:#4ecdc4;display:inline-block;padding:12px 24px;background:rgba(78,205,196,.15);border-radius:8px;text-decoration:none">Повторить</a>' +
+          '</div>';
+      }
+    })();
   </script>
 </body>
 </html>
