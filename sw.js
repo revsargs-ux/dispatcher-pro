@@ -54,46 +54,23 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Network-first for API/auth calls
-  const isApi = NETWORK_FIRST_PATTERNS.some((p) => url.pathname.startsWith(p));
-  if (isApi) {
-    e.respondWith(
-      fetch(e.request)
-        .then((response) => {
-          // Cache successful API responses briefly
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
-          }
-          return response;
-        })
-        .catch(() => caches.match(e.request))
-    );
-    return;
-  }
-
-  // Network-first for HTML pages (always get latest)
-  const isHtml = url.pathname.endsWith('.html') || url.pathname === '/';
-  if (isHtml) {
-    e.respondWith(
-      fetch(e.request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
-          }
-          return response;
-        })
-        .catch(() => caches.match(e.request).then(cached => {
-          if (cached) return cached;
-          if (e.request.mode === 'navigate') return caches.match('/index.html');
-          return new Response('Offline', { status: 503 });
-        }))
-    );
-    return;
-  }
-
-  // Cache-first for other static assets
+  // Network-first for ALL requests (API, HTML, JS, CSS — always get latest)
+  e.respondWith(
+    fetch(e.request)
+      .then((response) => {
+        // Only cache successful responses for offline fallback
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(e.request).then(cached => {
+        if (cached) return cached;
+        if (e.request.mode === 'navigate') return caches.match('/index.html');
+        return new Response('Offline', { status: 503 });
+      }))
+  )
   e.respondWith(
     caches.match(e.request).then((cached) => {
       if (cached) return cached;
