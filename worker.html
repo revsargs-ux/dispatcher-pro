@@ -582,6 +582,7 @@ async function render(){
 
       // Actions
       let actionsHtml='';
+      console.log('[worker] respondTest', JSON.stringify({aid:a.id,status,a_worker_id:a.worker_id,shift:a.shifts?.id}));
       if(status==='pending'||status==='invited'){
         actionsHtml=`<div class="actions">
           <button class="btn btn-accept" onclick="respond('${a.id}','confirmed',this)">✅ Подтвердить</button>
