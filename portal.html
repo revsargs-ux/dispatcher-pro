@@ -9,41 +9,44 @@
   <title>Dispatcher.PRO</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    *{margin:0;padding:0}
-    body{background:#1a1a2e;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif;color:#eee;text-align:center;padding:40px}
-    .loading .spinner{display:inline-block;width:40px;height:40px;border:3px solid rgba(255,255,255,.1);border-top-color:#4ecdc4;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:16px}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#1a1a2e;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif;color:#eee;text-align:center;padding:40px;flex-direction:column;gap:24px}
+    h1{font-size:22px;font-weight:600;color:#4ecdc4}
+    p{opacity:.7;font-size:14px;line-height:1.5}
+    .btn{background:#4ecdc4;color:#1a1a2e;border:none;padding:14px 40px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
+    .spinner{display:inline-block;width:40px;height:40px;border:3px solid rgba(255,255,255,.1);border-top-color:#4ecdc4;border-radius:50%;animation:spin .8s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
-    .loading p{opacity:.7;font-size:14px}
   </style>
 </head>
 <body>
-  <div class="loading" id="loading">
+  <div id="loading">
     <div class="spinner"></div>
-    <p>Загрузка...</p>
+    <p>Подключение...</p>
+  </div>
+  <div id="ready" style="display:none">
+    <h1>Dispatcher.PRO</h1>
+    <p>Нажмите кнопку, чтобы открыть приложение</p>
+    <a class="btn" id="goBtn" href="/app-worker">📱 Открыть приложение</a>
   </div>
   <script>
     (function(){
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      tg.expand();
+      // Показываем кнопку сразу, не ждём ничего
+      setTimeout(function(){
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('ready').style.display = 'block';
+      }, 500);
 
-      const uid = tg.initDataUnsafe?.user?.id || '';
-      const first = tg.initDataUnsafe?.user?.first_name || '';
-      const last = tg.initDataUnsafe?.user?.last_name || '';
-      const user = tg.initDataUnsafe?.user?.username || '';
-
-      // Убираем Service Worker — он мешает загрузке
-      if('serviceWorker' in navigator){
-        navigator.serviceWorker.getRegistrations().then(r => r.forEach(r => r.unregister()));
-        caches.keys().then(k => k.forEach(k => caches.delete(k)));
-      }
-
-      const q = 'tg_user_id=' + uid + '&tg_first_name=' + encodeURIComponent(first) +
-                '&tg_last_name=' + encodeURIComponent(last) + '&tg_username=' + encodeURIComponent(user) +
-                '&from_tg=1&_v=' + Date.now();
-
-      // Переход на app-worker с параметрами
-      window.location.href = '/app-worker?' + q;
+      // При нажатии — открываем /app-worker с параметром от Telegram если доступен
+      document.getElementById('goBtn').addEventListener('click', function(e){
+        e.preventDefault();
+        var tg = window.Telegram?.WebApp;
+        var q = 'from_tg=1&_v=' + Date.now();
+        if(tg && tg.initDataUnsafe && tg.initDataUnsafe.user){
+          q += '&tg_user_id=' + tg.initDataUnsafe.user.id;
+          q += '&tg_first_name=' + encodeURIComponent(tg.initDataUnsafe.user.first_name || '');
+        }
+        window.location.href = '/app-worker?' + q;
+      });
     })();
   </script>
 </body>
