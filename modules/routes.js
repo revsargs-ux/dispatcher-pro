@@ -88,7 +88,7 @@ function handleStats(req, res, cors) {
 }
 
 // --- API proxy (generic Supabase) with sync + notifications ---
-const ALLOWED_TABLES = new Set(['users','workers','clients','shifts','shift_assignments','service_types','payments','recurring_orders','shift_requirements','reviews']);
+const ALLOWED_TABLES = new Set(['users','workers','clients','dispatchers','shifts','shift_assignments','service_types','payments','recurring_orders','shift_requirements','reviews','chat_messages','user_device_tokens']);
 
 async function handleApiProxy(req, res, cors, urlPath) {
   const table = urlPath.replace('/api/', '').split('/')[0];
@@ -658,6 +658,118 @@ function createRouter() {
         const files = (await fs2.promises.readdir(photosDir).catch(() => [])).filter(f => f.startsWith(shiftId + '_'));
         return json(res, files.map(f => ({ filename: f, url: '/api/shift-photos/' + f })), 200, cors);
       } catch (e) { return json(res, [], 200, cors); }
+    }
+
+    // Database migration endpoint (protected by PUSH_SECRET)
+    if (urlPath === '/api/migrate' && req.method === 'POST') {
+      const secret = process.env.PUSH_SECRET || '';
+      const body = await readBody(req);
+      let parsed;
+      try { parsed = JSON.parse(body); } catch(e) { return json(res, { error: 'Invalid JSON' }, 400, cors); }
+      if (parsed.secret !== secret) return json(res, { error: 'Forbidden' }, 403, cors);
+      if (!parsed.sql) return json(res, { error: 'SQL required' }, 400, cors);
+      try {
+        const statements = parsed.sql.split(';').map(s => s.trim()).filter(s => s && !s.startsWith('--'));
+        const results = [];
+        for (const stmt of statements) {
+          try {
+            const r = await fetch(config.sbUrl + '/rest/v1/rpc/exec_sql', {
+              method: 'POST',
+              headers: {'apikey': config.sbKey, 'Authorization': 'Bearer ' + config.sbKey, 'Content-Type': 'application/json'},
+              body: JSON.stringify({ sql_text: stmt + ';' })
+            });
+            const text = await r.text();
+            results.push({ stmt: stmt.substring(0, 80), ok: r.ok, response: text.substring(0, 200) });
+            if (!r.ok) console.warn('[Migrate] Failed:', stmt.substring(0, 80), text.substring(0, 200));
+          } catch(e) {
+            results.push({ stmt: stmt.substring(0, 80), ok: false, response: e.message });
+          }
+        }
+        return json(res, { ok: true, results }, 200, cors);
+      } catch(e) {
+        return json(res, { error: e.message }, 500, cors);
+      }
+    }
+
+    // --- Client report endpoint ---
+    // GET /api/client/report?from=YYYY-MM-DD&to=YYYY-MM-DD
+    // Returns CSV with hours rounded to 10 min
+    if (urlPath === '/api/client/report' && req.method === 'GET') {
+      if (!auth()) return;
+      const session = requireAuth(req);
+      if (!session || session.role !== 'client') return json(res, { error: 'Доступ только заказчику' }, 403, cors);
+      try {
+        const url = new URL(req.url, 'http://x');
+        const from = url.searchParams.get('from');
+        const to = url.searchParams.get('to');
+        if (!from || !to) return json(res, { error: 'Укажите from и to (YYYY-MM-DD)' }, 400, cors);
+
+        // Fetch shifts + assignments for this client in date range
+        const shiftsRes = await sbFetch('shifts', `client_id=eq.${session.userId}&date=gte.${from}&date=lte.${to}&select=id,date,start_time,planned_end_time,service_types(name),comment,address`);
+        const shifts = await shiftsRes.json();
+        if (!Array.isArray(shifts) || !shifts.length) return json(res, { rows: [], summary: null }, 200, cors);
+
+        const shiftIds = shifts.map(s => s.id).join(',');
+        const asgnRes = await sbFetch('shift_assignments', `shift_id=in.(${shiftIds})&invite_status=eq.confirmed&select=id,shift_id,worker_id,hours_worked,actual_start_time,actual_end_time,rate_per_hour,client_rate_per_hour,extra_amount,paid_amount,client_hours_status`);
+        const asgns = await asgnRes.json();
+        if (!Array.isArray(asgns)) return json(res, { rows: [], summary: null }, 200, cors);
+
+        // Get worker names
+        const workerIds = [...new Set(asgns.map(a => a.worker_id))];
+        const wNameMap = {};
+        if (workerIds.length) {
+          const wRes = await sbFetch('workers', `id=in.(${workerIds.join(',')})&select=id,full_name`);
+          const wrk = await wRes.json();
+          if (Array.isArray(wrk)) wrk.forEach(w => { wNameMap[w.id] = w.full_name || 'Рабочий'; });
+        }
+
+        // Build report rows with 10-min rounding
+        const rows = [];
+        let totalHours = 0, totalCost = 0, totalPaid = 0;
+        for (const s of shifts) {
+          for (const a of asgns.filter(x => x.shift_id === s.id)) {
+            const rawHours = parseFloat(a.hours_worked) || 0;
+            // Round to 10 minutes: Math.round(hours * 6) / 6
+            const roundHours = Math.round(rawHours * 6) / 6;
+            const rate = parseFloat(a.client_rate_per_hour) || 0;
+            const extra = parseFloat(a.extra_amount) || 0;
+            const cost = roundHours * rate + extra;
+            const paid = parseFloat(a.paid_amount) || 0;
+            totalHours += roundHours;
+            totalCost += cost;
+            totalPaid += paid;
+            rows.push({
+              date: s.date,
+              service: s.service_types?.name || '—',
+              address: s.address || '—',
+              worker: wNameMap[a.worker_id] || '—',
+              rawHours: rawHours.toFixed(2),
+              roundHours: roundHours.toFixed(2),
+              roundHoursText: (roundHours % 1 === 0 ? roundHours.toString() : roundHours.toFixed(1)).replace('.', ','),
+              rate: rate,
+              extra: extra,
+              cost: cost,
+              paid: paid,
+              debt: cost - paid,
+              hoursStatus: a.client_hours_status || '—',
+            });
+          }
+        }
+
+        json(res, {
+          rows,
+          summary: {
+            totalHours: totalHours.toFixed(2),
+            totalCost: totalCost.toFixed(2),
+            totalPaid: totalPaid.toFixed(2),
+            totalDebt: (totalCost - totalPaid).toFixed(2),
+          }
+        }, 200, cors);
+      } catch (e) {
+        console.error('[Report] error:', e.message);
+        json(res, { error: e.message }, 500, cors);
+      }
+      return;
     }
 
     // API proxy

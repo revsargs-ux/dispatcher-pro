@@ -37,6 +37,7 @@ services:
       - ./receipts:/app/receipts
       - ./data:/app/data
       - ./assets:/app/assets:ro
+      - ./migrations:/app/migrations:ro
     networks:
       - default
     labels:

@@ -177,6 +177,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
     <div class="tab-btn active" data-tab="tab-shifts" data-i18n="tab_my_orders">📅 Мои заказы</div>
     <div class="tab-btn" data-tab="tab-payments" data-i18n="tab_payments">💰 Платежи</div>
     <div class="tab-btn" data-tab="tab-analytics" data-i18n="tab_analytics">📊 Аналитика</div>
+    <div class="tab-btn" data-tab="tab-report" data-i18n="tab_report">📄 Отчёт</div>
     <div class="tab-btn" data-tab="tab-help" data-i18n="tab_help">❓ Помощь</div>
     <div class="tab-btn" data-tab="tab-subscriptions" data-i18n="tab_subscriptions">🔄 Подписки</div>
   </div>
@@ -211,6 +212,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
   <div id="tab-shifts"></div>
   <div id="tab-payments" style="display:none;"></div>
   <div id="tab-analytics" style="display:none;"></div>
+  <div id="tab-report" style="display:none;"></div>
   <div id="tab-subscriptions" style="display:none;"></div>
 </div></div>
 
@@ -433,6 +435,7 @@ document.getElementById('tab-bar').addEventListener('click',e=>{
   t.classList.add('active');
   document.getElementById(t.dataset.tab).style.display='block';
   if(t.dataset.tab==='tab-subscriptions')loadClientSubscriptions();
+  if(t.dataset.tab==='tab-report')loadClientReport();
 });
 
 async function showMain(){
@@ -1264,6 +1267,135 @@ async function fetchSuggestions(q,list,input){
     list.classList.add('show');
   }catch(e){console.error(e)}
 }
+
+// ===== Client report =====
+async function loadClientReport(){
+  const el = document.getElementById('tab-report');
+  if(!el) return;
+
+  // Show date picker form + results
+  el.innerHTML = `
+    <div class="card">
+      <h3 style="font-size:16px;margin-bottom:12px;">📄 Отчёт за период</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <div class="form-group" style="flex:1;min-width:120px;">
+          <label>С</label>
+          <input type="date" id="report-from" style="width:100%;">
+        </div>
+        <div class="form-group" style="flex:1;min-width:120px;">
+          <label>По</label>
+          <input type="date" id="report-to" style="width:100%;">
+        </div>
+        <button class="btn btn-primary" style="margin-top:18px;" onclick="fetchClientReport()">📊 Сформировать</button>
+        <button class="btn btn-outline" style="margin-top:18px;" onclick="downloadClientReportCSV()">⬇️ Скачать CSV</button>
+      </div>
+      <div id="report-results" style="margin-top:12px;font-size:13px;color:var(--text-light);">Выберите период и нажмите «Сформировать»</div>
+    </div>
+    <div id="report-table-wrap" style="overflow-x:auto;"></div>
+  `;
+  // Set default dates: last 30 days
+  const today = new Date();
+  const past = new Date(today);
+  past.setDate(past.getDate() - 30);
+  document.getElementById('report-from').value = past.toISOString().split('T')[0];
+  document.getElementById('report-to').value = today.toISOString().split('T')[0];
+}
+
+let _reportData = null;
+
+async function fetchClientReport(){
+  const from = document.getElementById('report-from').value;
+  const to = document.getElementById('report-to').value;
+  if(!from || !to){
+    toast('Укажите даты периода');
+    return;
+  }
+
+  const btn = document.getElementById('tab-report').querySelector('.btn-primary');
+  if(btn) btnLoading(btn, true);
+
+  try {
+    const r = await fetch('/api/client/report?from='+from+'&to='+to, {
+      headers: {'Authorization': '***'+localStorage.getItem('dp_token')}
+    });
+    const data = await r.json();
+    if(!data || !Array.isArray(data.rows)){
+      toast('Нет данных за этот период');
+      _reportData = null;
+      document.getElementById('report-results').innerHTML = '❌ Нет данных';
+      document.getElementById('report-table-wrap').innerHTML = '';
+      return;
+    }
+    _reportData = data;
+
+    const s = data.summary;
+    document.getElementById('report-results').innerHTML = `
+      <div style="display:flex;gap:12px;flex-wrap:wrap;padding:8px 0;">
+        <span>⏱ <strong>${s.totalHours}</strong> ч · </span>
+        <span>💰 <strong>${Number(s.totalCost).toLocaleString('ru')}</strong> ₽ · </span>
+        <span>✅ Оплачено: <strong>${Number(s.totalPaid).toLocaleString('ru')}</strong> ₽</span>
+        ${Number(s.totalDebt) > 0 ? ' · <span style="color:var(--danger);">❌ Долг: <strong>'+Number(s.totalDebt).toLocaleString('ru')+'</strong> ₽</span>' : ''}
+      </div>
+    `;
+
+    // Build table
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;"><thead><tr style="background:var(--primary);color:#fff;">';
+    html += '<th style="padding:8px;text-align:left;">Дата</th>';
+    html += '<th style="padding:8px;text-align:left;">Услуга</th>';
+    html += '<th style="padding:8px;text-align:left;">Рабочий</th>';
+    html += '<th style="padding:8px;text-align:right;">Часы (факт)</th>';
+    html += '<th style="padding:8px;text-align:right;">Часы (округл.)</th>';
+    html += '<th style="padding:8px;text-align:right;">Ставка</th>';
+    html += '<th style="padding:8px;text-align:right;">Доп.</th>';
+    html += '<th style="padding:8px;text-align:right;">Сумма</th>';
+    html += '<th style="padding:8px;text-align:right;">Оплачено</th>';
+    html += '<th style="padding:8px;text-align:right;">Долг</th>';
+    html += '</tr></thead><tbody>';
+    for(const r of data.rows){
+      html += '<tr style="border-bottom:1px solid var(--border);">';
+      html += '<td style="padding:6px 8px;">'+esc(r.date||'')+'</td>';
+      html += '<td style="padding:6px 8px;">'+esc(r.service)+'</td>';
+      html += '<td style="padding:6px 8px;">'+esc(r.worker)+'</td>';
+      html += '<td style="padding:6px 8px;text-align:right;">'+r.rawHours+'</td>';
+      html += '<td style="padding:6px 8px;text-align:right;font-weight:bold;">'+r.roundHoursText.replace('.',',')+'</td>';
+      html += '<td style="padding:6px 8px;text-align:right;">'+Number(r.rate).toLocaleString('ru')+'</td>';
+      html += '<td style="padding:6px 8px;text-align:right;">'+(r.extra>0?Number(r.extra).toLocaleString('ru'):'—')+'</td>';
+      html += '<td style="padding:6px 8px;text-align:right;font-weight:bold;">'+Number(r.cost).toLocaleString('ru')+'</td>';
+      html += '<td style="padding:6px 8px;text-align:right;">'+(r.paid>0?Number(r.paid).toLocaleString('ru'):'—')+'</td>';
+      html += '<td style="padding:6px 8px;text-align:right;color:'+(r.debt>0?'var(--danger)':'var(--accent)')+';">'+Number(r.debt).toLocaleString('ru')+'</td>';
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    document.getElementById('report-table-wrap').innerHTML = html;
+  } catch(e){
+    toast('Ошибка загрузки отчёта: '+e.message);
+  } finally {
+    if(btn) btnLoading(btn, false);
+  }
+}
+
+function downloadClientReportCSV(){
+  if(!_reportData || !_reportData.rows || !_reportData.rows.length){
+    toast('Сначала сформируйте отчёт');
+    return;
+  }
+  // BOM for Excel encoding
+  let csv = '\uFEFF';
+  csv += 'Дата;Услуга;Рабочий;Часы(факт);Часы(округл);Ставка;Дополнительно;Сумма;Оплачено;Долг;Статус часов\n';
+  for(const r of _reportData.rows){
+    csv += (r.date||'')+';"'+esc(r.service.replace(/"/g,'""'))+'";"'+esc(r.worker.replace(/"/g,'""'))+'";'+r.rawHours+';'+r.roundHoursText.replace('.',',')+';'+r.rate+';'+(r.extra||0)+';'+r.cost+';'+r.paid+';'+r.debt+';'+r.hoursStatus+'\n';
+  }
+  const s = _reportData.summary;
+  csv += '\nИтого;;;'+s.totalHours+';;;'+s.totalCost+';'+s.totalPaid+';'+s.totalDebt+';';
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'otchet_'+document.getElementById('report-from').value+'_'+document.getElementById('report-to').value+'.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+
 </script>
 
 <!-- Edit Shift Modal (Client) -->
