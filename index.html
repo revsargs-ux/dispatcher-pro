@@ -1407,34 +1407,22 @@ async function confirmPay(){
 
 let _massHoursShiftId=null;
 async function saveHours(){
-  const shiftId=_massHoursShiftId;
-  if(!shiftId){toast('Нет данных');return;}
+  const assignmentId=editingAssignmentId;
+  if(!assignmentId){toast('Нет данных');return;}
   const start=document.getElementById('hours-start').value;
   const end=document.getElementById('hours-end').value;
   const extras=parseFloat(document.getElementById('hours-extra').value)||0;
-
-  // Use the update assignment endpoint for the single current worker
-  const asgns=await api('shift_assignments','GET',null,'?shift_id=eq.'+shiftId+'&invite_status=eq.confirmed&select=id');
-  if(!asgns||!asgns.length){toast('Нет подтверждённых назначений');return;}
-
-  // Try the shift-hours API first (preferred), fallback to single assignment update
+  const hours=end&&start?Math.round(((new Date(end)-new Date(start))/3600000)*10)/10:null;
+  
   try{
-    const r=await fetch('/api/shift-hours',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},
-      body:JSON.stringify({shift_id:shiftId,start_time:start?new Date(start).toISOString():null,end_time:end?new Date(end).toISOString():null,hours:null,extra_amount:extras,note:''})
-    });
-    if(!r.ok)throw new Error('API error');
+    await api('shift_assignments','PATCH',{
+      hours_worked:hours||null,
+      actual_start_time:start?new Date(start).toISOString():null,
+      actual_end_time:end?new Date(end).toISOString():null
+    },'id=eq.'+assignmentId);
     toast('✅ Часы сохранены');
   }catch(e){
-    // Fallback: patch the first assignment
-    try{
-      const hours=end&&start?Math.round(((new Date(end)-new Date(start))/3600000)*10)/10:null;
-      await api('shift_assignments','PATCH',{hours_worked:hours||null,actual_start_time:start?new Date(start).toISOString():null,actual_end_time:end?new Date(end).toISOString():null},'id=eq.'+asgns[0].id);
-      toast('✅ Часы сохранены');
-    }catch(e2){
-      toast('❌ Ошибка сохранения');
-    }
+    toast('❌ Ошибка сохранения');
   }
   closeModal('modal-hours');
   if(currentTab==='shifts')loadShifts();
@@ -1442,12 +1430,7 @@ async function saveHours(){
 }
 
 function openHours(assignmentId){
-  _massHoursShiftId=document.getElementById('asgn-'+assignmentId)?.dataset?.shiftId||null;
-  if(!_massHoursShiftId){
-    // Find shift from the row context
-    const row=document.querySelector('[data-aid="'+assignmentId+'"]');
-    if(row) _massHoursShiftId=row.dataset.shiftId;
-  }
+  editingAssignmentId=assignmentId;
   openModal('modal-hours');
 }
 
