@@ -452,10 +452,7 @@ button,.btn,[role="button"]{padding:8px 14px}
   <div class="modal-header"><h2>Новая смена</h2><button class="close-btn" onclick="closeModal('modal-shift')">&times;</button></div>
   <div id="shift-step1">
     <div class="form-group"><label>Дата</label><input type="date" id="shift-date"></div>
-    <div class="form-row">
-      <div class="form-group"><label>Начало</label><input type="time" id="shift-time"></div>
-      <div class="form-group"><label>Окончание</label><input type="time" id="shift-end-time"></div>
-    </div>
+    <div class="form-group"><label>Начало</label><input type="time" id="shift-time" step="900"></div>
     <div class="form-group"><label>Клиент</label><select id="shift-client" onchange="onShiftClientChange()"></select></div>
     <div class="form-group"><label>Адрес</label><input type="text" id="shift-address" placeholder="Начните вводить адрес..." autocomplete="off"><div id="shift-address-suggestions" style="display:none;position:absolute;background:var(--card);border:1px solid var(--border);border-radius:6px;margin-top:2px;max-height:150px;overflow-y:auto;z-index:9999;width:calc(100% - 32px);box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div></div>
     <!-- Map removed -->
@@ -1855,7 +1852,7 @@ function addServiceRow(){
 
 function openNewShift() {
   // Reset form and open modal
-  ['shift-date','shift-time','shift-end-time','shift-address','shift-comment'].forEach(id => {
+  ['shift-date','shift-time','shift-address','shift-comment'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.value = '';
   });
@@ -2107,8 +2104,7 @@ function createShiftStep1(){
   if(startTime)shiftData.start_time=startTime;
   if(comment)shiftData.comment=comment;
   if(address)shiftData.address=address;
-  const endTime=document.getElementById('shift-end-time')?.value||null;
-  if(endTime)shiftData.planned_end_time=endTime;
+  // planned_end_time intentionally removed — not needed for creation
   api('shifts','POST',shiftData).then(shift=>{
     if(!shift||!shift.length){alert('Ошибка');return;}
     const s=shift[0];
