@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Dispatcher.PRO</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    *{margin:0;padding:0}
+    body{background:#1a1a2e;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif;color:#eee;text-align:center;padding:40px}
+    .loading .spinner{display:inline-block;width:40px;height:40px;border:3px solid rgba(255,255,255,.1);border-top-color:#4ecdc4;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:16px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading p{opacity:.7;font-size:14px}
+  </style>
+</head>
+<body>
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>Загрузка...</p>
+  </div>
+  <script>
+    (function(){
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+
+      const uid = tg.initDataUnsafe?.user?.id || '';
+      const first = tg.initDataUnsafe?.user?.first_name || '';
+      const last = tg.initDataUnsafe?.user?.last_name || '';
+      const user = tg.initDataUnsafe?.user?.username || '';
+
+      // Убираем Service Worker — он мешает загрузке
+      if('serviceWorker' in navigator){
+        navigator.serviceWorker.getRegistrations().then(r => r.forEach(r => r.unregister()));
+        caches.keys().then(k => k.forEach(k => caches.delete(k)));
+      }
+
+      const q = 'tg_user_id=' + uid + '&tg_first_name=' + encodeURIComponent(first) +
+                '&tg_last_name=' + encodeURIComponent(last) + '&tg_username=' + encodeURIComponent(user) +
+                '&from_tg=1&_v=' + Date.now();
+
+      // Переход на app-worker с параметрами
+      window.location.href = '/app-worker?' + q;
+    })();
+  </script>
+</body>
+</html>
