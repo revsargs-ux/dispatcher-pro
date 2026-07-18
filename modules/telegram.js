@@ -101,7 +101,6 @@ async function cmdWebApp(chatId, user) {
     btnText = '📱 Мои заказы';
   } else {
     const cryptoR = require('crypto');
-    const cryptoR = require('crypto');
     url = baseUrl + '/tg-worker.html?v=' + Date.now() + cryptoR.randomUUID().slice(0, 8);
     text = '📱 Откройте портал:';
     btnText = '📱 Мои смены';
