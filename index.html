@@ -2090,6 +2090,52 @@ async function restartSearch(shiftId){
   }catch(e){alert('Ошибка: '+e.message);}
 }
 
+// ===== On Client Change (auto-fill services from history) =====
+function onShiftClientChange(){
+  const clientId=document.getElementById('shift-client').value;
+  const svcContainer=document.getElementById('shift-services');
+  if(!svcContainer)return;
+  if(!clientId){
+    const defaultSvc=(cachedServiceTypes||[]).find(function(s){return s.name==='\u0420\u0430\u0437\u043d\u043e\u0440\u0430\u0431\u043e\u0447\u0438\u0439';})||(cachedServiceTypes||[])[0];
+    if(defaultSvc)svcContainer.innerHTML=makeServiceRow(defaultSvc,1);
+    else svcContainer.innerHTML='';
+    return;
+  }
+  (async function(){
+    try{
+      const clientShifts=await api('shifts','GET',null,'?client_id=eq.'+clientId+'&select=id&limit=30');
+      if(!clientShifts||!clientShifts.length){
+        var def=(cachedServiceTypes||[]).find(function(s){return s.name==='\u0420\u0430\u0437\u043d\u043e\u0440\u0430\u0431\u043e\u0447\u0438\u0439';})||(cachedServiceTypes||[])[0];
+        if(def)svcContainer.innerHTML=makeServiceRow(def,1);
+        else svcContainer.innerHTML='';
+        return;
+      }
+      var shiftIds=clientShifts.map(function(s){return s.id;});
+      var allReqs=await api('shift_requirements','GET',null,'?limit=200');
+      var clientReqs=(allReqs||[]).filter(function(r){return shiftIds.includes(r.shift_id);});
+      if(!clientReqs.length){
+        var def2=(cachedServiceTypes||[]).find(function(s){return s.name==='\u0420\u0430\u0437\u043d\u043e\u0440\u0430\u0431\u043e\u0447\u0438\u0439';})||(cachedServiceTypes||[])[0];
+        if(def2)svcContainer.innerHTML=makeServiceRow(def2,1);
+        else svcContainer.innerHTML='';
+        return;
+      }
+      var svcMap={};
+      clientReqs.forEach(function(r){
+        if(!svcMap[r.service_type_id])svcMap[r.service_type_id]={total:0,count:0};
+        svcMap[r.service_type_id].total+=r.required_count;
+        svcMap[r.service_type_id].count++;
+      });
+      var rows=Object.entries(svcMap).sort(function(a,b){return b[1].count-a[1].count;}).map(function(entry){
+        var sid=entry[0],data=entry[1];
+        var svc=(cachedServiceTypes||[]).find(function(s){return s.id===sid;});
+        if(!svc)return'';
+        return makeServiceRow(svc,Math.round(data.total/data.count));
+      }).filter(Boolean);
+      if(rows.length)svcContainer.innerHTML=rows.join('');
+    }catch(e){console.error('Client history error:',e);}
+  })();
+}
+
 // ===== Create Shift Step 1 =====
 function createShiftStep1(){
   const date=document.getElementById('shift-date').value,clientId=document.getElementById('shift-client').value;
