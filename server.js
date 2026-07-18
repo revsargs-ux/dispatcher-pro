@@ -194,13 +194,20 @@ const server = http.createServer(async (req, res) => {
       const cors = getCorsHeaders(req);
       return handlePushSubscription(req, res, cors);
     }
-    // Proxy: /app-worker — отдаёт worker.html с параметрами Telegram (обход кэша WebView)
+    // Proxy: /app-worker — отдаёт worker.html (обход кэша WebView)
     if (urlPath === '/app-worker') {
-      console.log('[AppWorker] Serving worker.html with TG proxy...');
       const appDir = config.appDir || __dirname;
       const workerPath = path.join(appDir, 'worker.html');
-      console.log('[AppWorker] Reading:', workerPath);
       let html = fs.readFileSync(workerPath, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
+      res.end(html);
+      return;
+    }
+    // Proxy: portal.html — простой мост с кнопкой для Telegram WebApp
+    if (urlPath === '/portal.html') {
+      const appDir = config.appDir || __dirname;
+      const portalPath = path.join(appDir, 'portal.html');
+      let html = fs.readFileSync(portalPath, 'utf8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
       res.end(html);
       return;
