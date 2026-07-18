@@ -107,7 +107,8 @@ async function cmdWebApp(chatId, user) {
   }
   await tgSendMessage(chatId, text, {
     reply_markup: JSON.stringify({
-      inline_keyboard: [[{ text: btnText, web_app: { url } }]]
+      keyboard: [[{ text: btnText, web_app: { url } }]],
+      resize_keyboard: true
     })
   });
 }
@@ -257,7 +258,7 @@ ${roleNames[existingUser.role] || existingUser.role}
 • /app — открыть приложение
 
 Или просто спроси что-нибудь — отвечу.`, {
-        reply_markup: JSON.stringify({ inline_keyboard: [[{ text: waBtn, web_app: { url: waUrl } }]] })
+        reply_markup: JSON.stringify({ keyboard: [[{ text: waBtn, web_app: { url: waUrl } }]], resize_keyboard: true })
       });
       return;
     }
