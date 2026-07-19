@@ -613,7 +613,7 @@ async function render(){
         if(status==='pending'||status==='invited'){
           actionsHtml=`<div class="actions">
             <button class="btn btn-accept" data-action="respond" data-id="${a.id}" data-status="confirmed">✅ Подтвердить</button>
-            <button class="btn btn-decline" data-action="respond" data-id="${a.id}" data-status="declined">❌ Отказаться</button>
+            <div style="margin-top:8px;"><button class="btn btn-decline" style="font-size:12px;padding:6px 12px;border:1px solid #e53e3e;color:#e53e3e;background:transparent;border-radius:8px;cursor:pointer;" data-action="confirmDecline" data-id="${a.id}">❌ Отказаться</button></div>
           </div>`;
         }else if(status==='confirmed'&&!a.actual_start_time&&!clientConfirmed){
           const plannedStart=a.shifts?.start_time;
@@ -962,6 +962,9 @@ document.addEventListener('click', function(e) {
     openChat(shiftId);
   } else if (action === 'sendChat') {
     sendChatMsg();
+  } else if (action === 'confirmDecline' && id) {
+    if (!confirm('❌ Вы уверены, что хотите отказаться от этой смены?')) return;
+    respond(id, 'declined', btn);
   }
 });
 
