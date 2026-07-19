@@ -581,7 +581,7 @@ async function render(){
       else if(status==='pending'||status==='invited'){statusHtml='<div class="status-invited">📞 Приглашение</div>';}
       else if(status==='confirmed'&&a.actual_start_time&&!a.actual_end_time){statusHtml='<div class="status-working">🔄 Вы на смене</div>';}
       else if(status==='confirmed'&&a.actual_end_time){statusHtml='<div class="status-done">✅ Смена завершена'+(clientConfirmed?' · Подтверждено':'')+'</div>';}
-      else if(status==='confirmed'&&!a.actual_start_time){statusHtml='<div class="status-confirmed">✅ Вы подтвердили</div>';}
+      else if(status==='confirmed'&&!a.actual_start_time){const st=a.shifts?.start_time?', начало в '+a.shifts.start_time.slice(0,5):'';statusHtml='<div class="status-confirmed">✅ Вы подтвердили'+st+'</div>';}
 
       // Time block — теперь показываем для ВСЕХ смен
       let timeBlock=`<div class="time-block">
@@ -623,12 +623,20 @@ async function render(){
           let cancelBtn='';
           if(plannedStart){
             const planned=new Date(shiftDate+'T'+plannedStart);
-            if(now<planned){canStart=false;disableReason='До начала: '+plannedStart.slice(0,5);}
+            if(now<planned){
+              canStart=false;
+              const diffMs=planned-now;
+              const diffH=Math.floor(diffMs/3600000);
+              const diffM=Math.floor((diffMs%3600000)/60000);
+              if(diffH>0) disableReason='До начала: '+diffH+'ч '+diffM+'м';
+              else disableReason='До начала: '+diffM+'м';
+            }
             const hoursBefore=(planned-now)/3600000;
-            if(hoursBefore>=3){cancelBtn=`<button class="btn btn-decline" data-action="respond" data-id="${a.id}" data-status="declined">❌ Отказаться</button>`;}
+            if(hoursBefore>=3){cancelBtn=`<button class="btn btn-decline" data-action="confirmDecline" data-id="${a.id}">❌ Отказаться</button>`;}
           }
+          const timeInfo=plannedStart?'<div style="font-size:12px;color:var(--text-light);margin-top:4px;">Начнётся в '+plannedStart.slice(0,5)+'</div>':'';
           if(canStart){actionsHtml=`<button class="btn btn-work" data-action="startWork" data-id="${a.id}">▶️ Начать работу</button> ${cancelBtn}`;}
-          else{actionsHtml=`<button class="btn btn-work" disabled>⏳ ${disableReason}</button> ${cancelBtn}`;}
+          else{actionsHtml=`<button class="btn btn-work" disabled>⏳ ${disableReason}</button> ${cancelBtn}${timeInfo}`;}
           actionsHtml+=` <button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" data-action="openChat" data-shift-id="${a.shift_id}">💬 Чат</button>`;
         }else if(status==='confirmed'&&a.actual_start_time&&!a.actual_end_time&&!clientConfirmed){
           actionsHtml=`<button class="btn btn-work" style="background:var(--danger);" data-action="endWork" data-id="${a.id}">⏹ Завершить работу</button> <button class="btn btn-work" style="background:var(--primary);" data-action="pickPhoto" data-shift-id="${a.shift_id}" data-id="${a.id}">📸 Фото</button> <button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" data-action="openChat" data-shift-id="${a.shift_id}">💬 Чат</button>`;
