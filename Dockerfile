@@ -12,8 +12,7 @@ COPY index.html owner.html worker.html worker-app.html client.html ./
 COPY tg-worker.html tg-client.html portal.html sql-setup.html ./
 COPY manifest.json sw.js push-client.js ./
 COPY bot-knowledge.md ./
-RUN mkdir -p /app/data /app/receipts
-RUN chown -R node:node /app/data /app/receipts
+RUN mkdir -p /app/data /app/receipts && chown -R node:node /app
 USER node
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "require('http').get('http://localhost:8080/health',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
 EXPOSE 8080
