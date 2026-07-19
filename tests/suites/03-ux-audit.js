@@ -136,14 +136,14 @@ module.exports = {
             const list = document.getElementById('shifts-list');
             return list ? list.innerHTML : '';
           });
-          const hasEmptyState = await page.evaluate(() => {
+          const hasEmptyState = await page.evaluate((lh) => {
             return document.body.innerText.includes('📭') ||
                    document.body.innerText.includes('Нет смен') ||
                    document.body.innerText.includes('нет смен') ||
                    document.body.innerText.includes('нет данных') ||
                    document.body.innerText.includes('пусто') ||
-                   (listHtml && listHtml.length > 10); // App rendered something
-          });
+                   (lh && lh.length > 10); // App rendered something
+          }, listHtml);
           if (!hasEmptyState) {
             // Soft-pass: the list may still be loading or rendered empty differently
             console.log('    ℹ️  Shifts list empty — empty state may render after data load');

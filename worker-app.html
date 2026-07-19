@@ -556,19 +556,16 @@ async function render(){
       else if(status==='confirmed'&&a.actual_end_time){statusHtml='<div class="status-done">✅ Смена завершена'+(clientConfirmed?' · Подтверждено':'')+'</div>';}
       else if(status==='confirmed'&&!a.actual_start_time){statusHtml='<div class="status-confirmed">✅ Вы подтвердили</div>';}
 
-      // Time block
-      let timeBlock='';
-      if(status==='confirmed'||status==='invited'||status==='pending'){
-        timeBlock=`<div class="time-block">
-          <div><strong>📅 Дата:</strong> ${dateStr}</div>
-          ${startTime?`<div><strong>🕐 Начало:</strong> ${startTime}</div>`:''}
-          ${endTime?`<div><strong>🕐 Окончание:</strong> ${endTime}</div>`:''}
-          ${a.actual_start_time?`<div><strong>▶️ Фактическое начало:</strong> ${formatTime(a.actual_start_time)}</div>`:''}
-          ${a.actual_end_time?`<div><strong>⏹ Фактическое окончание:</strong> ${formatTime(a.actual_end_time)}</div>`:''}
-          ${address?`<div><strong>📍 Адрес:</strong> ${esc(address)}</div>`:''}
-          ${comment?`<div style="color:var(--text-light);margin-top:4px;">💬 ${esc(comment)}</div>`:''}
-        </div>`;
-      }
+      // Time block — теперь показываем для ВСЕХ смен
+      let timeBlock=`<div class="time-block">
+        <div><strong>📅 Дата:</strong> ${dateStr}</div>
+        ${startTime?`<div><strong>🕐 Начало:</strong> ${startTime}</div>`:''}
+        ${endTime?`<div><strong>🕐 Окончание:</strong> ${endTime}</div>`:''}
+        ${a.actual_start_time?`<div><strong>▶️ Фактическое начало:</strong> ${formatTime(a.actual_start_time)}</div>`:''}
+        ${a.actual_end_time?`<div><strong>⏹ Фактическое окончание:</strong> ${formatTime(a.actual_end_time)}</div>`:''}
+        ${address?`<div><strong>📍 Адрес:</strong> ${esc(address)}</div>`:''}
+        ${comment?`<div style="color:var(--text-light);margin-top:4px;">💬 ${esc(comment)}</div>`:''}
+      </div>`;
 
       // Amount with salary breakdown
       const extra=parseFloat(a.extra_amount)||0;
@@ -583,38 +580,32 @@ async function render(){
         amountHtml=`<div class="amount" style="color:var(--text-light);font-size:14px;">💰 Ставка: ${rate}₽/ч</div>`;
       }
 
-      // Actions
+      // Actions — переписано для гарантированного показа кнопок
       let actionsHtml='';
-      console.log('[worker] respondTest', JSON.stringify({aid:a.id,status,a_worker_id:a.worker_id,shift:a.shifts?.id}));
-      if(status==='pending'||status==='invited'){
-        actionsHtml=`<div class="actions">
-          <button class="btn btn-accept" onclick="respond('${a.id}','confirmed',this)">✅ Подтвердить</button>
-          <button class="btn btn-decline" onclick="respond('${a.id}','declined')">❌ Отказаться</button>
-        </div>`;
-      }else if(status==='confirmed'&&!a.actual_start_time&&!clientConfirmed){
-        const plannedStart=a.shifts?.start_time;
-        let canStart=true,disableReason='';
-        const now=new Date();
-        const shiftDate=a.shifts?.date||'';
-        if(plannedStart){
-          const planned=new Date(shiftDate+'T'+plannedStart);
-          if(now<planned){canStart=false;disableReason='До начала: '+plannedStart.slice(0,5);}
+      if(!a.actual_end_time && status!=='declined'){
+        if(status==='pending'||status==='invited'){
+          actionsHtml=`<div class="actions">
+            <button class="btn btn-accept" onclick="respond('${a.id}','confirmed',this)">✅ Подтвердить</button>
+            <button class="btn btn-decline" onclick="respond('${a.id}','declined')">❌ Отказаться</button>
+          </div>`;
+        }else if(status==='confirmed'&&!a.actual_start_time&&!clientConfirmed){
+          const plannedStart=a.shifts?.start_time;
+          let canStart=true,disableReason='';
+          const now=new Date();
+          const shiftDate=a.shifts?.date||'';
+          let cancelBtn='';
+          if(plannedStart){
+            const planned=new Date(shiftDate+'T'+plannedStart);
+            if(now<planned){canStart=false;disableReason='До начала: '+plannedStart.slice(0,5);}
+            const hoursBefore=(planned-now)/3600000;
+            if(hoursBefore>=3){cancelBtn=`<button class="btn btn-decline" onclick="respond('${a.id}','declined')">❌ Отказаться</button>`;}
+          }
+          if(canStart){actionsHtml=`<button class="btn btn-work" onclick="startWork('${a.id}')">▶️ Начать работу</button> ${cancelBtn}`;}
+          else{actionsHtml=`<button class="btn btn-work" disabled>⏳ ${disableReason}</button> ${cancelBtn}`;}
+          actionsHtml+=` <button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" onclick="openChat('${a.shift_id}')">💬 Чат</button>`;
+        }else if(status==='confirmed'&&a.actual_start_time&&!a.actual_end_time&&!clientConfirmed){
+          actionsHtml=`<button class="btn btn-work" style="background:var(--danger);" onclick="endWork('${a.id}')">⏹ Завершить работу</button> <button class="btn btn-work" style="background:var(--primary);" onclick="pickShiftPhoto('${a.shift_id}','${a.id}')">📸 Фото</button> <button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" onclick="openChat('${a.shift_id}')">💬 Чат</button>`;
         }
-        let cancelBtn='';
-        if(plannedStart){
-          const hoursBefore=(new Date(shiftDate+'T'+plannedStart)-now)/3600000;
-          if(hoursBefore>=3){cancelBtn=`<button class="btn btn-cancel" onclick="cancelConfirmed('${a.id}','${shiftDate}','${plannedStart}',this)">❌ Отказаться</button>`;}
-          else if(hoursBefore>0){cancelBtn=`<button class="btn btn-cancel" disabled style="opacity:.4;">❌ Отказ (< 3ч)</button>`;}
-        }
-        if(canStart){actionsHtml=`<button class="btn btn-work" onclick="startWork('${a.id}')">▶️ Начать работу</button>${cancelBtn}`;}
-        else{actionsHtml=`<button class="btn btn-work" disabled>⏳ ${disableReason}</button>${cancelBtn}`;}
-      }else if(status==='confirmed'&&a.actual_start_time&&!a.actual_end_time&&!clientConfirmed){
-        actionsHtml=`<button class="btn btn-work" style="background:var(--danger);" onclick="endWork('${a.id}')">⏹ Завершить работу</button> <button class="btn btn-work" style="background:var(--primary);" onclick="pickShiftPhoto('${a.shift_id}','${a.id}')">📸 Фото</button> <button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" onclick="openChat('${a.shift_id}')">💬 Чат</button>`;
-      }
-
-      // Add chat button to all confirmed/working shifts
-      if(status==='confirmed' && !actionsHtml.includes('openChat')){
-        actionsHtml=(actionsHtml?actionsHtml+' ':'')+`<button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" onclick="openChat('${a.shift_id}')">💬 Чат</button>`;
       }
 
       const photosHtml=_shiftPhotos[a.shift_id]?'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">'+_shiftPhotos[a.shift_id].map(p=>`<img src="/shift-photos/${p.filename}" alt="Фото с объекта" style="width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="window.open('/shift-photos/${p.filename}','_blank')">`).join('')+'</div>':'';

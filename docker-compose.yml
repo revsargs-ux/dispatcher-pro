@@ -28,6 +28,7 @@ services:
       - ./client.html:/app/client.html:ro
       - ./tg-worker.html:/app/tg-worker.html:ro
       - ./tg-client.html:/app/tg-client.html:ro
+      - ./worker-app.html:/app/worker-app.html:ro
       - ./manifest.json:/app/manifest.json:ro
       - ./sw.js:/app/sw.js:ro
       - ./push-client.js:/app/push-client.js:ro

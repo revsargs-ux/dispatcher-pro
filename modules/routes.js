@@ -26,7 +26,7 @@ const featureRoutes = require('../routes/feature-routes');
 const { readBody, json, extractPublicIp } = require('../routes/shared');
 
 const MIME_TYPES = {
-  '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'application/js',
+  '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript',
   '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.ico': 'image/x-icon', '.svg': 'image/svg+xml'
 };

@@ -10,7 +10,7 @@ module.exports = {
     worker: { phone: '+79001234567', pass: 'Test1234', table: 'workers', name: 'Test Worker' },
     client: { phone: '+79001234568', pass: 'Test1234', table: 'clients', name: 'Test Client' },
     dispatcher: { phone: '+79001234569', pass: 'Test1234', table: 'users', name: 'Test Dispatcher', role: 'dispatcher' },
-    owner: { phone: '+79248910259', pass: '1234', table: 'users', name: 'Owner', role: 'owner' }
+    owner: { phone: '+79999999999', pass: '1234', table: 'users', name: 'Test Owner E2E', role: 'owner' }
   },
   thresholds: {
     pageLoadMs: 3000,

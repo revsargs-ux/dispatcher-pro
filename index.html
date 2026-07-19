@@ -2157,7 +2157,7 @@ function createShiftStep1(){
   if(address)shiftData.address=address;
   // planned_end_time intentionally removed — not needed for creation
   api('shifts','POST',shiftData).then(shift=>{
-    if(!shift||!shift.length){alert('Ошибка');return;}
+    if(!shift||!shift.length){console.error('Shift creation failed, response:',shift);alert('Ошибка при создании смены. Подробнее в консоли (F12).');return;}
     const s=shift[0];
     const reqBatch=requirements.map(r=>({shift_id:s.id,service_type_id:r.service_type_id,required_count:r.required_count}));
     api('shift_requirements','POST',reqBatch).then(()=>{
