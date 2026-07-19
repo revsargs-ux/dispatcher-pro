@@ -216,10 +216,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Proxy: /app-worker — отдаёт worker.html (обход кэша WebView)
+    // Proxy: /app-worker — отдаёт worker-app.html (обход кэша WebView)
     if (urlPath === '/app-worker') {
       const appDir = config.appDir || __dirname;
-      const workerPath = path.join(appDir, 'worker.html');
+      const workerPath = path.join(appDir, 'worker-app.html');
       let html = fs.readFileSync(workerPath, 'utf8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
       res.end(html);
