@@ -616,6 +616,17 @@ async function render(){
             <div style="margin-top:8px;"><button class="btn btn-decline" style="font-size:12px;padding:6px 12px;border:1px solid #e53e3e;color:#e53e3e;background:transparent;border-radius:8px;cursor:pointer;" data-action="confirmDecline" data-id="${a.id}">❌ Отказаться</button></div>
           </div>`;
         }else if(status==='confirmed'&&!a.actual_start_time&&!clientConfirmed){
+          // Если прошло время начала или прошло сегодня — можно завершить принудительно
+          const now2=new Date();
+          const plannedStart2=a.shifts?.start_time||'';
+          const shiftDate2=a.shifts?.date||'';
+          let forceEndBtn='';
+          if(plannedStart2 && shiftDate2){
+            try{
+              const plannedDt=new Date(shiftDate2+'T'+plannedStart2);
+              if(now2>plannedDt){forceEndBtn=`<button class="btn btn-work" style="background:var(--danger);" data-action="forceEnd" data-id="${a.id}">⏹ Завершить (без начала)</button>`;}
+            }catch(e){}
+          }
           const plannedStart=a.shifts?.start_time;
           let canStart=true,disableReason='';
           const now=new Date();
@@ -637,6 +648,7 @@ async function render(){
           const timeInfo=plannedStart?'<div style="font-size:12px;color:var(--text-light);margin-top:4px;">Начнётся в '+plannedStart.slice(0,5)+'</div>':'';
           if(canStart){actionsHtml=`<button class="btn btn-work" data-action="startWork" data-id="${a.id}">▶️ Начать работу</button> ${cancelBtn}`;}
           else{actionsHtml=`<button class="btn btn-work" disabled>⏳ ${disableReason}</button> ${cancelBtn}${timeInfo}`;}
+          if(forceEndBtn) actionsHtml+=`<div style="margin-top:6px;">${forceEndBtn}</div>`;
           actionsHtml+=` <button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" data-action="openChat" data-shift-id="${a.shift_id}">💬 Чат</button>`;
         }else if(status==='confirmed'&&a.actual_start_time&&!a.actual_end_time&&!clientConfirmed){
           actionsHtml=`<button class="btn btn-work" style="background:var(--danger);" data-action="endWork" data-id="${a.id}">⏹ Завершить работу</button> <button class="btn btn-work" style="background:var(--primary);" data-action="pickPhoto" data-shift-id="${a.shift_id}" data-id="${a.id}">📸 Фото</button> <button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" data-action="openChat" data-shift-id="${a.shift_id}">💬 Чат</button>`;
@@ -705,9 +717,27 @@ async function endWork(id){try{
     const a=(await api('shift_assignments','GET',null,`?id=eq.${id}&select=actual_start_time`))[0];
     const end=new Date();let hours=0;
     if(a?.actual_start_time){hours=Math.round(((end-new Date(a.actual_start_time))/3600000)*10)/10;if(hours<0)hours=0;}
+    const asgnFull=(await api('shift_assignments','GET',null,`?id=eq.${id}&select=id,shift_id`))[0];
     await api('shift_assignments','PATCH',{invite_status:'completed',actual_end_time:end.toISOString(),hours_worked:hours},`?id=eq.${id}`);
+    // Уведомление в чат
+    if(asgnFull?.shift_id){
+      try{await fetch('/api/chat/'+asgnFull.shift_id,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({message:'⏹ Смена завершена. Отработано: '+hours+'ч'})});}catch(e){}
+    }
     render();
 }catch(e){toast('Ошибка');}
+}
+async function forceEndWork(id){try{
+  if(!confirm('⏹ Завершить смену без отметки начала? Это указывает, что смена выполнена.'))return;
+  const now=new Date();
+  await api('shift_assignments','PATCH',{invite_status:'completed',actual_start_time:now.toISOString(),actual_end_time:now.toISOString(),hours_worked:0},`?id=eq.${id}`);
+  // Уведомление в чат
+  const aF=(await api('shift_assignments','GET',null,`?id=eq.${id}&select=shift_id`))[0];
+  if(aF?.shift_id){
+    try{await fetch('/api/chat/'+aF.shift_id,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({message:'⏹ Смена завершена принудительно.'})});}catch(e){}
+  }
+  toast('Смена завершена');
+  render();
+}catch(e){toast('Ошибка при завершении');}
 }
 async function cancelConfirmed(id,shiftDate,shiftTime,btn){if(btn)btnLoading(btn,true);try{
   if(!confirm('Вы уверены? Отмена возможна только за 3 часа до начала.'))return;
@@ -964,6 +994,8 @@ document.addEventListener('click', function(e) {
     startWork(id);
   } else if (action === 'endWork' && id) {
     endWork(id);
+  } else if (action === 'forceEnd' && id) {
+    forceEndWork(id);
   } else if (action === 'pickPhoto' && id && shiftId) {
     pickShiftPhoto(shiftId, id);
   } else if (action === 'openChat' && shiftId) {

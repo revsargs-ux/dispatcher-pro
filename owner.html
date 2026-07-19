@@ -797,7 +797,11 @@ async function loadAllShifts(){
         <div><strong>${esc(s.clients?.name||'—')}</strong><div style="font-size:12px;color:var(--text-light);">${fmtDate(s.date)} ${esc(s.start_time||'')} · ${esc(svcs)} · ${totalReq} чел</div>
         ${s.users?.full_name?'<div style="font-size:11px;color:var(--primary);">👤 '+esc(s.users.full_name)+'</div>':''}</div>
         <span class="badge ${s.status==='completed'?'badge-green':'badge-yellow'}">${s.status==='completed'?'Завершено':'Активно'}</span>
-      </div></div>`;
+      </div>
+      ${s.status!=='completed'?`<div style="margin-top:8px;display:flex;gap:8px;">
+        <button style="flex:1;padding:10px;background:var(--danger);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;" data-action="forceCompleteShift" data-shift-id="${s.id}">⏹ Завершить смену</button>
+        <button style="flex:1;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;" data-action="openChat" data-shift-id="${s.id}">💬 Чат</button>
+      </div>`:''}</div>`;
   }).join('')||'<p style="color:var(--text-light);text-align:center;padding:20px;">Нет смен</p>';
 }
 
@@ -973,8 +977,31 @@ document.addEventListener('click',function(e){
     openChat(shiftId, senderId);
   }else if(action==='sendChat'){
     sendChatMsg();
+  }else if(action==='forceCompleteShift'&&shiftId){
+    forceCompleteShiftOwner(shiftId);
   }
 });
+
+async function forceCompleteShiftOwner(shiftId){
+  if(!confirm('⏹ Завершить смену досрочно? Все участники будут уведомлены.'))return;
+  try{
+    const now=new Date().toISOString();
+    await api('shifts','PATCH',{status:'completed'},`?id=eq.${shiftId}`);
+    const asgns=await api('shift_assignments','GET',null,`?shift_id=eq.${shiftId}&invite_status=in.(confirmed,in_progress)&select=id,actual_start_time`);
+    for(const a of (asgns||[])){
+      const patch={invite_status:'completed',actual_end_time:now};
+      if(!a.actual_start_time)patch.actual_start_time=now;
+      await api('shift_assignments','PATCH',patch,`?id=eq.${a.id}`);
+    }
+    try{
+      await fetch('/api/chat/'+shiftId,{method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'***'+localStorage.getItem('dp_token')},
+        body:JSON.stringify({message:'⏹ Смена завершена владельцем досрочно.'})});
+    }catch(e){}
+    alert('Смена завершена.');
+    loadAllShifts();
+  }catch(e){alert('Ошибка: '+e.message);}
+}
 </script>
 </body>
 </html>

@@ -712,10 +712,39 @@ document.addEventListener('click',function(e){
   if(action==='openChat'&&shiftId){
     _chatMyId=btn.dataset.senderId||'';
     openChat(shiftId);
+  }else if(action==='openChatFromShift'&&shiftId){
+    openChat(shiftId);
   }else if(action==='sendChat'){
     sendChatMsg();
+  }else if(action==='forceCompleteShift'&&shiftId){
+    forceCompleteShift(shiftId);
   }
 });
+
+async function forceCompleteShift(shiftId){
+  if(!confirm('⏹ Завершить смену досрочно? Все участники будут уведомлены.'))return;
+  try{
+    const now=new Date().toISOString();
+    // 1. Помечаем смену как completed
+    await api('shifts','PATCH',{status:'completed'},`?id=eq.${shiftId}`);
+    // 2. Завершаем все активные назначения
+    const asgns=await api('shift_assignments','GET',null,`?shift_id=eq.${shiftId}&invite_status=in.(confirmed,in_progress)&select=id,actual_start_time,hours_worked`);
+    for(const a of (asgns||[])){
+      const hrs=a.hours_worked||0;
+      const patch={invite_status:'completed',actual_end_time:now};
+      if(!a.actual_start_time) patch.actual_start_time=now;
+      await api('shift_assignments','PATCH',patch,`?id=eq.${a.id}`);
+    }
+    // 3. Сообщение в чат смены
+    try{
+      await fetch('/api/chat/'+shiftId,{method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'***'+localStorage.getItem('dp_token')},
+        body:JSON.stringify({message:'⏹ Смена завершена диспетчером досрочно. Итог: '+now.slice(0,10)+' '+now.slice(11,16)+' UTC'})});
+    }catch(e){}
+    toast('Смена завершена.');
+    loadShifts();
+  }catch(e){toast('Ошибка: '+e.message);}
+}
 function norm(p){return(p||'').replace(/[\+\-\(\)\s]/g,'').replace(/^8/,'7');}
 function validatePhone(p){const d=(p||'').replace(/[^0-9]/g,'');return d.length===11;}
 function validateHours(h){const n=parseFloat(h);return!isNaN(n)&&n>0&&n<=24;}
@@ -1037,6 +1066,7 @@ async function loadShifts(){
         </div>
         <div class="card-body" id="card-body-${shift.id}">
         ${confirmedWorkers.length?`<button class="btn btn-sm btn-outline" style="margin-bottom:8px;width:100%;" onclick="openMassHours('${shift.id}',[${confirmedWorkers.map(a=>`{id:'${a.id}',name:'${(wMap[a.worker_id]||'').replace(/'/g,"\\\\'")}',hours:${a.hours_worked||0}}`).join(',')}],'${shift.date||''}')">⏱ Ввести часы всем (${confirmedWorkers.length})</button>`:''}
+        ${shift.status!=='completed'?`<button class="btn btn-sm" style="margin-bottom:8px;width:100%;background:var(--danger);color:#fff;border:none;border-radius:8px;padding:10px;cursor:pointer;font-weight:600;" data-action="forceCompleteShift" data-shift-id="${shift.id}">⏹ Завершить смену (принудительно)</button>`:''}
         <button class="btn btn-sm btn-outline" style="margin-bottom:8px;width:100%;" onclick="openChat('${shift.id}')">💬 Чат</button>
         ${workersHtml}${summaryHtml}</div>
       </div>`;
