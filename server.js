@@ -225,7 +225,6 @@ const server = http.createServer(async (req, res) => {
       res.end(html);
       return;
     }
-    }
     await router(req, res);
   } catch (e) {
     console.error('Unhandled route error:', e.message);
