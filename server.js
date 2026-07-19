@@ -194,6 +194,28 @@ const server = http.createServer(async (req, res) => {
       const cors = getCorsHeaders(req);
       return handlePushSubscription(req, res, cors);
     }
+    // Proxy: /worker-app.html — новая версия для сброса кэша WebView
+    if (urlPath === '/worker-app.html') {
+      const appDir = config.appDir || __dirname;
+      const waPath = path.join(appDir, 'worker-app.html');
+      fs.readFile(waPath, 'utf8', (err, data) => {
+        if (err) { res.writeHead(404).end('Not found'); return; }
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
+        res.end(data);
+      });
+      return;
+    }
+
+    // Proxy: /portal.html — простой мост с кнопкой для Telegram WebApp
+    if (urlPath === '/portal.html') {
+      const appDir = config.appDir || __dirname;
+      const portalPath = path.join(appDir, 'portal.html');
+      let html = fs.readFileSync(portalPath, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
+      res.end(html);
+      return;
+    }
+
     // Proxy: /app-worker — отдаёт worker.html (обход кэша WebView)
     if (urlPath === '/app-worker') {
       const appDir = config.appDir || __dirname;
@@ -203,14 +225,6 @@ const server = http.createServer(async (req, res) => {
       res.end(html);
       return;
     }
-    // Proxy: portal.html — простой мост с кнопкой для Telegram WebApp
-    if (urlPath === '/portal.html') {
-      const appDir = config.appDir || __dirname;
-      const portalPath = path.join(appDir, 'portal.html');
-      let html = fs.readFileSync(portalPath, 'utf8');
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
-      res.end(html);
-      return;
     }
     await router(req, res);
   } catch (e) {
