@@ -216,6 +216,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Redirect /worker.html → /app-worker (чтобы не было 404 и кэша)
+    if (urlPath === '/worker.html') {
+      res.writeHead(302, { 'Location': '/app-worker' });
+      res.end();
+      return;
+    }
+
     // Proxy: /app-worker — отдаёт worker-app.html (обход кэша WebView)
     if (urlPath === '/app-worker') {
       const appDir = config.appDir || __dirname;

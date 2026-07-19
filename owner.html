@@ -118,6 +118,43 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
 .chat-foot button{padding:10px 18px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer}
 .chat-empty{text-align:center;color:var(--text-light);padding:40px 16px;font-size:14px}
 </style>
+<style>
+/* Mobile-first responsive */
+@media(max-width:480px){
+  :root{--header-h:54px;--container-p:12px;}
+  .container{padding:var(--container-p);}
+  .header{padding:8px 12px;}
+  .header .right{font-size:13px;gap:6px;}
+  .tab-nav{overflow-x:auto;gap:0;padding:0 4px;}
+  .tab-nav button{padding:10px 14px;font-size:13px;flex-shrink:0;}
+  .card{padding:12px;margin-bottom:10px;border-radius:12px;}
+  .card .date{font-size:12px;}
+  .card .title{font-size:15px;}
+  .card .detail{font-size:13px;}
+  .actions{flex-direction:column;gap:6px;}
+  .actions .btn,.actions button{padding:14px 16px;font-size:15px;width:100%;}
+  .time-block{font-size:13px;}
+  .time-block div{padding:2px 0;}
+  .btn{min-height:44px;padding:12px 20px;font-size:15px;}
+  .auth-box{padding:24px 20px;width:95%;}
+  .auth-box h2{font-size:20px;}
+  .chat-box{max-width:100%;height:85vh;border-radius:12px 12px 0 0;}
+  .chat-msg{max-width:90%;font-size:15px;padding:10px 14px;}
+  .balance-big{font-size:28px;}
+  .stat-grid{grid-template-columns:1fr;}
+  .pay-proof-img{max-width:100%;}
+  .status-badge{font-size:11px;padding:3px 8px;}
+  .container{max-width:100%;}
+}
+@media(max-width:768px){
+  table{font-size:12px;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  th,td{padding:6px 8px;white-space:nowrap;}
+  .toolbar{flex-direction:column;gap:8px;}
+  .toolbar input,.toolbar select,.toolbar button{width:100%!important;}
+  .modal-content{margin:10px;width:95%;max-height:90vh;overflow-y:auto;}
+  .card{padding:12px;}
+}
+</style>
 </head>
 <body>
 
@@ -860,6 +897,7 @@ async function sendChatMsg(){const btn=document.getElementById("chat-send-btn");
 
 </script>
 
+<audio id="chat-notify-sound" preload="auto" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQpvT18AAAAAAA==" style="display:none"></audio>
 <div id="chat-modal" class="chat-modal" style="display:none">
   <div class="chat-box">
     <div class="chat-head"><span>💬 Чат по смене</span><button onclick="closeChat()">✕</button></div>
@@ -867,5 +905,76 @@ async function sendChatMsg(){const btn=document.getElementById("chat-send-btn");
     <div class="chat-foot"><input id="chat-input" placeholder="Введите сообщение..." onkeydown="if(event.key==='Enter')sendChatMsg()"><button id="chat-send-btn" onclick="sendChatMsg()">➤</button></div>
   </div>
 </div>
+
+<script>
+// Звук + вибрация при новом сообщении
+function notifyChat(){
+  if(navigator.vibrate)navigator.vibrate(200);
+  try{
+    var snd=document.getElementById('chat-notify-sound');
+    if(snd){snd.currentTime=0;snd.play().catch(function(){});}
+  }catch(e){}
+}
+var _lastMsgId=null;
+var _chatShiftId=null,_chatPoll=null,_chatMyId=null;
+function openChat(shiftId, senderId){
+  _chatShiftId=shiftId;_chatMyId=senderId||worker?.id||'';
+  document.getElementById('chat-modal').style.display='flex';
+  loadChatMessages();
+  if(_chatPoll)clearInterval(_chatPoll);
+  _chatPoll=setInterval(loadChatMessages,5000);
+}
+function closeChat(){
+  document.getElementById('chat-modal').style.display='none';
+  if(_chatPoll)clearInterval(_chatPoll);_chatPoll=null;
+}
+async function loadChatMessages(){
+  if(!_chatShiftId)return;
+  try{
+    const r=await fetch('/api/chat/'+_chatShiftId,{headers:{'Authorization':'***'+localStorage.getItem('dp_token')}});
+    const msgs=await r.json();
+    if(!Array.isArray(msgs))return;
+    const box=document.getElementById('chat-messages');
+    const wasBottom=box.scrollTop+box.clientHeight>=box.scrollHeight-50;
+    if(!msgs.length){box.innerHTML='<div class="chat-empty">📭 Сообщений пока нет</div>';return;}
+    var last=msgs[msgs.length-1];
+    if(last && last.id !== _lastMsgId && last.sender_id !== _chatMyId && _lastMsgId !== null){
+      notifyChat();
+    }
+    if(last) _lastMsgId = last.id;
+    box.innerHTML=msgs.map(function(m){
+      var mine=m.sender_id===_chatMyId;
+      var t=m.created_at?new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}):'';
+      var name=m.sender_name||'';
+      return '<div class="chat-msg '+(mine?'me':'other')+'"><div class="chat-sender">'+(mine?'Вы':name)+'</div>'+m.message+'<div class="chat-time">'+t+'</div></div>';
+    }).join('');
+    if(wasBottom)box.scrollTop=box.scrollHeight;
+  }catch(e){console.error('chat load',e);}
+}
+async function sendChatMsg(){
+  if(!_chatShiftId)return;
+  var inp=document.getElementById('chat-input');
+  var msg=inp.value.trim();if(!msg)return;
+  inp.value='';
+  try{
+    await fetch('/api/chat/'+_chatShiftId,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'***'+localStorage.getItem('dp_token')},body:JSON.stringify({message:msg})});
+    loadChatMessages();
+  }catch(e){toast('Ошибка отправки');}
+}
+
+// Event delegation
+document.addEventListener('click',function(e){
+  var btn=e.target.closest('[data-action]');
+  if(!btn||btn.disabled)return;
+  var action=btn.dataset.action;
+  var shiftId=btn.dataset.shiftId;
+  var senderId=btn.dataset.senderId;
+  if(action==='openChat'&&shiftId){
+    openChat(shiftId, senderId);
+  }else if(action==='sendChat'){
+    sendChatMsg();
+  }
+});
+</script>
 </body>
 </html>

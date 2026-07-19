@@ -73,6 +73,33 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .chat-foot button{padding:10px 18px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer}
 .chat-empty{text-align:center;color:var(--text-light);padding:40px 16px;font-size:14px}
 
+/* Mobile-first responsive */
+@media(max-width:480px){
+  :root{--header-h:54px;--container-p:12px;}
+  .container{padding:var(--container-p);}
+  .header{padding:8px 12px;}
+  .header .right{font-size:13px;gap:6px;}
+  .tab-nav{overflow-x:auto;gap:0;padding:0 4px;}
+  .tab-nav button{padding:10px 14px;font-size:13px;flex-shrink:0;}
+  .card{padding:12px;margin-bottom:10px;border-radius:12px;}
+  .card .date{font-size:12px;}
+  .card .title{font-size:15px;}
+  .card .detail{font-size:13px;}
+  .actions{flex-direction:column;gap:6px;}
+  .actions .btn,.actions button{padding:14px 16px;font-size:15px;width:100%;}
+  .time-block{font-size:13px;}
+  .time-block div{padding:2px 0;}
+  .btn{min-height:44px;padding:12px 20px;font-size:15px;}
+  .auth-box{padding:24px 20px;width:95%;}
+  .auth-box h2{font-size:20px;}
+  .chat-box{max-width:100%;height:85vh;border-radius:12px 12px 0 0;}
+  .chat-msg{max-width:90%;font-size:15px;padding:10px 14px;}
+  .balance-big{font-size:28px;}
+  .stat-grid{grid-template-columns:1fr;}
+  .pay-proof-img{max-width:100%;}
+  .status-badge{font-size:11px;padding:3px 8px;}
+  .container{max-width:100%;}
+}
 @media(max-width:768px){
   table{font-size:12px;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
   th,td{padding:6px 8px;white-space:nowrap;}
@@ -585,8 +612,8 @@ async function render(){
       if(!a.actual_end_time && status!=='declined'){
         if(status==='pending'||status==='invited'){
           actionsHtml=`<div class="actions">
-            <button class="btn btn-accept" onclick="respond('${a.id}','confirmed',this)">✅ Подтвердить</button>
-            <button class="btn btn-decline" onclick="respond('${a.id}','declined')">❌ Отказаться</button>
+            <button class="btn btn-accept" data-action="respond" data-id="${a.id}" data-status="confirmed">✅ Подтвердить</button>
+            <button class="btn btn-decline" data-action="respond" data-id="${a.id}" data-status="declined">❌ Отказаться</button>
           </div>`;
         }else if(status==='confirmed'&&!a.actual_start_time&&!clientConfirmed){
           const plannedStart=a.shifts?.start_time;
@@ -598,20 +625,20 @@ async function render(){
             const planned=new Date(shiftDate+'T'+plannedStart);
             if(now<planned){canStart=false;disableReason='До начала: '+plannedStart.slice(0,5);}
             const hoursBefore=(planned-now)/3600000;
-            if(hoursBefore>=3){cancelBtn=`<button class="btn btn-decline" onclick="respond('${a.id}','declined')">❌ Отказаться</button>`;}
+            if(hoursBefore>=3){cancelBtn=`<button class="btn btn-decline" data-action="respond" data-id="${a.id}" data-status="declined">❌ Отказаться</button>`;}
           }
-          if(canStart){actionsHtml=`<button class="btn btn-work" onclick="startWork('${a.id}')">▶️ Начать работу</button> ${cancelBtn}`;}
+          if(canStart){actionsHtml=`<button class="btn btn-work" data-action="startWork" data-id="${a.id}">▶️ Начать работу</button> ${cancelBtn}`;}
           else{actionsHtml=`<button class="btn btn-work" disabled>⏳ ${disableReason}</button> ${cancelBtn}`;}
-          actionsHtml+=` <button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" onclick="openChat('${a.shift_id}')">💬 Чат</button>`;
+          actionsHtml+=` <button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" data-action="openChat" data-shift-id="${a.shift_id}">💬 Чат</button>`;
         }else if(status==='confirmed'&&a.actual_start_time&&!a.actual_end_time&&!clientConfirmed){
-          actionsHtml=`<button class="btn btn-work" style="background:var(--danger);" onclick="endWork('${a.id}')">⏹ Завершить работу</button> <button class="btn btn-work" style="background:var(--primary);" onclick="pickShiftPhoto('${a.shift_id}','${a.id}')">📸 Фото</button> <button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" onclick="openChat('${a.shift_id}')">💬 Чат</button>`;
+          actionsHtml=`<button class="btn btn-work" style="background:var(--danger);" data-action="endWork" data-id="${a.id}">⏹ Завершить работу</button> <button class="btn btn-work" style="background:var(--primary);" data-action="pickPhoto" data-shift-id="${a.shift_id}" data-id="${a.id}">📸 Фото</button> <button class="btn btn-cancel" style="border:1px solid var(--primary);color:var(--primary);" data-action="openChat" data-shift-id="${a.shift_id}">💬 Чат</button>`;
         }
       }
 
       const photosHtml=_shiftPhotos[a.shift_id]?'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">'+_shiftPhotos[a.shift_id].map(p=>`<img src="/shift-photos/${p.filename}" alt="Фото с объекта" style="width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="window.open('/shift-photos/${p.filename}','_blank')">`).join('')+'</div>':'';
 
       return `<div class="card" id="card-${a.id}">
-        <div class="date">📅 ${dateStr}</div>
+        <div class="date">📅 ${dateStr} <span style="font-size:11px;color:red;background:#fee;padding:2px 6px;border-radius:4px;">[status:${status}]</span></div>
         <div class="title">${esc(clientName)}</div>
         <div class="detail">${esc(serviceName)}</div>
         ${amountHtml}
@@ -828,6 +855,18 @@ function closeChat(){
   const m=document.getElementById('chat-modal');m.style.display='none';if(m._triggerBtn)try{m._triggerBtn.focus();}catch(e){}
   if(_chatPoll)clearInterval(_chatPoll);_chatPoll=null;_chatShiftId=null;
 }
+// Звук + вибрация при новом сообщении
+function notifyChat(){
+  if(navigator.vibrate)navigator.vibrate(200);
+  try{
+    var snd=document.getElementById('chat-notify-sound');
+    if(snd){snd.currentTime=0;snd.play().catch(function(){});}
+  }catch(e){}
+}
+
+// Храним ID последнего сообщения, чтобы не уведомлять повторно
+var _lastMsgId=null;
+
 async function loadChatMessages(){
   if(!_chatShiftId)return;
   try{
@@ -837,6 +876,12 @@ async function loadChatMessages(){
     const box=document.getElementById('chat-messages');
     const wasBottom=box.scrollTop+box.clientHeight>=box.scrollHeight-50;
     if(!msgs.length){box.innerHTML='<div class="chat-empty">📭 Сообщений пока нет</div>';return;}
+    // Detect new message from other person — notify
+    var last=msgs[msgs.length-1];
+    if(last && last.id !== _lastMsgId && last.sender_id !== _chatMyId && _lastMsgId !== null){
+      notifyChat();
+    }
+    if(last) _lastMsgId = last.id;
     box.innerHTML=msgs.map(m=>{
       const mine=m.sender_id===_chatMyId;
       const t=m.created_at?new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}):'';
@@ -897,9 +942,32 @@ document.addEventListener('DOMContentLoaded',async()=>{
   }catch(e){console.error('restore error:',e);localStorage.removeItem('dp_token');localStorage.removeItem('dp_auth');}
 });
 
+// Event delegation для всех кнопок в WebView (iOS не выполняет onclick в innerHTML)
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-action]');
+  if (!btn || btn.disabled) return;
+  var action = btn.dataset.action;
+  var id = btn.dataset.id;
+  var shiftId = btn.dataset.shiftId;
+  var status = btn.dataset.status;
+  if (action === 'respond' && id && status) {
+    respond(id, status, btn);
+  } else if (action === 'startWork' && id) {
+    startWork(id);
+  } else if (action === 'endWork' && id) {
+    endWork(id);
+  } else if (action === 'pickPhoto' && id && shiftId) {
+    pickShiftPhoto(shiftId, id);
+  } else if (action === 'openChat' && shiftId) {
+    openChat(shiftId);
+  } else if (action === 'sendChat') {
+    sendChatMsg();
+  }
+});
+
 // Force cache refresh for Telegram in-app browser
 (function(){
-  const BUILD_TS = '20260718-1400';
+  const BUILD_TS = '20260719-1600';
   const cached = localStorage.getItem('dp_build_ts');
   if (cached && cached !== BUILD_TS) {
     localStorage.setItem('dp_build_ts', BUILD_TS);
@@ -913,5 +981,13 @@ document.addEventListener('DOMContentLoaded',async()=>{
   }
 })();
 </script>
+<audio id="chat-notify-sound" preload="auto" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQpvT18AAAAAAA==" style="display:none"></audio>
+<div id="chat-modal" class="chat-modal" style="display:none">
+  <div class="chat-box">
+    <div class="chat-head"><span>💬 Чат по смене</span><button onclick="closeChat()">✕</button></div>
+    <div class="chat-body" id="chat-messages"><div class="chat-empty">Сообщений пока нет</div></div>
+    <div class="chat-foot"><input id="chat-input" placeholder="Введите сообщение..." onkeydown="if(event.key==='Enter')sendChatMsg()"><button id="chat-send-btn" data-action="sendChat">➤</button></div>
+  </div>
+</div>
 </body>
 </html>

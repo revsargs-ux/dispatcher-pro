@@ -103,7 +103,12 @@ async function handleApiProxy(req, res, cors, urlPath) {
   if (session.role === 'owner') {
     // select=* allowed for owner — do not restrict
   } else if (query.match(/select=\*/)) {
-    query = query.replace(/select=\*/, 'select=id');
+    // Если есть join (через запятую), оставляем как есть — нужны связи
+    if (query.match(/select=\*,/)) {
+      // keep the full select, it has relations
+    } else {
+      query = query.replace(/select=\*/, 'select=id');
+    }
   }
   if (!query.match(/limit=/)) query += '&limit=50';
 
