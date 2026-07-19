@@ -8,7 +8,7 @@ COPY modules/ ./modules/
 COPY routes/ ./routes/
 COPY notifications-module/ ./notifications-module/
 COPY lang/ ./lang/
-COPY index.html owner.html worker.html client.html ./
+COPY index.html owner.html worker.html worker-app.html client.html ./
 COPY tg-worker.html tg-client.html portal.html sql-setup.html ./
 COPY manifest.json sw.js push-client.js ./
 COPY bot-knowledge.md ./
