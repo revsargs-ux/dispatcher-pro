@@ -20,7 +20,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .auth-box{background:var(--auth-card-bg);border-radius:16px;padding:40px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .auth-box h1{color:var(--primary);font-size:24px;text-align:center}
 .auth-box .subtitle{color:var(--text-light);text-align:center;font-size:13px;margin-bottom:24px}
-.auth-box input{width:100%;padding:12px;border:2px solid var(--border);border-radius:8px;font-size:15px;margin-bottom:12px}
+.auth-box input{width:100%;padding:12px;border:2px solid var(--border);border-radius:8px;font-size:15px;margin-bottom:12px;touch-action:manipulation;-webkit-user-select:text;user-select:text}
 .auth-box input:focus{outline:none;border-color:var(--primary)}
 .auth-box button{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
 .auth-error{color:var(--danger);text-align:center;font-size:13px;margin-top:8px;display:none}
@@ -872,7 +872,7 @@ setInterval(() => {
 (async()=>{
   const p=new URLSearchParams(location.search);
   if(p.get('invite')==='1'||p.get('reg')==='1'){showReg();}
-  const ok=await autoLogin();
+  const ok=autoLogin();
 })();
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
