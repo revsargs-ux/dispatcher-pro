@@ -835,6 +835,22 @@ function exportCSV(){window.location.href='/export/payments.csv';}
 function exportPDF(){window.print();}
 
 (async()=>{try{const p=localStorage.getItem('dp_rop');if(p)document.getElementById('auth-phone').value=p;}catch(e){}})();
+
+// Auto-login if token exists
+(async()=>{
+  const tk=localStorage.getItem('dp_token');
+  if(!tk)return;
+  try{
+    // Validate token and get fresh user data
+    const me=await fetch('/auth/me',{headers:{'Authorization':'Bearer '+tk}});
+    if(!me.ok)return;
+    const d=await me.json();
+    if(d.ok&&d.user&&typeof completeOwnerLogin==='function'){
+      completeOwnerLogin({user:d.user,token:tk});
+    }
+  }catch(e){console.warn('Auto-login:',e);}
+})();
+
 initPhoneMasks();
 loadLang(currentLang);
 // System monitoring

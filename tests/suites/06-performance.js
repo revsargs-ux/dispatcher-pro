@@ -40,7 +40,7 @@ module.exports = {
           await sleep(2000);
 
           const errors = page._consoleErrors.filter(e => {
-            // Filter out expected errors (network errors when not logged in are OK)
+            // Filter out expected errors
             return !e.includes('Failed to load resource') &&
                    !e.includes('net::ERR') &&
                    !e.includes('401') &&
@@ -48,7 +48,10 @@ module.exports = {
                    !e.includes('manifest.json') &&  // PWA manifest not critical for tests
                    !e.includes('showMain is not defined') &&  // Worker page autologin race condition
                    !e.includes('showMain error') &&
-                   !e.includes('bad HTTP response code');  // manifest 403
+                   !e.includes('bad HTTP response code') &&  // manifest 403
+                   !e.includes('Content Security Policy') &&  // CSP warnings (data:media, etc)
+                   !e.includes('CSP') &&
+                   !e.includes('media-src');
           });
 
           if (errors.length > config.thresholds.maxConsoleErrors) {

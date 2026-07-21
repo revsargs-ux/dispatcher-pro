@@ -231,22 +231,30 @@ module.exports = {
         const acc = config.accounts.owner;
         await br.goto(page, config.pages.owner, { clearBefore: true, waitForSelector: '#auth-screen, .auth-box' });
 
-        // Owner page has global completeOwnerLogin — use it
-        const login = await page.evaluate(async ({phone, pass}) => {
+        // Login via API to get token
+        const loginData = await page.evaluate(async ({phone, pass}) => {
           const res = await fetch('/auth/login', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({table:'users', phone, pass, role:'owner'})
           });
-          const u = await res.json();
-          if (u.ok && typeof completeOwnerLogin === 'function') {
-            completeOwnerLogin(u);
-          }
-          return u;
+          return await res.json().catch(() => ({ok:false, error:'Network'}));
         }, {phone: acc.phone, pass: acc.pass});
 
-        if (!login.ok) throw new Error('Owner login API failed: ' + (login.error || 'unknown'));
+        if (!loginData.ok) throw new Error('Owner login API failed: ' + (loginData.error || 'unknown'));
 
-        await sleep(3000);
+        // Set localStorage and navigate fresh (avoid page.reload race conditions)
+        await page.evaluate((data) => {
+          localStorage.setItem('dp_token', data.token);
+          localStorage.setItem('dp_rop', data.phone || '+79999999999');
+        }, {...loginData, phone: acc.phone});
+
+        await page.goto(config.baseUrl + config.pages.owner, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        
+        // Wait for auto-login to finish
+        await page.waitForFunction(
+          () => { const a = document.getElementById('app'); return a && getComputedStyle(a).display !== 'none'; },
+          { timeout: 15000 }
+        );
 
         // Verify localStorage keys match what app sets
         const lsCheck = await page.evaluate(() => ({
@@ -339,19 +347,27 @@ module.exports = {
         const acc = config.accounts.owner;
         await br.goto(page, config.pages.owner, { clearBefore: true, waitForSelector: '#auth-screen, .auth-box' });
 
-        // Login via API + completeOwnerLogin
+        // Login via API, store token in localStorage, reload
         const loginResult = await page.evaluate(async ({phone, pass}) => {
           const res = await fetch('/auth/login', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({table:'users', phone, pass, role:'owner'})
           });
-          const u = await res.json();
-          if (u.ok && typeof completeOwnerLogin === 'function') completeOwnerLogin(u);
-          return u;
+          return await res.json().catch(() => ({ok:false, error:'Network'}));
         }, {phone: acc.phone, pass: acc.pass});
         
         if (!loginResult || !loginResult.ok) throw new Error('Logout test: login failed — ' + (loginResult?.error || 'unknown'));
-        await sleep(2000);
+        
+        await page.evaluate((data) => {
+          localStorage.setItem('dp_token', data.token);
+          localStorage.setItem('dp_rop', data.phone || '+79999999999');
+        }, {...loginResult, phone: acc.phone});
+        await page.goto(config.baseUrl + config.pages.owner, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await page.waitForFunction(
+          () => { const a = document.getElementById('app'); return a && getComputedStyle(a).display !== 'none'; },
+          { timeout: 15000 }
+        );
+        await sleep(500);
 
         const app = await page.evaluate(() => {
           const a = document.getElementById('app');

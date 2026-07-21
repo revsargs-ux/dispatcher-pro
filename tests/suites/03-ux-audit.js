@@ -10,7 +10,7 @@ module.exports = {
       viewport: 'desktop',
       run: async ({ page, config }) => {
         for (const [name, path] of Object.entries(config.pages)) {
-          await br.goto(page, path, { waitForSelector: '.auth-box' });
+          await br.goto(page, path, { clearBefore: true, waitForSelector: '.auth-box' });
           await sleep(500);
 
           const emptyButtons = await page.evaluate(() => {
@@ -21,7 +21,6 @@ module.exports = {
               if (!text && !b.getAttribute('aria-label') && !b.querySelector('img')) {
                 empty.push(b.outerHTML.substring(0, 80));
               }
-              // Check for placeholder text
               if (text === 'Кнопка' || text === 'Button') {
                 empty.push('Generic button text: ' + b.outerHTML.substring(0, 80));
               }
@@ -41,7 +40,7 @@ module.exports = {
       viewport: 'desktop',
       run: async ({ page, config }) => {
         for (const [name, path] of Object.entries(config.pages)) {
-          await br.goto(page, path, { waitForSelector: '.auth-box' });
+          await br.goto(page, path, { clearBefore: true, waitForSelector: '.auth-box' });
           await sleep(500);
 
           const badPlaceholders = await page.evaluate(() => {
@@ -67,22 +66,17 @@ module.exports = {
       name: 'Toast-сообщения появляются при действии',
       viewport: 'mobile',
       run: async ({ page, config }) => {
-        // Go to worker page and trigger login with wrong creds
-        await br.goto(page, config.pages.worker, { waitForSelector: '.auth-box' });
-        await br.clearStorage(page);
-        await br.goto(page, config.pages.worker, { waitForSelector: '.auth-box' });
+        await br.goto(page, config.pages.worker, { clearBefore: true, waitForSelector: '.auth-box' });
 
         await br.fillById(page, 'phone-input', '+79001234567');
         await br.fillById(page, 'pass-input', 'wrong');
 
-        // Use specific selector — [onclick*="login"] also matches showLogin()
         const loginBtn = await page.$('button[onclick="login()"]')
           || await page.$('#auth-login button[onclick*="login"]');
         if (loginBtn) await loginBtn.click();
 
         await sleep(3000);
 
-        // Check for error display or toast
         const hasFeedback = await page.evaluate(() => {
           const err = document.querySelector('#auth-error');
           const toast = document.querySelector('.toast');
@@ -96,7 +90,6 @@ module.exports = {
         });
 
         if (!hasFeedback) {
-          // Soft-pass: some implementations may clear error or use different feedback
           console.log('    ℹ️  Error feedback not detected via DOM — may use different mechanism');
         }
       }
@@ -106,32 +99,22 @@ module.exports = {
       name: 'Пустые состояния (📭) на страницах без данных',
       viewport: 'mobile',
       run: async ({ page, config }) => {
-        // Login as worker with fresh account (no shifts)
-        await br.goto(page, config.pages.worker, { waitForSelector: '.auth-box' });
-        await br.clearStorage(page);
-        await br.goto(page, config.pages.worker, { waitForSelector: '.auth-box' });
+        await br.goto(page, config.pages.worker, { clearBefore: true, waitForSelector: '.auth-box' });
 
         await br.fillById(page, 'phone-input', config.accounts.worker.phone);
         await br.fillById(page, 'pass-input', config.accounts.worker.pass);
         const loginBtn = await page.$('[onclick*="login"]');
         if (loginBtn) await loginBtn.click();
-        await sleep(3000);
+        await sleep(6000);
 
-        // Wait for data to load (API calls may take time)
-        await sleep(3000);
-
-        // Check for empty state or shift cards
         const hasContent = await page.evaluate(() => {
           const list = document.getElementById('shifts-list');
           if (!list) return false;
           const text = list.innerText || '';
-          return text.trim().length > 0; // Any content is fine
+          return text.trim().length > 0;
         });
 
-        // If there's no content, check for empty state emoji or message
         if (!hasContent) {
-          // The app populates shifts-list with empty state HTML when no shifts
-          // Check both the list innerHTML and body text
           const listHtml = await page.evaluate(() => {
             const list = document.getElementById('shifts-list');
             return list ? list.innerHTML : '';
@@ -142,14 +125,12 @@ module.exports = {
                    document.body.innerText.includes('нет смен') ||
                    document.body.innerText.includes('нет данных') ||
                    document.body.innerText.includes('пусто') ||
-                   (lh && lh.length > 10); // App rendered something
+                   (lh && lh.length > 10);
           }, listHtml);
           if (!hasEmptyState) {
-            // Soft-pass: the list may still be loading or rendered empty differently
             console.log('    ℹ️  Shifts list empty — empty state may render after data load');
           }
         }
-        // Pass: either has content or shows empty state
       }
     },
 
@@ -157,15 +138,14 @@ module.exports = {
       name: 'При ошибке сети показывается toast',
       viewport: 'mobile',
       run: async ({ page, config }) => {
-        await br.goto(page, config.pages.worker, { waitForSelector: '.auth-box' });
+        await br.goto(page, config.pages.worker, { clearBefore: true, waitForSelector: '.auth-box' });
         
-        // Block all network requests to simulate offline
+        // Disable our app-version interceptor, enable full abort for offline simulation
+        await br.interceptAppVersion(page, false);
         await page.setRequestInterception(true);
-        page.on('request', req => {
-          req.abort();
-        });
+        const abortHandler = req => { try { req.abort(); } catch(e) {} };
+        page.on('request', abortHandler);
 
-        // Try to login
         await br.fillById(page, 'phone-input', '+79001234567');
         await br.fillById(page, 'pass-input', 'Test1234');
         const loginBtn = await page.$('[onclick*="login"]');
@@ -173,7 +153,6 @@ module.exports = {
 
         await sleep(3000);
 
-        // Should show error about connection
         const hasError = await page.evaluate(() => {
           const err = document.querySelector('#auth-error');
           const toast = document.querySelector('.toast');
@@ -182,11 +161,11 @@ module.exports = {
           return errVisible || toastVisible;
         });
 
-        // Reset interception
+        // Cleanup
+        page.off('request', abortHandler);
         await page.setRequestInterception(false);
 
         if (!hasError) {
-          // Soft pass — abort might not trigger visible error in some implementations
           console.log('    ℹ️  Network error feedback may use different mechanism');
         }
       }
@@ -197,7 +176,7 @@ module.exports = {
       viewport: 'mobile',
       run: async ({ page, config }) => {
         for (const [name, path] of Object.entries(config.pages)) {
-          await br.goto(page, path, { waitForSelector: '.auth-box' });
+          await br.goto(page, path, { clearBefore: true, waitForSelector: '.auth-box' });
           await sleep(500);
 
           const passwordInputs = await page.evaluate(() => {
@@ -216,7 +195,7 @@ module.exports = {
       name: 'Телефон форматируется при вводе',
       viewport: 'mobile',
       run: async ({ page, config }) => {
-        await br.goto(page, config.pages.worker, { waitForSelector: '.auth-box' });
+        await br.goto(page, config.pages.worker, { clearBefore: true, waitForSelector: '.auth-box' });
 
         const phoneInput = await page.$('#phone-input, #auth-phone');
         if (!phoneInput) throw new Error('Phone input not found');
@@ -230,11 +209,9 @@ module.exports = {
           return inp ? inp.value : null;
         });
 
-        // Check if phone was formatted (should contain +7 or brackets or spaces)
         if (!value || value.length < 10) {
           throw new Error('Phone input did not capture value properly');
         }
-        // Value should be at least the raw digits, possibly formatted
       }
     },
 
@@ -242,18 +219,13 @@ module.exports = {
       name: 'Спиннер появляется при загрузке данных',
       viewport: 'mobile',
       run: async ({ page, config }) => {
-        // Login as worker and check for loading indicators
-        await br.goto(page, config.pages.worker, { waitForSelector: '.auth-box' });
-        await br.clearStorage(page);
-        await br.goto(page, config.pages.worker, { waitForSelector: '.auth-box' });
+        await br.goto(page, config.pages.worker, { clearBefore: true, waitForSelector: '.auth-box' });
 
         await br.fillById(page, 'phone-input', config.accounts.worker.phone);
         await br.fillById(page, 'pass-input', config.accounts.worker.pass);
         const loginBtn = await page.$('[onclick*="login"]');
         if (loginBtn) await loginBtn.click();
 
-        // Right after login, there should be a loading state
-        // Check if at any point a spinner or loading text appears
         let foundLoading = false;
         for (let i = 0; i < 10; i++) {
           await sleep(200);
@@ -271,7 +243,6 @@ module.exports = {
         }
 
         if (!foundLoading) {
-          // Soft warning — loading may be too fast to catch
           console.log('    ℹ️  Loading indicator not caught (may be too fast)');
         }
       }
@@ -282,7 +253,7 @@ module.exports = {
       viewport: 'desktop',
       run: async ({ page, config }) => {
         for (const [name, path] of Object.entries(config.pages)) {
-          await br.goto(page, path, { waitForSelector: '.auth-box' });
+          await br.goto(page, path, { clearBefore: true, waitForSelector: '.auth-box' });
           await sleep(500);
 
           const smallButtons = await page.evaluate((minH) => {
@@ -299,7 +270,7 @@ module.exports = {
             return small;
           }, config.thresholds.buttonMinHeight);
 
-          if (smallButtons.length > 8) { // Allow small utility buttons (pagination arrows, export, etc.)
+          if (smallButtons.length > 8) {
             throw new Error(`${name}: ${smallButtons.length} buttons below 44px: ${smallButtons.slice(0, 3).join(', ')}`);
           }
         }
@@ -318,7 +289,7 @@ module.exports = {
         };
 
         for (const [name, path] of Object.entries(config.pages)) {
-          await br.goto(page, path, { waitForSelector: '.auth-box' });
+          await br.goto(page, path, { clearBefore: true, waitForSelector: '.auth-box' });
           await sleep(500);
 
           const title = await page.title();
@@ -326,7 +297,6 @@ module.exports = {
             throw new Error(`${name}: page has no title`);
           }
           
-          // Check title contains relevant text
           const expected = expectedTitles[name];
           if (expected && !title.includes(expected) && !title.includes('Dispatcher')) {
             throw new Error(`${name}: title "${title}" doesn't contain "${expected}"`);
@@ -339,10 +309,9 @@ module.exports = {
       name: 'Ссылки кабинетов на index.html видны',
       viewport: 'desktop',
       run: async ({ page }) => {
-        await br.goto(page, config.pages.dispatcher, { waitForSelector: '.auth-box' });
+        await br.goto(page, config.pages.dispatcher, { clearBefore: true, waitForSelector: '.auth-box' });
         await sleep(500);
 
-        // Check for links to worker and client pages
         const links = await page.evaluate(() => {
           const allLinks = document.querySelectorAll('a[href]');
           return allLinks.length;
@@ -352,7 +321,6 @@ module.exports = {
           throw new Error('No navigation links found on dispatcher page');
         }
 
-        // Check for worker/client mentions
         const hasWorkerLink = await page.evaluate(() => {
           return document.body.innerHTML.includes('worker') || 
                  document.body.innerText.includes('Исполнитель') ||
@@ -375,11 +343,9 @@ module.exports = {
       name: 'confirm() появляется при удалении',
       viewport: 'desktop',
       run: async ({ page, config }) => {
-        // This test checks if confirm dialog handler exists in the code
-        await br.goto(page, config.pages.dispatcher, { waitForSelector: '.auth-box' });
+        await br.goto(page, config.pages.dispatcher, { clearBefore: true, waitForSelector: '.auth-box' });
         
         const hasConfirm = await page.evaluate(() => {
-          // Check if any onclick uses confirm()
           const elements = document.querySelectorAll('[onclick]');
           for (const el of elements) {
             const onclick = el.getAttribute('onclick') || '';
@@ -387,7 +353,6 @@ module.exports = {
               return true;
             }
           }
-          // Check scripts for confirm
           const scripts = document.querySelectorAll('script');
           for (const s of scripts) {
             if (s.textContent.includes('confirm(')) return true;
@@ -396,7 +361,6 @@ module.exports = {
         });
 
         if (!hasConfirm) {
-          // Soft warn — not all pages have delete with confirm
           console.log('    ℹ️  No confirm() found — may not have delete actions on auth page');
         }
       }

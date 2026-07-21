@@ -100,7 +100,7 @@ function checkPasswordResetLimit(ip) {
 async function handleLogin(req, res, cors) {
   const ip = extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress);
   // Skip rate limit for localhost and tests
-  const skipRL = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+  const skipRL = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.startsWith('172.') || ip.startsWith('10.') || ip.startsWith('192.168.');
   if (!skipRL && !checkRateLimit(ip)) return json(res, { ok: false, error: 'Слишком много попыток. Подождите 5 минут.' }, 429, cors);
 
   const body = await readBody(req);

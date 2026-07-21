@@ -58,34 +58,83 @@ async function newPage(browser, viewportName) {
 }
 
 /**
+ * Enable check-version interception — returns the stub version so app doesn't reload.
+ * Must be called BEFORE goto for pages that have check-version (owner, index).
+ */
+let _dpVerValue = 'test-version-e2e';
+
+// Symbol key to store handler reference per page (avoid duplicate handlers)
+const _intHandlerSym = Symbol('intHandlerSym');
+
+async function interceptAppVersion(page, enabled) {
+  const intercept = enabled === undefined ? true : enabled;
+  // Remove previous handler if any (prevent duplicate listeners)
+  const oldHandler = page[_intHandlerSym];
+  if (oldHandler) {
+    page.off('request', oldHandler);
+    page[_intHandlerSym] = null;
+  }
+  if (!intercept) {
+    await page.setRequestInterception(false);
+    return;
+  }
+  const handler = (req) => {
+    if (req.url().includes('/app-version')) {
+      try { req.respond({ status: 200, contentType: 'text/plain', body: _dpVerValue }); } catch(e) {}
+    } else {
+      try { req.continue(); } catch(e) {}
+    }
+  };
+  page[_intHandlerSym] = handler;
+  page.on('request', handler);
+  await page.setRequestInterception(true);
+}
+
+/**
  * Navigate to a page and wait for load
  */
 async function goto(page, path, options = {}) {
   const url = config.baseUrl + path;
-  const waitUntil = options.waitUntil || 'networkidle2';
+  const waitUntil = options.waitUntil || 'domcontentloaded';
   
-  // Go to about:blank first to clear any JS state, then clear storage
+  // Always ensure /app-version interception is active (harmless for pages without check-version)
+  if (!page[_intHandlerSym]) {
+    await interceptAppVersion(page, true);
+  }
+  
+  // Go to about:blank first to clear any JS state
   if (options.clearBefore) {
     await page.goto('about:blank').catch(() => {});
+    // Clear storage for the target origin via CDP (works before navigating there)
+    const client = await page.target().createCDPSession();
+    try {
+      await client.send('Storage.clearDataForOrigin', {
+        origin: config.baseUrl,
+        storageTypes: 'all'
+      });
+    } catch(e) { /* fallback: clear on target page after goto */ }
+    // Now navigate to app page (clean state, _dp_ver=null → check-version skips reload)
+    await page.goto(url, { waitUntil, timeout: config.timeouts.pageLoad });
+    if (options.waitForSelector) {
+      const selectors = options.waitForSelector.split(',').map(s => s.trim());
+      await page.waitForFunction((sels) => {
+        return sels.some(s => !!document.querySelector(s));
+      }, { timeout: options.timeout || 10000 }, selectors);
+    }
+    return;
   }
   
+  // Normal navigation
   await page.goto(url, { waitUntil, timeout: config.timeouts.pageLoad });
   
-  // Clear storage after navigation if requested (for fresh login state)
-  if (options.clearBefore) {
-    await clearStorage(page);
-    // Reload to apply cleared state
-    await page.goto(url, { waitUntil, timeout: config.timeouts.pageLoad });
-  }
+  // Small settle time
+  await new Promise(r => setTimeout(r, 200));
   
   if (options.waitForSelector) {
     const selectors = options.waitForSelector.split(',').map(s => s.trim());
     await page.waitForFunction((sels) => {
-      return sels.some(s => {
-        const el = document.querySelector(s);
-        return el && (el.offsetParent !== null || getComputedStyle(el).display !== 'none');
-      });
-    }, { timeout: options.timeout || 5000 }, selectors);
+      return sels.some(s => !!document.querySelector(s));
+    }, { timeout: options.timeout || 10000 }, selectors);
   }
 }
 
@@ -179,7 +228,10 @@ async function getText(page, selector) {
  */
 async function clearStorage(page) {
   await page.evaluate(() => {
+    // Keep _dp_ver to avoid infinite reload loop (app checks & reloads)
+    const ver = localStorage.getItem('_dp_ver');
     localStorage.clear();
+    if (ver) localStorage.setItem('_dp_ver', ver);
     sessionStorage.clear();
   });
 }
@@ -284,5 +336,6 @@ module.exports = {
   screenshot,
   snapshot,
   loginAs,
+  interceptAppVersion,
   close
 };
