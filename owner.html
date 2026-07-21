@@ -341,7 +341,7 @@ function setupPhoneMask(input){
     this.value=v.length>=1?'+'+v:'';
   });
 }
-function initPhoneMasks(){document.querySelectorAll('input[type="tel"]').forEach(setupPhoneMask);}
+function initPhoneMasks(){document.querySelectorAll('input[type="tel"],input[inputmode="tel"]').forEach(setupPhoneMask);}
 
 // Debounce utility
 function debounce(fn,ms){let t;return function(...a){clearTimeout(t);t=setTimeout(()=>fn.apply(this,a),ms);};}

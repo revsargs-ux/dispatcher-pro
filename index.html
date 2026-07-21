@@ -314,7 +314,7 @@ button,.btn,[role="button"]{padding:8px 14px}
   </div>
   <div id="auth-reg" style="display:none;">
     <div class="form-group"><label>ФИО / Название</label><input type="text" id="reg-name" placeholder="Полное имя"></div>
-    <div class="form-group"><label>Телефон</label><input type="tel" id="reg-phone" placeholder="+7..." maxlength="15"></div>
+    <div class="form-group"><label>Телефон</label><input type="text" id="reg-phone" inputmode="tel" placeholder="+7..." maxlength="15"></div>
     <div class="form-group"><label>Пароль</label><input type="password" id="reg-pass" placeholder="Придумайте пароль"></div>
     <div class="form-group"><label>Роль</label><select id="reg-role" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;"><option value="dispatcher">Диспетчер</option><option value="client">Клиент</option><option value="worker">Исполнитель</option></select></div>
     <button onclick="doRegister()" style="margin-top:8px;">Зарегистрироваться</button>
@@ -681,7 +681,7 @@ function setupPhoneMask(input){
     this.value=v.length>=1?'+'+v:'';
   });
 }
-function initPhoneMasks(){document.querySelectorAll('input[type="tel"]').forEach(setupPhoneMask);}
+function initPhoneMasks(){document.querySelectorAll('input[type="tel"],input[inputmode="tel"]').forEach(setupPhoneMask);}
 
 // API goes through server proxy - no keys in HTML
 

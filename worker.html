@@ -150,7 +150,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
   <h1>👷 Dispatcher.PRO</h1>
   <p class="subtitle" id="auth-subtitle" data-i18n="auth_subtitle_worker">Вход в кабинет</p>
   <div id="auth-login">
-    <input type="tel" id="phone-input" data-i18n-placeholder="placeholder_phone" placeholder="Номер телефона" maxlength="15">
+    <input type="text" id="phone-input" inputmode="tel" data-i18n-placeholder="placeholder_phone" placeholder="Номер телефона" maxlength="15">
     <div class="pw-wrap">
       <input type="password" id="pass-input" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
       <span class="pw-eye" role="button" aria-label="Показать/скрыть пароль" onclick="togglePw('pass-input',this)">👁</span>
@@ -162,7 +162,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
   </div>
   <div id="auth-reg" style="display:none;">
     <input type="text" id="reg-name" data-i18n-placeholder="label_name" placeholder="ФИО">
-    <input type="tel" id="reg-phone" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15">
+    <input type="text" id="reg-phone" inputmode="tel" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15">
     <div class="pw-wrap">
       <input type="password" id="reg-pass" placeholder="Пароль">
       <span class="pw-eye" role="button" aria-label="Показать/скрыть пароль" onclick="togglePw('reg-pass',this)">👁</span>
@@ -297,7 +297,7 @@ function setupPhoneMask(input){
     this.value=v.length>=1?'+'+v:'';
   });
 }
-function initPhoneMasks(){document.querySelectorAll('input[type="tel"]').forEach(setupPhoneMask);}
+function initPhoneMasks(){document.querySelectorAll('input[type="tel"],input[inputmode="tel"]').forEach(setupPhoneMask);}
 
 async function tryRefreshToken(){
   const tk=localStorage.getItem('dp_token');if(!tk)return false;
