@@ -3,36 +3,155 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-  <title>Dispatcher.PRO</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <title>Dispatcher.PRO — Клиент</title>
   <style>
-    * { margin: 0; padding: 0; }
-    body { background: #1a1a2e; }
-    iframe { width: 100%; height: 100vh; border: none; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a2e; color: #fff; font-family: -apple-system, system-ui, sans-serif; display: flex; flex-direction: column; min-height: 100vh; }
+    .container { flex: 1; padding: 24px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+    .logo { font-size: 48px; margin-bottom: 16px; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    p { font-size: 14px; color: #a0aec0; margin-bottom: 24px; line-height: 1.5; }
+    .btn { display: block; width: 100%; max-width: 320px; padding: 14px; border-radius: 10px; font-size: 16px; font-weight: 600; text-decoration: none; text-align: center; margin-bottom: 12px; cursor: pointer; }
+    .btn-primary { background: #38a169; color: #fff; border: none; }
+    .btn-secondary { background: transparent; color: #38a169; border: 2px solid #38a169; }
+    .btn-outline { background: transparent; color: #a0aec0; border: 1px solid #4a5568; }
+    .btn:active { opacity: 0.8; }
+    .loading { display: inline-block; width: 20px; height: 20px; border: 2px solid #4a5568; border-top-color: #38a169; border-radius: 50%; animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status { margin-top: 16px; padding: 10px; border-radius: 8px; font-size: 13px; max-width: 320px; width: 100%; display: none; }
+    .status-ok { background: #22543d; color: #68d391; display: block; }
+    .status-err { background: #742a2a; color: #fc8181; display: block; }
+    .steps { text-align: left; max-width: 320px; width: 100%; }
+    .step { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; font-size: 14px; color: #a0aec0; }
+    .step-num { width: 24px; height: 24px; border-radius: 50%; background: #2d3748; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .step.done .step-num { background: #38a169; }
+    input { width: 100%; max-width: 320px; padding: 14px; border: 1px solid #4a5568; border-radius: 10px; background: #2d3748; color: #fff; font-size: 16px; text-align: center; margin-bottom: 12px; outline: none; }
+    input:focus { border-color: #38a169; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
+  <div class="container">
+    <div class="logo">📋</div>
+    <h1>Dispatcher.PRO</h1>
+    <p>Портал клиента</p>
+
+    <!-- State: loading -->
+    <div id="state-loading">
+      <div class="loading"></div>
+      <p style="margin-top:16px">Проверяем привязку...</p>
+    </div>
+
+    <!-- State: linked (авторизован) -->
+    <div id="state-linked" class="hidden">
+      <p>✅ Вы авторизованы</p>
+      <button class="btn btn-primary" onclick="openPortal()">📱 Открыть портал</button>
+      <button class="btn btn-outline" onclick="window.location.reload()">🔄 Обновить</button>
+    </div>
+
+    <!-- State: not linked (не привязан) -->
+    <div id="state-not-linked" class="hidden">
+      <p>У вас ещё нет доступа к порталу клиента</p>
+      <div class="steps">
+        <div class="step" id="step1">
+          <div class="step-num">1</div>
+          <div>Откройте бота @DispatcherPRO1_bot и нажмите <b>«Отправить номер»</b></div>
+        </div>
+        <div class="step" id="step2">
+          <div class="step-num">2</div>
+          <div>После привязки нажмите кнопку ниже</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="window.open('https://t.me/DispatcherPRO1_bot?start='+getPhoneParam(),'_blank')">📱 Открыть бота</button>
+      <button class="btn btn-secondary" onclick="checkLink()">🔄 Я привязал, проверить</button>
+    </div>
+
+    <div class="status" id="status"></div>
+  </div>
+
   <script>
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-    const userId = tg.initDataUnsafe?.user?.id || '';
-    const firstName = tg.initDataUnsafe?.user?.first_name || '';
-    const lastName = tg.initDataUnsafe?.user?.last_name || '';
-    const username = tg.initDataUnsafe?.user?.username || '';
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); }
 
-    const baseUrl = window.location.origin + '/client.html';
-    const params = new URLSearchParams({
-      tg_user_id: userId,
-      tg_first_name: firstName,
-      tg_last_name: lastName,
-      tg_username: username,
-      from_tg: '1'
+    let _myChatId = null;
+
+    function getPhoneParam() {
+      // Try to get user phone from Telegram or local storage
+      const p = new URLSearchParams(window.location.search);
+      return p.get('phone') || p.get('start') || '';
+    }
+
+    async function checkLink() {
+      const status = document.getElementById('status');
+      const loading = document.getElementById('state-loading');
+      const notLinked = document.getElementById('state-not-linked');
+      const linked = document.getElementById('state-linked');
+
+      loading.classList.remove('hidden');
+      notLinked.classList.add('hidden');
+      linked.classList.add('hidden');
+      status.className = 'status';
+      status.style.display = 'none';
+
+      try {
+        const chatId = tg?.initDataUnsafe?.user?.id || _myChatId;
+        if (!chatId) {
+          showStatus('Не удалось определить ваш Telegram ID', 'err');
+          loading.classList.add('hidden');
+          notLinked.classList.remove('hidden');
+          return;
+        }
+        _myChatId = chatId;
+
+        // Auto-link: если передан phone, привязываем TG к клиенту
+        const phone = getPhoneParam();
+        if (phone) {
+          await fetch('/auth/tg-link-auto', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: phone, chat_id: chatId })
+          });
+        }
+
+        const r = await fetch('/api/check-tg-link?chat_id=' + encodeURIComponent(chatId));
+        const d = await r.json();
+
+        loading.classList.add('hidden');
+        if (d.linked) {
+          linked.classList.remove('hidden');
+          showStatus('✅ Привязка найдена!', 'ok');
+        } else {
+          notLinked.classList.remove('hidden');
+          if (phone) showStatus('✅ Привязка создана! Нажмите «Открыть портал».', 'ok');
+          else showStatus('Привязка не найдена. Выполните шаги выше.', 'err');
+        }
+      } catch (e) {
+        loading.classList.add('hidden');
+        notLinked.classList.remove('hidden');
+        showStatus('Ошибка связи с сервером', 'err');
+      }
+    }
+
+    function showStatus(text, type) {
+      const el = document.getElementById('status');
+      el.textContent = text;
+      el.className = 'status status-' + type;
+      el.style.display = 'block';
+    }
+
+    function openPortal() {
+      window.location.href = '/app-client?from_tg=1&tg_user_id=' + encodeURIComponent(_myChatId);
+    }
+
+    // Auto-check on load
+    checkLink();
+
+    // Listen for tg-login auto redirect
+    window.addEventListener('message', function(e) {
+      if (e.data === 'tg-linked') {
+        checkLink();
+      }
     });
-
-    const iframe = document.createElement('iframe');
-    iframe.src = baseUrl + '?' + params.toString();
-    document.body.appendChild(iframe);
   </script>
 </body>
 </html>

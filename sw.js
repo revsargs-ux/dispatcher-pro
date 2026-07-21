@@ -1,20 +1,15 @@
 // Service Worker — Dispatcher.PRO
-// v30 — MIME type fix (application/js → text/javascript) — сброс кэша
+// v31 — DISABLED: service worker was causing infinite reload. This file kept only to self-destruct.
+// All pages now register no SW. This SW will skipWait, delete caches, claim, then unregister itself.
 
-const CACHE_NAME = 'dispatcher-v30';
+const CACHE_NAME = 'dispatcher-v31';
 const STATIC_ASSETS = [
   '/',
-  '/index.html',
-  '/worker.html',
-  '/client.html',
-  '/owner.html',
-  '/sql-setup.html',
   '/sw.js',
   '/manifest.json',
   '/assets/icon-192.png',
   '/assets/icon-512.png',
-  '/assets/badge-72.png',
-  '/tg-worker.html'
+  '/assets/badge-72.png'
 ];
 
 // === УСТАНОВКА ===
@@ -31,10 +26,22 @@ self.addEventListener('install', (event) => {
 
 // === АКТИВАЦИЯ ===
 self.addEventListener('activate', (event) => {
+  // Skip old SW explicitly
+  self.skipWaiting();
   event.waitUntil(
     caches.keys().then((names) =>
       Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)))
     ).then(() => self.clients.claim())
+    .then(() => {
+      // Self-unregister — SW is disabled, just clean up
+      return self.registration.unregister();
+    })
+    .then(() => {
+      // Force-notify all clients to reset if stuck
+      return self.clients.matchAll();
+    }).then(clients => {
+      clients.forEach(c => c.postMessage({type: 'FORCE_RESET'}));
+    })
   );
 });
 

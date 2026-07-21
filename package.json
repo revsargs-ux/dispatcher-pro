@@ -1,7 +1,31 @@
 {
   "dependencies": {
     "@supabase/supabase-js": "^2.110.6",
+    "acorn": "^8.17.0",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.3"
-  }
+    "jsonwebtoken": "^9.0.3",
+    "playwright": "^1.61.1"
+  },
+  "name": "dispatcher-deploy",
+  "version": "1.0.0",
+  "description": "",
+  "main": "push-client.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/revsargs-ux/dispatcher-pro.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/revsargs-ux/dispatcher-pro/issues"
+  },
+  "homepage": "https://github.com/revsargs-ux/dispatcher-pro#readme"
 }

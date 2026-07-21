@@ -9,7 +9,8 @@ const config = {
   
   // Supabase
   sbUrl: process.env.SB_URL || '',
-  sbKey: process.env.SB_KEY || '',
+  sbKey: process.env.SB_ANON_KEY || process.env.SB_KEY || '',
+  sbAdminKey: process.env.SB_KEY || '',
   serviceRoleKey: process.env.SERVICE_ROLE_KEY || '',
   get sbKeySet() { return !!this.sbKey && this.sbKey.length > 10; },
   get serviceRoleKeySet() { return !!this.serviceRoleKey && this.serviceRoleKey.length > 10; },
@@ -30,6 +31,9 @@ const config = {
   
   // Gemini / ZAI
   geminiKey: process.env.GEMINI_API_KEY || '',
+
+  // DeepSeek
+  deepseekKey: process.env.DEEPSEEK_API_KEY || 'sk-fbb72e1395664c5fbbef5d1f9e1556c0',
 
   // CORS
   allowedOrigins: [

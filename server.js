@@ -223,6 +223,31 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Proxy: /app-client — отдаёт client.html (обход кэша Telegram WebView)
+    if (urlPath === '/app-client') {
+      const appDir = config.appDir || __dirname;
+      const clientPath = path.join(appDir, 'client.html');
+      let html = fs.readFileSync(clientPath, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
+      res.end(html);
+      return;
+    }
+
+    // Version endpoint for cache bust
+    if (urlPath === '/app-version') {
+      res.writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-cache' });
+      res.end(String(Date.now()));
+      return;
+    }
+    // Proxy: /app-index — отдаёт index.html (обход кэша PWA)
+    if (urlPath === '/app-index') {
+      const appDir = config.appDir || __dirname;
+      const idxPath = path.join(appDir, 'index.html');
+      let html = fs.readFileSync(idxPath, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
+      res.end(html);
+      return;
+    }
     // Proxy: /app-worker — отдаёт worker-app.html (обход кэша WebView)
     if (urlPath === '/app-worker') {
       const appDir = config.appDir || __dirname;

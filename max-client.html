@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Dispatcher.PRO — Клиент MAX</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a2e; color: #fff; font-family: -apple-system, system-ui, sans-serif; display: flex; flex-direction: column; min-height: 100vh; }
+    .container { flex: 1; padding: 24px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+    .logo { font-size: 48px; margin-bottom: 16px; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    p { font-size: 14px; color: #a0aec0; margin-bottom: 24px; line-height: 1.5; }
+    .btn { display: block; width: 100%; max-width: 320px; padding: 14px; border-radius: 10px; font-size: 16px; font-weight: 600; text-decoration: none; text-align: center; margin-bottom: 12px; cursor: pointer; border: none; }
+    .btn-primary { background: linear-gradient(135deg,#667eea,#764ba2); color: #fff; }
+    .btn-secondary { background: transparent; color: #667eea; border: 2px solid #667eea; }
+    .btn-outline { background: transparent; color: #a0aec0; border: 1px solid #4a5568; }
+    .btn:active { opacity: 0.8; }
+    .loading { display: inline-block; width: 20px; height: 20px; border: 2px solid #4a5568; border-top-color: #667eea; border-radius: 50%; animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status { margin-top: 16px; padding: 10px; border-radius: 8px; font-size: 13px; max-width: 320px; width: 100%; display: none; }
+    .status-ok { background: #22543d; color: #68d391; display: block; }
+    .status-err { background: #742a2a; color: #fc8181; display: block; }
+    .steps { text-align: left; max-width: 320px; width: 100%; }
+    .step { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; font-size: 14px; color: #a0aec0; }
+    .step-num { width: 24px; height: 24px; border-radius: 50%; background: #2d3748; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    input { width: 100%; max-width: 320px; padding: 14px; border: 1px solid #4a5568; border-radius: 10px; background: #2d3748; color: #fff; font-size: 16px; text-align: center; margin-bottom: 12px; outline: none; }
+    input:focus { border-color: #667eea; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">📋</div>
+    <h1>Dispatcher.PRO</h1>
+    <p>Портал клиента через MAX</p>
+
+    <div id="state-loading">
+      <div class="loading"></div>
+      <p style="margin-top:16px">Проверяем...</p>
+    </div>
+
+    <div id="state-linked" class="hidden">
+      <p>✅ Вы авторизованы в MAX</p>
+      <button class="btn btn-primary" onclick="openPortal()">📱 Открыть портал</button>
+    </div>
+
+    <div id="state-not-linked" class="hidden">
+      <p>Введите номер телефона, который вы указывали при регистрации</p>
+      <input type="text" id="phone-input" placeholder="+7 (999) 123-45-67">
+      <button class="btn btn-primary" onclick="linkPhone()">📱 Привязать</button>
+      <button class="btn btn-secondary" onclick="checkLink()">🔄 Проверить привязку</button>
+    </div>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    let _myChatId = null;
+
+    async function checkLink() {
+      const loading = document.getElementById('state-loading');
+      const linked = document.getElementById('state-linked');
+      const notLinked = document.getElementById('state-not-linked');
+      const status = document.getElementById('status');
+
+      loading.classList.remove('hidden');
+      linked.classList.add('hidden');
+      notLinked.classList.add('hidden');
+      status.className = 'status';
+      status.style.display = 'none';
+
+      try {
+        const chatId = _myChatId || new URLSearchParams(window.location.search).get('max_user_id');
+        if (!chatId) {
+          loading.classList.add('hidden');
+          notLinked.classList.remove('hidden');
+          status.textContent = 'Введите номер телефона';
+          status.className = 'status status-err';
+          status.style.display = 'block';
+          return;
+        }
+        _myChatId = chatId;
+
+        const r = await fetch('/api/check-max-link?chat_id=' + encodeURIComponent(chatId));
+        const d = await r.json();
+
+        loading.classList.add('hidden');
+        if (d.linked) {
+          linked.classList.remove('hidden');
+          status.textContent = '✅ Привязка найдена!';
+          status.className = 'status status-ok';
+          status.style.display = 'block';
+        } else {
+          notLinked.classList.remove('hidden');
+          status.textContent = 'Привязка не найдена';
+          status.className = 'status status-err';
+          status.style.display = 'block';
+        }
+      } catch (e) {
+        loading.classList.add('hidden');
+        notLinked.classList.remove('hidden');
+        status.textContent = 'Ошибка связи: ' + e.message;
+        status.className = 'status status-err';
+        status.style.display = 'block';
+      }
+    }
+
+    async function linkPhone() {
+      const input = document.getElementById('phone-input');
+      const phone = input.value.replace(/[^0-9]/g, '');
+      if (phone.length < 10) { alert('Введите номер телефона'); return; }
+      const fullPhone = '+' + (phone.startsWith('7') ? '' : '7') + phone.slice(-10);
+
+      const status = document.getElementById('status');
+      status.textContent = '⏳ Проверяем номер...';
+      status.className = 'status';
+      status.style.display = 'block';
+
+      try {
+        const r = await fetch('/auth/max-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: fullPhone })
+        });
+        const d = await r.json();
+        if (d.ok) {
+          status.textContent = '✅ Номер найден! Напишите боту @DispatcherPRO1_bot чтобы привязать Telegram.';
+          status.className = 'status status-ok';
+          status.style.display = 'block';
+        } else {
+          status.textContent = d.error || 'Номер не найден в системе';
+          status.className = 'status status-err';
+          status.style.display = 'block';
+        }
+      } catch (e) {
+        status.textContent = 'Ошибка: ' + e.message;
+        status.className = 'status status-err';
+        status.style.display = 'block';
+      }
+    }
+
+    function openPortal() {
+      window.location.href = '/client.html?from_max=1';
+    }
+
+    checkLink();
+  </script>
+</body>
+</html>

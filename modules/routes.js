@@ -181,7 +181,9 @@ async function handleApiProxy(req, res, cors, urlPath) {
 
   // Client GET: restrict to own data only — block access to workers/clients/users tables
   if (session.role === 'client' && req.method === 'GET') {
-    if (table === 'workers' || table === 'users') {
+    if (table === 'workers') {
+      // Client can read workers (id, full_name) for display
+    } else if (table === 'users') {
       return json(res, { error: 'Нет доступа' }, 403, cors);
     }
     if (table === 'clients') {
@@ -464,7 +466,7 @@ function handleStatic(req, res, urlPath) {
   if (urlPath === '/') urlPath = '/index.html';
   // Block sensitive files
   const blocked = ['.env', '.json', '.yml', '.yaml', '.toml', '.md', 'Dockerfile', '.git'];
-  const jsBlocked = ['/server.js', '/modules/', '/routes/', '/push-client.js', '/bot-knowledge.md', '/notifications-module/'];
+  const jsBlocked = ['/server.js', '/modules/', '/routes/', '/bot-knowledge.md', '/notifications-module/'];
   if (urlPath !== '/manifest.json' && blocked.some(ext => urlPath.endsWith(ext))) {
     res.writeHead(403); return res.end('Forbidden');
   }
@@ -580,6 +582,11 @@ function createRouter() {
     }
     if (urlPath.startsWith('/api/address-suggest') && req.method === 'GET') { if (!auth()) return; return await userRoutes.handleAddressSuggest(req, res, cors); }
     if (urlPath === '/api/telegram-status' && req.method === 'GET') { if (!auth()) return; return await userRoutes.handleTelegramStatus(req, res, cors); }
+
+    if (urlPath === '/api/check-tg-link' && req.method === 'GET') return await authRoutes.handleCheckTgLink(req, res, cors);
+    if (urlPath === '/api/check-max-link' && req.method === 'GET') return await authRoutes.handleCheckMaxLink(req, res, cors);
+    if (urlPath === '/auth/tg-link-auto' && req.method === 'POST') return await authRoutes.handleTgLinkAuto(req, res, cors);
+    if (urlPath === '/auth/max-link' && req.method === 'POST') return await authRoutes.handleMaxLink(req, res, cors);
 
     // Chat routes
     if (urlPath.startsWith('/api/chat/') && urlPath.split('/').length === 4) {

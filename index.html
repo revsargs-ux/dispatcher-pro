@@ -307,8 +307,9 @@ button,.btn,[role="button"]{padding:8px 14px}
     <span class="pw-eye" role="button" aria-label="Показать/скрыть пароль" onclick="togglePw('auth-pass',this)">👁</span>
     </div>
     <button onclick="doLogin()" data-i18n="btn_login">Войти</button>
-    <div class="link" style="margin-top:16px;">Нет аккаунта? <a onclick="showRegForm()">Зарегистрироваться</a></div>
+    <button onclick="showRegForm()" style="background:transparent;color:var(--primary);border:2px solid var(--primary);margin-top:8px;" class="auth-reg-btn">Зарегистрироваться</button>
     <div class="link" style="margin-top:8px;"><a onclick="forgotPassword()" style="color:var(--primary);">Забыли пароль?</a></div>
+    <div class="link" style="margin-top:4px;font-size:12px;"><a onclick="promptPWA()" style="color:var(--text-light);">📲 Установить приложение</a></div>
   </div>
   <div id="auth-reg" style="display:none;">
     <div class="form-group"><label>ФИО / Название</label><input type="text" id="reg-name" placeholder="Полное имя"></div>
@@ -350,6 +351,13 @@ button,.btn,[role="button"]{padding:8px 14px}
     <button id="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему" style="background:none;border:none;font-size:18px;cursor:pointer;color:#fff;padding:0 4px;">🌙</button>
     <button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button>
     <button class="btn-logout" onclick="doLogout()" data-i18n="btn_logout">Выйти</button>
+  </div>
+</div>
+
+<!-- messenger + install bar -->
+<div id="messenger-bar" style="display:flex;gap:6px;margin-bottom:8px;justify-content:center;flex-wrap:wrap;">
+  <div id="pwa-install-btn" style="text-align:center;">
+    <a href="javascript:promptPWA()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:var(--primary);color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;">📲 Установить</a>
   </div>
 </div>
 
@@ -623,7 +631,7 @@ button,.btn,[role="button"]{padding:8px 14px}
 
 <script>
 var _lastMsgId=null;
-var _chatShiftId=null,_chatPoll=null,_chatMyId=null;
+if(typeof _chatShiftId==='undefined'){var _chatShiftId=null}var _chatPoll=null,_chatMyId=null;
 function notifyChat(){
   if(navigator.vibrate)navigator.vibrate(200);
   try{var snd=document.getElementById('chat-notify-sound');if(snd){snd.currentTime=0;snd.play().catch(function(){});}}catch(e){}
@@ -745,6 +753,22 @@ async function forceCompleteShift(shiftId){
     loadShifts();
   }catch(e){toast('Ошибка: '+e.message);}
 }
+// PWA Install
+let _pwaInstPrompt=null;
+let _pwaPrompted=false;
+// PWA: hide install button if already installed
+function isPwaInstalled(){return window.matchMedia('(display-mode: standalone)').matches||window.matchMedia('(display-mode: fullscreen)').matches||window.matchMedia('(display-mode: minimal-ui)').matches||navigator.standalone===true;}
+function hidePwaButton(){const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='none';const btn2=document.getElementById('pwa-install-btn-messenger');if(btn2)btn2.style.display='none';}
+(function(){if(isPwaInstalled())hidePwaButton();})();
+
+window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstPrompt=e;if(!_pwaPrompted&&!localStorage.getItem('pwa_prompted')&&!isPwaInstalled()){_pwaPrompted=true;localStorage.setItem('pwa_prompted','1');setTimeout(()=>promptPWA(),2000);}});
+function promptPWA(){
+  if(_pwaInstPrompt){_pwaInstPrompt.prompt();_pwaInstPrompt.userChoice.then(()=>{_pwaInstPrompt=null;hidePwaButton();});} else {
+    alert('📲 Чтобы установить приложение на главный экран:\n\n1. Откройте меню браузера (⋯ или ☰)\n2. Выберите «Добавить на главный экран»\n3. Нажмите «Готово»');
+  }
+}
+setTimeout(()=>{if(!_pwaInstPrompt&&!localStorage.getItem('pwa_prompted')&&!isPwaInstalled()){localStorage.setItem('pwa_prompted','1');}},8000);
+
 function norm(p){return(p||'').replace(/[\+\-\(\)\s]/g,'').replace(/^8/,'7');}
 function validatePhone(p){const d=(p||'').replace(/[^0-9]/g,'');return d.length===11;}
 function validateHours(h){const n=parseFloat(h);return!isNaN(n)&&n>0&&n<=24;}
@@ -755,6 +779,8 @@ function formatDate(d){if(!d)return'—';const p=d.split('-');return p.length===
 // ===== State =====
 let currentUser=null,editingAssignmentId=null;
 let cachedWorkers=null,cachedClients=null,cachedServiceTypes=null;
+// Cache bust: если загружена старая версия через PWA — релоад
+(function(){const _ver=localStorage.getItem('_dp_ver');fetch('/app-version',{cache:'no-store'}).then(r=>r.text()).then(v=>{if(_ver&&_ver!==v)location.reload(true);localStorage.setItem('_dp_ver',v);}).catch(()=>{});})();
 let _inviteShiftId=null,_inviteClientId=null,_inviteRates={};
 
 // ===== Auth =====
@@ -765,9 +791,15 @@ async function doLogin(){
   if(!phone||!pass){showAuthError('Введите телефон и пароль');return;}
   if(!validatePhone(phone)){showAuthError('Телефон должен содержать 11 цифр');return;}
   try{
-    const authRes=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',phone,pass})});
-    const user=await authRes.json();
-    if(!user.ok){showAuthError(user.error||'Ошибка');return;}
+    // Try users first, if not found — try clients
+    let authRes=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',phone,pass})});
+    let user=await authRes.json();
+    if(!user.ok){
+      // Try clients table
+      authRes=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'clients',phone,pass})});
+      user=await authRes.json();
+    }
+    if(!user.ok){showAuthErrorCritical(user.error||'Ошибка');return;}
     // 2FA required?
     if(user.require2FA){
       document.getElementById('auth-error').style.display='none';
@@ -778,6 +810,8 @@ async function doLogin(){
       document.getElementById('twofa-code').focus();
       return;
     }
+    if(user.user.role==='client'){window.location.href='/client.html?token='+encodeURIComponent(user.token);return;}
+    if(user.user.role==='worker'){window.location.href='/app-worker?token='+encodeURIComponent(user.token);return;}
     if(!['owner','dispatcher'].includes(user.user.role)){showAuthError('Нет доступа');return;}
     completeLogin(user);
   }catch(e){showAuthError('Ошибка подключения');}
@@ -794,6 +828,7 @@ async function doVerify2FA(){
   }catch(e){document.getElementById('twofa-error').textContent='Ошибка подключения';}
 }
 function completeLogin(user){
+    hidePwaButton();
     if(!user.user||!['owner','dispatcher'].includes(user.user.role)){showAuthError('Нет доступа');return;}
     currentUser=user.user;
     localStorage.setItem('dp_auth',JSON.stringify({phone:user.user.phone,id:user.user.id,full_name:user.user.full_name,role:user.user.role,rate_per_hour:user.user.rate_per_hour,monthly_target_hours:user.user.monthly_target_hours}));
@@ -821,10 +856,16 @@ function completeLogin(user){
       document.getElementById('settings-rate').value=user.user.rate_per_hour;
       document.getElementById('settings-target').value=user.user.monthly_target_hours||8000;
     }
+    hidePwaButton();
     init();
 }
-function showAuthError(msg){const el=document.getElementById('auth-error');el.textContent=msg;el.style.display='block';}
-function forgotPassword(){const phone=document.getElementById('auth-phone').value.replace(/[^0-9]/g,'');if(!phone||phone.length<11){showAuthError('Введите номер телефона');return;}showAuthError('Отправляем...');fetch('/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',phone:'+'+phone})}).then(r=>r.json()).then(d=>{if(d.ok){showAuthError('Новый пароль отправлен в Telegram и/или МАКС. Если не привязаны — обратитесь к администратору.');}else{showAuthError(d.error||'Ошибка');}}).catch(()=>showAuthError('Ошибка подключения'));}
+function showAuthError(msg){const el=document.getElementById('auth-error');el.textContent='❌ '+msg;el.style.display='block';console.error('[Auth]',msg);}
+// Also use alert for critical auth errors like wrong password
+function showAuthErrorCritical(msg){showAuthError(msg);alert('❌ '+msg);}
+function forgotPassword(){const phone=document.getElementById('auth-phone').value.replace(/[^0-9]/g,'');if(!phone||phone.length<11){showAuthError('Введите номер телефона');return;}showAuthError('Отправляем...');fetch('/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',phone:'+'+phone})}).then(r=>r.json()).then(d=>{if(d.ok){showAuthError('Новый пароль отправлен в Telegram и/или МАКС. Если не привязаны — обратитесь к администратору.');}else{
+  // Try clients table
+  fetch('/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'clients',phone:'+'+phone})}).then(r2=>r2.json()).then(d2=>{if(d2.ok){showAuthError('Новый пароль отправлен в Telegram и/или МАКС.');}else{showAuthError(d.error||'Ошибка');}});
+}}).catch(()=>showAuthError('Ошибка подключения'));}
 function showRegForm(){document.getElementById('auth-login').style.display='none';document.getElementById('auth-reg').style.display='block';document.getElementById('auth-error').style.display='none';}
 function showLoginForm(){document.getElementById('auth-login').style.display='block';document.getElementById('auth-reg').style.display='none';document.getElementById('auth-error').style.display='none';}
 async function doRegister(){
@@ -852,23 +893,29 @@ async function doRegister(){
 function doLogout(){const tk=localStorage.getItem('dp_token');if(tk)fetch('/auth/logout',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk}}).catch(()=>{});localStorage.removeItem('dp_auth');localStorage.removeItem('dp_token');currentUser=null;location.reload();}
 
 // ===== Init =====
-async function init(){
-  await loadCache();
-  populateFilters();
-  loadDashboard();
-  document.getElementById('shift-date').value=new Date().toISOString().split('T')[0];
-}
-async function loadCache(){
-  const[w,c]=await Promise.all([
-    api('workers','GET',null,'?select=id,full_name,phone,is_active,archived&order=full_name'),
-    api('clients','GET',null,'?select=id,name,contact,default_client_rate,default_worker_rate&order=name'),
-  ]);
-  cachedWorkers=w||[];cachedClients=c||[];
-  // Cache service_types in sessionStorage (1h TTL)
+// Lazy cache: workers/clients loaded only when their tab opens
+let _cacheLoaded=false;
+let _pendingCache=false;
+async function loadCache(lazy){
+  if(lazy&&!cachedWorkers.length&&!_pendingCache){
+    _pendingCache=true;
+    loadWorkers();loadClients();
+  }
+  if(_cacheLoaded)return;
+  _cacheLoaded=true;
+  // Load service_types from sessionStorage (1h TTL) + minimal initial data
   let st=null;
   try{const cached=JSON.parse(sessionStorage.getItem('service_types')||'null');if(cached&&Date.now()-cached.ts<3600000){st=cached.data;}}catch(e){}
   if(!st){st=await api('service_types','GET',null,'?order=name');try{sessionStorage.setItem('service_types',JSON.stringify({data:st||[],ts:Date.now()}));}catch(e){}}
-  cachedServiceTypes=st||[];checkNotifications();
+  cachedServiceTypes=st||[];
+  checkNotifications();
+}
+async function init(){
+  await loadCache();
+  // Render dashboard immediately — workers/clients load in background
+  loadDashboard().catch(()=>{});
+  loadCache(true); // lazy load workers/clients
+  document.getElementById('shift-date').value=new Date().toISOString().split('T')[0];
 }
 function populateFilters(){
   const sel=document.getElementById('shift-client');
@@ -876,6 +923,11 @@ function populateFilters(){
   const opts=(cachedClients||[]).map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   sel.innerHTML='<option value="">Выберите клиента</option>'+opts;
   fsel.innerHTML='<option value="">Все клиенты</option>'+opts;
+  const selWorker=document.getElementById('shift-worker');
+  if(selWorker){
+    const wOpts=(cachedWorkers||[]).filter(w=>w.is_active!==false&&!w.archived).map(w=>`<option value="${w.id}">${esc(w.full_name)}</option>`).join('');
+    selWorker.innerHTML='<option value="">Все исполнители</option>'+wOpts;
+  }
 }
 
 // ===== Tabs =====
@@ -1002,7 +1054,8 @@ async function loadShifts(){
       const conf=asgns.filter(a=>a.invite_status==='confirmed').length;
       if(conf>=totalReq&&totalReq>0){
         const toDeact=asgns.filter(a=>a.invite_status==='invited');
-        for(const a of toDeact)await api('shift_assignments','PATCH',{invite_status:'declined'},'?id=eq.'+a.id);
+        // Batch all declines in parallel
+        await Promise.all(toDeact.map(a=>api('shift_assignments','PATCH',{invite_status:'declined'},'?id=eq.'+a.id)));
       }
     }
     // Sort: active first
@@ -1885,7 +1938,8 @@ async function confirmClientPayment(paymentId,assignmentId){
 
 
 // PWA
-if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
+// PWA — disabled: was causing infinite reload loop
+// if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js')... }
 // Real-time polling every 30s
 setInterval(()=>{if(currentUser&&document.visibilityState==='visible')loadDashboard();},30000);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
@@ -2001,21 +2055,21 @@ async function deleteRecurring(id) {
 }
 
 // --- Chat ---
-let _chatShiftId=null,_chatPoll=null;
+let _chatShiftId2=null,_chatPoll2=null;
 function openChat(shiftId){
-  _chatShiftId=shiftId;
+  _chatShiftId2=shiftId;
   const m=document.getElementById('chat-modal');m.style.display='flex';m._triggerBtn=document.activeElement;
   loadChatMessages();
-  _chatPoll=setInterval(loadChatMessages,5000);
+  _chatPoll2=setInterval(loadChatMessages,5000);
 }
 function closeChat(){
   const m=document.getElementById('chat-modal');m.style.display='none';if(m._triggerBtn)try{m._triggerBtn.focus();}catch(e){}
-  if(_chatPoll)clearInterval(_chatPoll);_chatPoll=null;_chatShiftId=null;
+  if(_chatPoll2)clearInterval(_chatPoll2);_chatPoll2=null;_chatShiftId2=null;
 }
 async function loadChatMessages(){
-  if(!_chatShiftId)return;
+  if(!_chatShiftId2)return;
   try{
-    const r=await fetch('/api/chat/'+_chatShiftId,{headers:{'Authorization':'Bearer '+localStorage.getItem('dp_token')}});
+    const r=await fetch('/api/chat/'+_chatShiftId2,{headers:{'Authorization':'Bearer '+localStorage.getItem('dp_token')}});
     const msgs=await r.json();
     if(!Array.isArray(msgs))return;
     const box=document.getElementById('chat-messages');
@@ -2033,12 +2087,12 @@ async function loadChatMessages(){
   }catch(e){console.error('chat load',e);}
 }
 async function sendChatMsg(){
-  if(!_chatShiftId)return;
+  if(!_chatShiftId2)return;
   const inp=document.getElementById('chat-input');
   const msg=inp.value.trim();if(!msg)return;
   inp.value='';
   try{
-    await fetch('/api/chat/'+_chatShiftId,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({message:msg})});
+    await fetch('/api/chat/'+_chatShiftId2,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('dp_token')},body:JSON.stringify({message:msg})});
     loadChatMessages();
   }catch(e){toast('Ошибка отправки');}
 }

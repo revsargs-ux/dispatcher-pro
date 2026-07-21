@@ -48,33 +48,32 @@ async function forwardChatToBots(shiftId, session, senderName, message) {
     const senderRole = session.role === 'owner' || session.role === 'dispatcher' ? 'dispatcher' : session.role;
     const fwdText = `💬 <b>${escHtml(senderName)}</b>: ${escHtml(message)}`;
 
-    if (senderRole === 'worker') {
-      // Send to client
-      if (shift.client_id) {
-        const cRes = await sbFetch('clients', `id=eq.${shift.client_id}&select=telegram_chat_id,max_chat_id&limit=1`);
-        const clients = await cRes.json();
-        if (Array.isArray(clients) && clients[0]) {
-          const c = clients[0];
-          if (c.telegram_chat_id) sendTgMessage(c.telegram_chat_id, fwdText);
-          if (c.max_chat_id) sendMaxMessage(c.max_chat_id, fwdText.replace(/<\/?b>/g, ''));
-        }
+    // Отправка клиенту (worker пишет или диспетчер пишет)
+    if ((senderRole === 'worker' || senderRole === 'dispatcher') && shift.client_id) {
+      const cRes = await sbFetch('clients', `id=eq.${shift.client_id}&select=telegram_chat_id,max_chat_id&limit=1`);
+      const clients = await cRes.json();
+      if (Array.isArray(clients) && clients[0]) {
+        const c = clients[0];
+        if (c.telegram_chat_id) sendTgMessage(c.telegram_chat_id, fwdText);
+        if (c.max_chat_id) sendMaxMessage(c.max_chat_id, fwdText.replace(/<\/?b>/g, ''));
       }
-    } else if (senderRole === 'client') {
-      // Send to all assigned workers
+    }
+    // Отправка рабочим (client пишет или диспетчер пишет)
+    if (senderRole === 'client' || senderRole === 'dispatcher') {
       const aRes = await sbFetch('shift_assignments', `shift_id=eq.${shiftId}&select=worker_id`);
       const assignments = await aRes.json();
-      if (!Array.isArray(assignments)) return;
-      for (const a of assignments) {
-        const wRes = await sbFetch('workers', `id=eq.${a.worker_id}&select=telegram_chat_id,max_chat_id&limit=1`);
-        const workers = await wRes.json();
-        if (Array.isArray(workers) && workers[0]) {
-          const w = workers[0];
-          if (w.telegram_chat_id) sendTgMessage(w.telegram_chat_id, fwdText);
-          if (w.max_chat_id) sendMaxMessage(w.max_chat_id, fwdText.replace(/<\/?b>/g, ''));
+      if (Array.isArray(assignments)) {
+        for (const a of assignments) {
+          const wRes = await sbFetch('workers', `id=eq.${a.worker_id}&select=telegram_chat_id,max_chat_id&limit=1`);
+          const workers = await wRes.json();
+          if (Array.isArray(workers) && workers[0]) {
+            const w = workers[0];
+            if (w.telegram_chat_id) sendTgMessage(w.telegram_chat_id, fwdText);
+            if (w.max_chat_id) sendMaxMessage(w.max_chat_id, fwdText.replace(/<\/?b>/g, ''));
+          }
         }
       }
     }
-    // dispatcher messages: no forwarding needed (they see it in web)
   } catch (e) {
     console.error('[Chat] forwardChatToBots error:', e.message);
   }

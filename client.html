@@ -3,6 +3,9 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📋</text></svg>"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Заказчик — Dispatcher.PRO</title>
 <link rel="manifest" href="/manifest.json">
@@ -166,7 +169,9 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
       <span class="pw-eye" role="button" aria-label="Показать/скрыть пароль" onclick="togglePw('pass-input',this)">👁</span>
     </div>
     <button onclick="login()" data-i18n="btn_login">Войти</button>
-    <p class="link"><a href="javascript:void(0)" onclick="showReg()" data-i18n="auth_register_link">Зарегистрироваться</a> · <a href="javascript:void(0)" onclick="forgotPassword()" data-i18n="auth_forgot">Забыли пароль?</a></p>
+    <button onclick="showReg()" style="background:transparent;color:var(--primary);border:2px solid var(--primary);margin-top:8px;" data-i18n="auth_register_link" class="auth-reg-btn">Зарегистрироваться</button>
+    <p class="link"><a href="javascript:void(0)" onclick="forgotPassword()" data-i18n="auth_forgot">Забыли пароль?</a></p>
+    <p class="link" style="margin-top:4px;font-size:12px;"><a href="javascript:void(0)" onclick="promptInstallPWA()" style="color:var(--text-light);">📲 Установить приложение</a></p>
   </div>
   <div id="auth-reg-form" style="display:none;">
     <input type="text" id="reg-name" data-i18n-placeholder="label_company_name" placeholder="Название компании">
@@ -201,15 +206,30 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
     <div style="display:flex;gap:8px;align-items:center;"><button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button><button id="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему" style="background:none;border:none;font-size:20px;cursor:pointer;color:#fff;">🌙</button><a class="logout" href="javascript:void(0)" onclick="if(confirm(t('confirm_exit')))logout()" style="color:#fff;font-size:12px;background:rgba(255,255,255,.15);padding:6px 12px;border-radius:6px;text-decoration:none;" data-i18n="btn_logout">Выйти</a></div>
   </div>
 
-  <div id="tg-banner" style="display:none;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkTelegram()">📱 Подключить уведомления в Telegram</div>
-  <div id="tg-linked" style="display:none;background:#e8f5e9;color:#2e7d32;padding:10px 16px;border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px">✅ Telegram уведомления подключены</div>
-  <div id="max-banner" style="display:none;background:linear-gradient(135deg,#6b3fa0,#8b5cf6);color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;cursor:pointer;text-align:center;font-size:14px;font-weight:500;transition:.2s" onclick="linkMax()">💬 Подключить уведомления в МАКС</div>
-  <div id="max-linked" style="display:none;background:#f3e8ff;color:#6b21a8;padding:10px 16px;border-radius:10px;margin-bottom:12px;text-align:center;font-size:13px">✅ МАКС уведомления подключены</div>
+  <!-- messenger + install bar -->
+  <div id="messenger-bar" style="display:flex;gap:6px;margin-bottom:8px;justify-content:center;flex-wrap:wrap;">
+    <div id="tg-banner" style="display:none;flex:1;text-align:center;">
+      <a href="javascript:linkTelegram()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#0088cc,#00aaee);color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;">📱 TG</a>
+    </div>
+    <div id="tg-linked" style="display:none;flex:1;text-align:center;">
+      <a href="javascript:linkTelegram()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:#e8f5e9;color:#2e7d32;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;" title="Открыть Telegram">✅ TG</a>
+    </div>
+    <div id="max-banner" style="display:none;flex:1;text-align:center;">
+      <a href="javascript:linkMax()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#6b3fa0,#8b5cf6);color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;">💬 MAX</a>
+    </div>
+    <div id="max-linked" style="display:none;flex:1;text-align:center;">
+      <a href="javascript:linkMax()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:#f3e8ff;color:#6b21a8;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;" title="Открыть MAX">✅ MAX</a>
+    </div>
+    <div id="pwa-install-btn" style="flex:1;text-align:center;">
+      <a href="javascript:promptInstallPWA()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:var(--primary);color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;">📲 Установить</a>
+    </div>
+  </div>
 
   <button class="btn btn-green" onclick="openNewOrderModal()" style="width:100%;margin-bottom:12px;padding:14px;font-size:16px;border-radius:10px;" data-i18n="btn_new_order">➕ Новый заказ</button>
 
   <div class="tabs" id="tab-bar">
-    <div class="tab-btn active" data-tab="tab-shifts" data-i18n="tab_my_orders">📅 Мои заказы</div>
+    <div class="tab-btn active" data-tab="tab-active-orders" style="flex:1;text-align:center;padding:10px;background:var(--primary);color:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🔄 Активные</div>
+    <div class="tab-btn" data-tab="tab-shifts" data-i18n="tab_my_orders">📦 Архив заказов</div>
     <div class="tab-btn" data-tab="tab-payments" data-i18n="tab_payments">💰 Платежи</div>
     <div class="tab-btn" data-tab="tab-analytics" data-i18n="tab_analytics">📊 Аналитика</div>
     <div class="tab-btn" data-tab="tab-report" data-i18n="tab_report">📄 Отчёт</div>
@@ -271,9 +291,10 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
   if(!t)return;
   localStorage.setItem('dp_token',t);
   localStorage.setItem('dp_auth',JSON.stringify({ts:Date.now()}));
-  // Redirect to clean URL — page init will find token in localStorage
+  // Запускаем init() сразу, потом чистим URL без перезагрузки
+  if(typeof init==='function') setTimeout(init,100);
   const clean=window.location.origin+window.location.pathname;
-  window.location.replace(clean);
+  window.history.replaceState({},'',clean);
 })();
 
 // ===== i18n =====
@@ -329,6 +350,23 @@ async function api(t,m='GET',b=null,q='',_retry=false){
   try{const r=await fetch(u,o);if(r.status===401){if(!_retry){const ref=await tryRefreshToken();if(ref)return api(t,m,b,q,true);}localStorage.removeItem('dp_token');return[];}if(!r.ok){const err=await r.json().catch(()=>({}));toast('Ошибка: '+r.status+' '+(err.error||err.message||''));return m==='DELETE'?false:[];}if(m==='DELETE')return true;return await r.json();}catch(e){toast('Ошибка сети: '+e.message);return[];}
 }
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',3000);}
+// PWA Install
+let _pwaInstallPrompt=null;
+let _pwaPrompted=false;
+// PWA: hide install button if already installed
+function isPwaInstalled(){return window.matchMedia('(display-mode: standalone)').matches||window.matchMedia('(display-mode: fullscreen)').matches||window.matchMedia('(display-mode: minimal-ui)').matches||navigator.standalone===true;}
+function hidePwaButton(){const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='none';const authLink=document.querySelector('.auth-screen a[onclick*="promptInstallPWA"]');if(authLink&&authLink.parentElement)authLink.parentElement.style.display='none';}
+(function(){if(isPwaInstalled())hidePwaButton();})();
+
+window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstallPrompt=e;if(!_pwaPrompted&&!localStorage.getItem('pwa_prompted')&&!isPwaInstalled()){_pwaPrompted=true;localStorage.setItem('pwa_prompted','1');setTimeout(promptInstallPWA,2000);}});
+function promptInstallPWA(){
+  if(_pwaInstallPrompt){_pwaInstallPrompt.prompt();_pwaInstallPrompt.userChoice.then(()=>{_pwaInstallPrompt=null;hidePwaButton();});} else {
+    alert('📲 Чтобы установить приложение на главный экран:\n\n1. Откройте меню браузера (⋯ или ☰)\n2. Выберите «Добавить на главный экран»\n3. Нажмите «Готово»');
+  }
+}
+// Fallback: если событие не пришло за 8с, кнопка всё равно покажет инструкцию
+setTimeout(()=>{if(!_pwaInstallPrompt&&!localStorage.getItem('pwa_prompted')){localStorage.setItem('pwa_prompted','1');}},8000);
+
 function btnLoading(btn,loading){if(loading){btn._origText=btn.textContent;btn.disabled=true;btn.textContent='⏳ '+btn._origText;}else{btn.disabled=false;btn.textContent=btn._origText;}}
 function norm(p){return(p||'').replace(/[\+\-\(\)\s]/g,'').replace(/^8/,'7');}
 function validatePhone(p){const d=(p||'').replace(/[^0-9]/g,'');return d.length===11;}
@@ -464,17 +502,8 @@ function linkMax(){
 }
 
 // Tabs
-document.getElementById('tab-bar').addEventListener('click',e=>{
-  const t=e.target.closest('.tab-btn');if(!t)return;
-  document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
-  document.querySelectorAll('[id^="tab-"]').forEach(x=>{if(x.id!=='tab-bar')x.style.display='none';});
-  t.classList.add('active');
-  document.getElementById(t.dataset.tab).style.display='block';
-  if(t.dataset.tab==='tab-subscriptions')loadClientSubscriptions();
-  if(t.dataset.tab==='tab-report')loadClientReport();
-});
-
 async function showMain(){
+  hidePwaButton();
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
   document.getElementById('client-name').textContent=(client?.full_name||client?.name||'');
@@ -487,31 +516,49 @@ async function showMain(){
 }
 
 let _prevClientShiftStatus={};
+let _clientFilterTab="tab-active-orders";
+document.getElementById("tab-bar").addEventListener("click",(e)=>{
+  const t=e.target.closest(".tab-btn");if(!t)return;
+  document.querySelectorAll(".tab-btn").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll("[id^='tab-']").forEach(x=>{if(x.id!=="tab-bar")x.style.display="none";});
+  t.classList.add("active");
+  const tabId=t.dataset.tab;
+  document.getElementById(tabId).style.display="block";
+  if(tabId==="tab-active-orders"||tabId==="tab-shifts"){_clientFilterTab=tabId;render();}
+  if(tabId==="tab-subscriptions")loadClientSubscriptions();
+  if(tabId==="tab-report")loadClientReport();
+});
 async function render(){
   if(!client){return;}
   try{
     const shifts=await api('shifts','GET',null,`?client_id=eq.${client.id}&select=id,date,start_time,planned_end_time,comment,status,service_types(name)&order=date.desc&limit=100`);
-    // Detect status changes
-    (shifts||[]).forEach(s=>{
-      const prev=_prevClientShiftStatus[s.id];
-      if(prev && prev!=='completed' && s.status==='completed'){toast('✅ Смена завершена!');}
-      _prevClientShiftStatus[s.id]=s.status;
+    // Filter by active/archive tab
+    const filteredShifts=(shifts||[]).filter(s=>{
+      if(_clientFilterTab==="tab-active-orders")return s.status!=="completed"&&s.status!=="archived";
+      return s.status==="completed"||s.status==="archived";
     });
-    const shiftIds=(shifts||[]).map(s=>s.id);
-    if(!shiftIds||!shiftIds.length){document.getElementById('client-stats').textContent='Нет смен';document.getElementById('tab-shifts').innerHTML='<div class="empty"><div style="font-size:48px;margin-bottom:16px">📭</div><p>Нет смен</p></div>';return;}
-    const idList=shiftIds.map(id=>`"${id}"`).join(',');
-    const assignments=await api('shift_assignments','GET',null,`?shift_id=in.(${idList})&select=*&order=created_at.desc&limit=500`);
-    if(!assignments||!assignments.length){document.getElementById('client-stats').textContent='Нет смен';document.getElementById('tab-shifts').innerHTML='<div class="empty"><div style="font-size:48px;margin-bottom:16px">📭</div><p>Нет смен</p></div>';return;}
-    _allAssignments=assignments;
+    // Use filtered shifts for rendering but keep original for status detection
+    // Override shifts for rendering below
+    const _filterView=filteredShifts;
+    // Use filtered shifts for rendering
+    const _filterIds=_filterView.map(s=>s.id);
+    if(!_filterIds||!_filterIds.length){
+      document.getElementById("client-stats").textContent="Нет смен";
+      document.getElementById('tab-shifts').innerHTML='<div class="empty"><div style="font-size:48px;margin-bottom:16px">📭</div><p>Нет смен</p></div>';
+      return;
+    }
+    const idList=_filterIds.map(id=>"\""+id+"\"").join(",");
+    const assignments=await api("shift_assignments","GET",null,"?shift_id=in.("+idList+")&select=*&order=created_at.desc&limit=500");
+    _allAssignments=assignments||[];
 
-    // Get payments for all assignments
-    const asgnIds=assignments.map(a=>`"${a.id}"`).join(',');
-    const payments=asgnIds?await api('payments','GET',null,`?assignment_id=in.(${asgnIds})&select=*&order=created_at.desc&limit=500`):[];
+    const asgnIds=(assignments||[]).map(a=>"\""+a.id+"\"").join(",");
+    const payments=asgnIds?await api("payments","GET",null,"?assignment_id=in.("+asgnIds+")&select=*&order=created_at.desc&limit=500"):[];
 
     const shiftMap={};
-    shifts.forEach(s=>shiftMap[s.id]={...s,assignments:[]});
+    const emptyAssignments=(assignments||[]).length===0;
+    _filterView.forEach(s=>shiftMap[s.id]={...s,assignments:[]});
     let totalH=0,totalAmount=0,totalPaid=0;
-    assignments.forEach(a=>{
+    (assignments||[]).forEach(a=>{
       if(shiftMap[a.shift_id])shiftMap[a.shift_id].assignments.push(a);
       const h=parseFloat(a.hours_worked)||0,cr=parseFloat(a.client_rate_per_hour)||520;
       totalH+=h;totalAmount+=h*cr;
@@ -532,7 +579,16 @@ async function render(){
 }
 
 function renderShifts(shiftMap,wMap){
-  document.getElementById('tab-shifts').innerHTML=Object.values(shiftMap).map(shift=>{
+  // Если смены есть но нет назначений — всё равно показываем
+  const hasAssignments=Object.values(shiftMap).some(s=>s.assignments.length>0);
+  // Сортировка: активные (pending/planned) сверху, завершённые снизу; внутри группы — по дате новые первые
+  const sorted=Object.values(shiftMap).sort((a,b)=>{
+    const order={pending:0,planned:1,open:2,completed:3};
+    const oa=order[a.status]??2, ob=order[b.status]??2;
+    if(oa!==ob)return oa-ob;
+    return new Date(b.date+' '+(b.start_time||'00:00'))-new Date(a.date+' '+(a.start_time||'00:00'));
+  });
+  document.getElementById('tab-shifts').innerHTML=sorted.map(shift=>{
     const as=shift.assignments;
     const confirmedCount=as.filter(a=>a.invite_status==='confirmed').length;
     const working=as.filter(a=>a.actual_start_time&&!a.actual_end_time).length;
@@ -596,10 +652,10 @@ function renderShifts(shiftMap,wMap){
       </div>
       ${shift.comment?`<div class="detail">💬 ${esc(shift.comment)}</div>`:''}
       <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0;">
-        <span style="font-size:13px;color:var(--text-light);">${confirmedCount} подтверждено${done>0?' · '+done+' завершено':''}${working?' · '+working+' на смене':''}</span>
+        ${as.length>0?`<span style="font-size:13px;color:var(--text-light);">${confirmedCount} подтверждено${done>0?' · '+done+' завершено':''}${working?' · '+working+' на смене':''}</span>`:'<span style="font-size:13px;color:var(--warning);">⏳ Ожидает исполнителя</span>'}
       </div>
       ${shiftCost>0?`<div class="amount ${shiftDebt<=0?'paid':'unpaid'}">💰 ${shiftCost.toLocaleString('ru')}₽${shiftDebt>0?' (долг: '+shiftDebt.toLocaleString('ru')+'₽)':' ✅ Оплачено'}</div>${costBreakdown}`:''}
-      ${workersHtml}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">${reviewBtn}${calBtn}</div>${hoursBlock}${lockNotice}
+      ${workersHtml||''}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;">${reviewBtn}${calBtn}</div>${hoursBlock||''}${lockNotice||''}
       <button class="btn btn-sm" style="margin-top:6px;font-size:12px;" onclick="loadShiftPhotos('${shift.id}',this)">📸 Фото с объекта</button>
       <button class="btn btn-sm" style="margin-top:4px;font-size:12px;" data-action="openChat" data-shift-id="${shift.id}">💬 Чат</button>
       ${shift.status!=='completed'?`<button class="btn btn-sm" style="margin-top:4px;font-size:12px;" onclick="editClientShift('${shift.id}')">✏️ Изменить</button>`:''}
@@ -1079,8 +1135,8 @@ async function submitNewOrder(btn){
 }
 
 (async()=>{const ok=await autoLogin();})();
-if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);if(navigator.serviceWorker.controller){navigator.serviceWorker.controller.postMessage({type:'CHECK_VERSION'});}}).catch(function(e){console.warn('[SW] error',e);});}
-navigator.serviceWorker.addEventListener('message',function(e){if(e.data&&e.data.type==='VERSION_UPDATED'){location.reload();}});
+// SW registration disabled — was causing infinite reload loop
+// if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js')... }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
 initPhoneMasks();
 loadLang(currentLang);

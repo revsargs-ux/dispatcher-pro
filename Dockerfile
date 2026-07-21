@@ -9,7 +9,7 @@ COPY routes/ ./routes/
 COPY notifications-module/ ./notifications-module/
 COPY lang/ ./lang/
 COPY index.html owner.html worker.html worker-app.html client.html ./
-COPY tg-worker.html tg-client.html portal.html sql-setup.html ./
+COPY tg-worker.html tg-client.html max-client.html portal.html sql-setup.html ./
 COPY manifest.json sw.js push-client.js ./
 COPY bot-knowledge.md ./
 RUN mkdir -p /app/data /app/receipts && chown -R node:node /app

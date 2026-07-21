@@ -210,10 +210,10 @@ function cmdSelfEmployed(chatId, sendFn) {
 }
 
 // ============================================================
-// askAI — shared (ZAI/BigModel with role-based access)
+// askAI — shared (DeepSeek with role-based access)
 // ============================================================
 async function askAI(chatId, user, question, sendFn, knowledgeBase, opts = {}) {
-  const apiKey = config.geminiKey;
+  const apiKey = config.deepseekKey;
   if (!apiKey) {
     return sendFn(chatId, 'Сейчас не могу ответить, попробуй чуть позже или напиши диспетчеру.');
   }
@@ -230,17 +230,17 @@ async function askAI(chatId, user, question, sendFn, knowledgeBase, opts = {}) {
 
   try {
     const response = await fetch(
-      'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+      'https://api.deepseek.com/chat/completions',
       {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'glm-4-plus',
+          model: 'deepseek-chat',
           messages: [{
             role: 'user',
             content: `${roleContext}\n\nПРАВИЛА:\n1. НЕ придумывай данные — не знаешь, скажи \"Уточню, напиши @RevikSargsyan\"\n2. НИКОГДА не называй себя ботом или ИИ — ты обычный помощник\n3. Ревик Саргсян (@RevikSargsyan) — владелец\n4. Вопрос не про работу — мягко переведи на тему\n5. НИКОМУ не сообщай чужие конфиденциальные данные (ставки, контакты, финансы). Только сам человек может спрашивать про себя.\n\nСТИЛЬ: Общайся как живой человек. На \"ты\". Без официоза, шаблонов и формальностей. Отвечай живо и дружелюбно, но по делу. Если это первое сообщение от человека — поприветствуй его тепло. Если уже не первое — просто отвечай на вопрос, без приветствий. Если спрашивают \"что ты умеешь\" — не выдавай список команд, просто расскажи что можешь помочь со сменами, оплатой, заказами и т.д. живым языком.\n\nБаза знаний:\n${knowledgeBase}\n\nВопрос: ${question}\n\nОтветь живо и по делу.`
           }],
-          max_tokens: 1000,
+          max_tokens: 2000,
           temperature: 0.3,
         })
       }

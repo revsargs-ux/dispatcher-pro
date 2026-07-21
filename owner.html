@@ -178,6 +178,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
   </div>
   <button onclick="toggleRegister()" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;padding:8px;" id="toggle-reg-btn">Нет аккаунта? Зарегистрироваться</button>
   <button onclick="forgotPassword()" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;padding:8px;">Забыли пароль?</button>
+  <button onclick="promptOwnerPWA()" style="background:none;border:none;color:var(--text-light);cursor:pointer;font-size:12px;padding:4px 8px;">📲 Установить приложение</button>
   <!-- 2FA Modal -->
   <div id="twofa-modal" style="display:none;text-align:center;margin-top:16px;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--bg);">
     <p style="margin:0 0 12px;font-weight:600;">🔐 Код подтверждения отправлен в Telegram</p>
@@ -196,6 +197,13 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
     <button onclick="setLang(currentLang==='ru'?'en':'ru')" style="background:none;border:1px solid rgba(255,255,255,.4);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px;color:#fff;" data-i18n="lang_toggle">EN</button>
     <button id="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему" style="background:none;border:none;font-size:18px;cursor:pointer;color:#fff;padding:0 4px;">🌙</button>
     <button class="btn-logout" onclick="doLogout()" data-i18n="btn_logout">Выйти</button>
+  </div>
+</div>
+
+<!-- messenger + install bar -->
+<div id="messenger-bar" style="display:flex;gap:6px;margin-bottom:8px;justify-content:center;flex-wrap:wrap;">
+  <div id="pwa-install-btn" style="text-align:center;">
+    <a href="javascript:promptOwnerPWA()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:var(--primary);color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;">📲 Установить</a>
   </div>
 </div>
 
@@ -341,6 +349,24 @@ setInterval(()=>tryRefreshToken(),6*60*60*1000);
 
 function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function toast(msg){const t=document.createElement('div');t.textContent=msg;t.style.cssText='position:fixed;top:70px;right:20px;background:var(--primary);color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;z-index:3000;box-shadow:0 4px 12px rgba(0,0,0,.2)';document.body.appendChild(t);setTimeout(()=>t.remove(),3000);}
+// PWA Install
+// Cache bust: если загружена старая версия через PWA — релоад
+(function(){const _ver=localStorage.getItem('_dp_ver');fetch('/app-version',{cache:'no-store'}).then(r=>r.text()).then(v=>{if(_ver&&_ver!==v)location.reload(true);localStorage.setItem('_dp_ver',v);}).catch(()=>{});})();
+let _pwaOwnerPrompt=null;
+let _pwaPrompted=false;
+// PWA: hide install button if already installed
+function isPwaInstalled(){return window.matchMedia('(display-mode: standalone)').matches||window.matchMedia('(display-mode: fullscreen)').matches||window.matchMedia('(display-mode: minimal-ui)').matches||navigator.standalone===true;}
+function hidePwaButton(){const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='none';const btn2=document.getElementById('pwa-install-btn-messenger');if(btn2)btn2.style.display='none';}
+(function(){if(isPwaInstalled())hidePwaButton();})();
+
+window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaOwnerPrompt=e;if(!_pwaPrompted&&!localStorage.getItem('pwa_prompted')&&!isPwaInstalled()){_pwaPrompted=true;localStorage.setItem('pwa_prompted','1');setTimeout(()=>promptOwnerPWA(),2000);}});
+function promptOwnerPWA(){
+  if(_pwaOwnerPrompt){_pwaOwnerPrompt.prompt();_pwaOwnerPrompt.userChoice.then(()=>{_pwaOwnerPrompt=null;hidePwaButton();});} else {
+    alert('📲 Чтобы установить приложение на главный экран:\n\n1. Откройте меню браузера (⋯ или ☰)\n2. Выберите «Добавить на главный экран»\n3. Нажмите «Готово»');
+  }
+}
+setTimeout(()=>{if(!_pwaOwnerPrompt&&!localStorage.getItem('pwa_prompted')&&!isPwaInstalled()){localStorage.setItem('pwa_prompted','1');}},8000);
+
 function btnLoading(btn,loading){if(loading){btn._origText=btn.textContent;btn.disabled=true;btn.textContent='⏳ '+btn._origText;}else{btn.disabled=false;btn.textContent=btn._origText;}}
 async function api(t,m='GET',b=null,q='',_retry=false){
   const u='/api/'+t+(q?(q[0]==='?'?q:'?'+q):'');
@@ -408,7 +434,7 @@ function completeOwnerLogin(u){
   currentUser=u.user;localStorage.setItem('dp_rop',u.user.phone);if(u.token)localStorage.setItem('dp_token',u.token);
   document.getElementById('auth-screen').style.display='none';document.getElementById('app').style.display='block';
   document.getElementById('user-name').textContent=u.user.full_name;
-  updateMonthLabels();loadCache();loadOverview();
+  hidePwaButton();updateMonthLabels();loadCache();loadOverview();
 }
 function showErr(m){const e=document.getElementById('auth-error');e.textContent=m;e.style.display='block';}
 function forgotPassword(){const phone=norm(document.getElementById('auth-phone').value);if(!phone||phone.length<11){showErr('Введите номер телефона');return;}showErr('Отправляем...');fetch('/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:'users',phone:'+'+phone})}).then(r=>r.json()).then(d=>{if(d.ok){showErr('Новый пароль отправлен в Telegram. Если Telegram не привязан — обратитесь к администратору.');}else{showErr(d.error||'Ошибка');}}).catch(()=>showErr('Ошибка подключения'));}
@@ -782,7 +808,7 @@ function inviteClient(contact,password){
 // ===== All Shifts =====
 async function loadAllShifts(){
   const from=document.getElementById('shift-from').value,to=document.getElementById('shift-to').value;
-  let q='?select=*,clients(name),users(full_name)&order=date.desc&limit=200';
+  let q='?select=*,clients(name)&order=date.desc&limit=200';
   if(from)q+='&date=gte.'+from;if(to)q+='&date=lte.'+to;
   const shifts=await api('shifts','GET',null,q);
   const reqs=await api('shift_requirements','GET',null,'?select=shift_id,service_type_id,required_count');
@@ -846,7 +872,8 @@ function shareCred(){var el=document.getElementById('cred-text');if(navigator.sh
 document.addEventListener('click',function(e){var b=e.target.closest('.cpb');if(!b)return;var r=b.dataset.role,p=b.dataset.phone,n=b.dataset.name||'';var L={worker:'https://xn----gtbdan3bddhceo9d.xn--p1ai/worker.html',dispatcher:'https://xn----gtbdan3bddhceo9d.xn--p1ai',client:'https://xn----gtbdan3bddhceo9d.xn--p1ai/client.html'};var t=n+'\nТелефон: '+p+'\nСсылка: '+L[r];document.getElementById('cred-text').value=t;document.getElementById('cred-text').dataset.phone=p;document.getElementById('cred-text').dataset.role=r;document.getElementById('cred-text').dataset.link=L[r];document.getElementById('cred-text').dataset.name=n;openModal('modal-credentials');resetCredPassword();});
 async function resetCredPassword(){var el=document.getElementById('cred-text');var phone=el.dataset.phone;if(!phone){return;}var role=el.dataset.role||'users';var table=role==='worker'?'workers':role==='client'?'clients':'users';var link=el.dataset.link||'';var name=el.dataset.name||'';try{var res=await fetch('/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table:table,phone:phone})});var data=await res.json();if(data.ok){var pw=data.password||'';var newText=name+'\nТелефон: '+phone+'\n'+(pw?'Пароль: '+pw+'\n':'')+'Ссылка: '+link;el.value=newText;el.focus();el.select();el.setSelectionRange(0,99999);}else{el.value=name+'\nТелефон: '+phone+'\nСсылка: '+link+'\n\n❌ Ошибка: '+(data.error||'Не удалось сбросить пароль');}}catch(e){console.error(e);}}
 
-if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').then(function(r){console.log('[SW] registered',r.scope);}).catch(function(e){console.warn('[SW] error',e);});}
+// SW disabled: was causing infinite reload loop
+// if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js')... }
 setInterval(()=>{if(currentUser&&document.visibilityState==='visible'){loadOverview();}},30000);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.modal[style*="flex"]')||document.querySelector('.modal[style*="block"]');if(m){m.style.display='none';}}});
 </script>
@@ -897,7 +924,7 @@ async function sendChatMsg(){const btn=document.getElementById("chat-send-btn");
   inp.value='';
   await fetch('/api/chat/'+_chatShiftId,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'***'+localStorage.getItem('dp_token')},body:JSON.stringify({message:msg})});
   loadChatMessages();
-}catch(e){toast('Ошибка отправки');}finally{if(btn)btnLoading(btn,false);}
+}catch(e){toast('Ошибка отправки');}finally{if(btn)btnLoading(btn,false);}}
 
 </script>
 

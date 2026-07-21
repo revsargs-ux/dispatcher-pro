@@ -152,6 +152,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
     <button onclick="login()" data-i18n="btn_login" style="width:100%">Войти</button>
 
     <p style="margin-top:8px;font-size:13px;color:var(--text-light);"><a href="javascript:void(0)" onclick="showReg()" style="color:var(--primary);" data-i18n="auth_register_link">Зарегистрироваться</a> · <a href="javascript:void(0)" onclick="forgotPassword()" style="color:var(--primary);" data-i18n="auth_forgot">Забыли пароль?</a></p>
+    <p style="margin-top:4px;font-size:12px;"><a href="javascript:void(0)" onclick="promptInstallPWA()" style="color:var(--text-light);">📲 Установить приложение</a></p>
   </div>
   <div id="auth-reg" style="display:none;">
     <input type="text" id="reg-name" data-i18n-placeholder="label_name" placeholder="ФИО">
@@ -186,6 +187,9 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
     </div>
     <div id="max-linked" style="display:none;flex:1;text-align:center;">
       <a href="javascript:linkMax()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:#f3e8ff;color:#6b21a8;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;" title="Открыть MAX">✅ MAX</a>
+    </div>
+    <div id="pwa-install-btn" style="flex:1;text-align:center;">
+      <a href="javascript:promptInstallPWA()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:var(--primary);color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;">📲 Установить</a>
     </div>
   </div>
   </div>
@@ -405,7 +409,12 @@ async function register(){
 }
 
 let _pwaInstallPrompt=null;
-window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstallPrompt=e;});
+// PWA: hide install button if already installed
+function isPwaInstalled(){return window.matchMedia('(display-mode: standalone)').matches||window.matchMedia('(display-mode: fullscreen)').matches||window.matchMedia('(display-mode: minimal-ui)').matches||navigator.standalone===true;}
+function hidePwaButton(){const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='none';const pwaLink=document.querySelector('.auth-screen a[href="javascript:void(0)"][onclick*="promptInstallPWA"]');if(pwaLink)pwaLink.parentElement.style.display='none';}
+(function(){if(isPwaInstalled())hidePwaButton();})();
+
+window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstallPrompt=e;if(!localStorage.getItem('pwa_prompted')&&!isPwaInstalled()){const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='';}});
 
 function promptInstallPWA(){
   if(_pwaInstallPrompt){
@@ -427,12 +436,14 @@ function requestPushSubscription(){
 }
 
 async function showMain(){
+  hidePwaButton();
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
   document.getElementById('worker-name').textContent='👷 '+(worker?.full_name||'');
   checkTelegramStatus();checkMaxStatus();
   await render();setInterval(render,30000);
-  // Промпты после первого входа (только один раз)
+  //   hidePwaButton();
+  Промпты после первого входа (только один раз)
   if(!localStorage.getItem('pwa_prompted')){
     localStorage.setItem('pwa_prompted','1');
     setTimeout(promptInstallPWA,1000);
@@ -680,13 +691,14 @@ async function respond(id,status,btn){if(btn)btnLoading(btn,true);try{
 }
 async function startWork(id){try{
   // Проверяем время начала
-    const asgn=(await api('shift_assignments','GET',null,`?id=eq.${id}&select=*,shifts(date,start_time,planned_end_time,address,comment,clients(name))`))[0];
+    const asgn=(await api('shift_assignments','GET',null,`?id=eq.${id}&select=*,shifts!inner(id,date,start_time,planned_end_time,address,comment,clients(name))`))[0];
     if(!asgn){toast('Смена не найдена');return;}
 
     const now=new Date();
     const shiftDate=asgn.shifts?.date||'';
     const startTime=asgn.shifts?.start_time||'';
     const address=asgn.shifts?.address||asgn.shifts?.comment||'';
+    const shiftId=asgn.shifts?.id;
 
     // Проверка: не раньше времени начала
     if(shiftDate && startTime){
@@ -700,6 +712,16 @@ async function startWork(id){try{
     // PATCH actual_start_time via API
     const res=await api('shift_assignments','PATCH',{invite_status:'in_progress',actual_start_time:now.toISOString()},`?id=eq.${id}`);
     if(res&&!Array.isArray(res)){toast('Ошибка сохранения');return;}
+    
+    // Обновляем статус смены на 'in_progress' (только если ещё не in_progress/planned)
+    if(shiftId){
+      const shiftRes=await api('shifts','GET',null,`?id=eq.${shiftId}&select=status&limit=1`);
+      const curShift=Array.isArray(shiftRes)?shiftRes[0]:null;
+      if(curShift && (curShift.status==='pending'||!curShift.status)){
+        await api('shifts','PATCH',{status:'in_progress'},`?id=eq.${shiftId}`);
+      }
+    }
+    
     toast('✅ Смена началась!');
     render();
 }catch(e){toast('Ошибка: '+e.message);}

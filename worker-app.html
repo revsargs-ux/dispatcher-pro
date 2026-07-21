@@ -170,6 +170,9 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
     <p style="margin-top:8px;font-size:13px;color:var(--text-light);"><a href="javascript:void(0)" onclick="showLogin()" style="color:var(--primary);" data-i18n="auth_login_link">Уже есть аккаунт? Войти</a></p>
   </div>
   <p id="auth-error" class="auth-error"></p>
+  <div id="pwa-install-btn" style="display:none;margin-top:8px;text-align:center;">
+    <a href="javascript:promptInstallPWA()" style="display:inline-flex;align-items:center;gap:4px;background:var(--primary);color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;text-decoration:none;">📲 Установить приложение</a>
+  </div>
 </div></div>
 
 <div id="main-screen" style="display:none;"><div class="container">
@@ -187,6 +190,9 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
     <div id="max-linked" style="display:none;flex:1;text-align:center;">
       <a href="javascript:linkMax()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:#f3e8ff;color:#6b21a8;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;" title="Открыть MAX">✅ MAX</a>
     </div>
+    <div id="pwa-install-btn-messenger" style="display:none;flex:1;text-align:center;">
+      <a href="javascript:promptInstallPWA()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:var(--primary);color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;">📲 PWA</a>
+    </div>
   </div>
   </div>
   <div id="pay-period-form" style="display:none;margin-bottom:12px;background:var(--card);border-radius:10px;padding:12px;border:1px solid var(--border);">
@@ -200,8 +206,8 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
     </label>
   </div>
   <div id="worker-tabs" style="display:flex;gap:6px;margin-bottom:12px;">
-    <div class="wtab active" data-wtab="tab-my-orders" style="flex:1;text-align:center;padding:10px;background:var(--primary);color:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">📅 Мои заказы</div>
     <div class="wtab" data-wtab="tab-active" style="flex:1;text-align:center;padding:10px;background:var(--card);color:var(--text-light);border:2px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">🔄 Активные</div>
+    <div class="wtab active" data-wtab="tab-my-orders" style="flex:1;text-align:center;padding:10px;background:var(--primary);color:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">📦 Архив заказов</div>
     <div class="wtab" data-wtab="tab-payments" style="flex:1;text-align:center;padding:10px;background:var(--card);color:var(--text-light);border:2px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">💰 Мои оплаты</div>
   </div>
   <div id="shifts-list"></div>
@@ -405,12 +411,17 @@ async function register(){
 }
 
 let _pwaInstallPrompt=null;
-window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstallPrompt=e;});
+// PWA: hide install button if already installed
+function isPwaInstalled(){return window.matchMedia('(display-mode: standalone)').matches||window.matchMedia('(display-mode: fullscreen)').matches||window.matchMedia('(display-mode: minimal-ui)').matches||navigator.standalone===true;}
+function hidePwaButton(){const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='none';const btn2=document.getElementById('pwa-install-btn-messenger');if(btn2)btn2.style.display='none';}
+(function(){if(isPwaInstalled())hidePwaButton();})();
+
+window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstallPrompt=e;if(!localStorage.getItem('pwa_prompted')&&!isPwaInstalled()){const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='';const btn2=document.getElementById('pwa-install-btn-messenger');if(btn2)btn2.style.display='';}});
 
 function promptInstallPWA(){
   if(_pwaInstallPrompt){
     _pwaInstallPrompt.prompt();
-    _pwaInstallPrompt.userChoice.then(()=>{_pwaInstallPrompt=null;});
+    _pwaInstallPrompt.userChoice.then(()=>{_pwaInstallPrompt=null;hidePwaButton();});
   }
 }
 
@@ -427,6 +438,7 @@ function requestPushSubscription(){
 }
 
 async function showMain(){
+  hidePwaButton();
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
   document.getElementById('worker-name').textContent='👷 '+(worker?.full_name||'');
@@ -509,9 +521,12 @@ async function render(){
       `?worker_id=eq.${worker.id}&select=*,shifts(date,start_time,planned_end_time,address,comment,client_id,service_types(name),status,clients:client_id(name))&order=created_at.desc`);
     let assignments=_workerAllAssignments;
     console.log('[worker] raw data:', JSON.stringify(assignments?.map(a=>({id:a.id,status:a.invite_status,shift_id:a.shift_id,shiftStatus:a.shifts?.status,hasEndTime:!!a.actual_end_time,date:a.shifts?.date}))).slice(0,5));
-    if(_workerTab==='tab-active'||_workerTab==='tab-my-orders'){
-      // Don't show declined or completed in any worker tab
+    if(_workerTab==='tab-active'){
+      // Active: only in_progress or invited (not completed, not declined, not ended)
       assignments=assignments.filter(a=>a.invite_status!=='declined'&&a.invite_status!=='completed'&&(!a.actual_end_time));
+    }else if(_workerTab==='tab-my-orders'){
+      // Archive: only completed or ended
+      assignments=assignments.filter(a=>a.invite_status==='completed'||a.actual_end_time);
     }else if(_workerTab==='tab-payments'){
       assignments=assignments.filter(a=>parseFloat(a.hours_worked)>0);
     }

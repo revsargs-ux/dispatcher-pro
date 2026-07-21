@@ -257,14 +257,19 @@ async function handleForgot(req, res, cors) {
 
     const cleanPhone = phone.replace(/[-+()\s]/g, '').replace(/^8/, '7');
     const phoneCol = table === 'clients' ? 'contact' : 'phone';
-    const users = await (await sbFetch(table, `${phoneCol}=ilike.%25${cleanPhone.slice(-10)}%25&select=id,full_name,telegram_chat_id,max_chat_id&limit=1`)).json();
+    const nameCol = table === 'clients' ? 'name' : 'full_name';
+    // For clients, contact stored with +7 prefix, so keep original phone format
+    // For users, phone stored as 79XXXXXXXXX, need ilike search
+    const phoneFilter = table === 'clients' ? `${phoneCol}=ilike.%25${cleanPhone.slice(-10)}` : `${phoneCol}=ilike.%25${cleanPhone.slice(-10)}%25`;
+    const users = await (await sbFetch(table, `${phoneFilter}&select=id,${nameCol},telegram_chat_id,max_chat_id&limit=1`)).json();
     if (!users.length) return json(res, { ok: false, error: 'Пользователь не найден' });
     const u = users[0];
+    const displayName = u.name || u.full_name || 'Пользователь';
     if (!u.telegram_chat_id && !u.max_chat_id) {
       // No messenger linked — generate password and return it (owner can share manually)
       const newPass = require('crypto').randomBytes(4).toString('hex');
       await sbFetch(table, `id=eq.${u.id}`, { method: 'PATCH', body: JSON.stringify({ password: await hashPassword(newPass) }) });
-      audit('password_reset', u.full_name, u.id, table, ip);
+      audit('password_reset', displayName, u.id, table, ip);
       json(res, { ok: true, password: newPass });
       return;
     }
@@ -279,8 +284,8 @@ async function handleForgot(req, res, cors) {
         if (maxModule?.maxSendMessage) await maxModule.maxSendMessage(u.max_chat_id, msg.replace(/<[^>]+>/g, ''));
       } catch(e) { console.error('[Forgot] MAX send error:', e.message); }
     }
-    console.log('[Forgot] Password reset for', u.full_name, 'channels:', u.telegram_chat_id?'TG':'', u.max_chat_id?'MAX':'');
-    audit('password_reset', u.full_name, u.id, table, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
+    console.log('[Forgot] Password reset for', displayName, 'channels:', u.telegram_chat_id?'TG':'', u.max_chat_id?'MAX':'');
+    audit('password_reset', displayName, u.id, table, extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress));
     json(res, { ok: true, password: newPass }); // owner получает пароль в ответе
   } catch (e) {
     console.error('[Forgot] Error:', e.message);
@@ -334,6 +339,113 @@ async function handleAuthLogout(req, res, cors) {
 const _tgLoginAttempts = new Map(); // ip -> { count, resetAt }
 const TG_LOGIN_MAX = 5;
 const TG_LOGIN_WINDOW = 60 * 1000;
+
+
+async function handleCheckTgLink(req, res, cors) {
+  try {
+    const url = new URL(req.url, 'http://x');
+    const chatId = url.searchParams.get('chat_id');
+    if (!chatId) { res.writeHead(400, { 'Content-Type': 'application/json', ...cors }); return res.end(JSON.stringify({ linked: false, error: 'chat_id required' })); }
+    const [workerRes, clientRes] = await Promise.all([
+      sbFetch('workers', 'telegram_chat_id=eq.' + encodeURIComponent(chatId) + '&select=id&limit=1'),
+      sbFetch('clients', 'telegram_chat_id=eq.' + encodeURIComponent(chatId) + '&select=id&limit=1')
+    ]);
+    const workers = await workerRes.json();
+    const clients = await clientRes.json();
+    const linked = (Array.isArray(workers) && workers.length > 0) || (Array.isArray(clients) && clients.length > 0);
+    res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
+    res.end(JSON.stringify({ linked, role: (Array.isArray(workers) && workers.length > 0) ? 'worker' : (Array.isArray(clients) && clients.length > 0) ? 'client' : null }));
+  } catch (e) {
+    console.error('[checkTgLink] Error:', e.message);
+    res.writeHead(500, { 'Content-Type': 'application/json', ...cors });
+    res.end(JSON.stringify({ linked: false, error: 'Server error' }));
+  }
+}
+
+async function handleTgLinkAuto(req, res, cors) {
+  try {
+    const body = await readBody(req);
+    const data = JSON.parse(body);
+    const phone = (data.phone||'').replace(/[^0-9]/g,'').replace(/^8/,'7');
+    const chatId = String(data.chat_id||'');
+    if (!phone||!chatId) { res.writeHead(400,{'Content-Type':'application/json',...cors}); return res.end(JSON.stringify({ok:false,error:'phone and chat_id required'})); }
+    const safePhone = phone.slice(-10);
+    // Search in clients
+    const cr = await sbFetch('clients','contact=ilike.%25'+safePhone+'%25&select=id&limit=1');
+    const cd = await cr.json();
+    if (Array.isArray(cd)&&cd.length) {
+      await sbFetch('clients','id=eq.'+cd[0].id,{method:'PATCH',body:JSON.stringify({telegram_chat_id:chatId})});
+      res.writeHead(200,{'Content-Type':'application/json',...cors});
+      return res.end(JSON.stringify({ok:true,role:'client',id:cd[0].id}));
+    }
+    // Search in workers
+    const wr = await sbFetch('workers','phone=ilike.%25'+safePhone+'%25&select=id&limit=1');
+    const wd = await wr.json();
+    if (Array.isArray(wd)&&wd.length) {
+      await sbFetch('workers','id=eq.'+wd[0].id,{method:'PATCH',body:JSON.stringify({telegram_chat_id:chatId})});
+      res.writeHead(200,{'Content-Type':'application/json',...cors});
+      return res.end(JSON.stringify({ok:true,role:'worker',id:wd[0].id}));
+    }
+    res.writeHead(404,{'Content-Type':'application/json',...cors});
+    res.end(JSON.stringify({ok:false,error:'Number not found'}));
+  } catch(e) {
+    console.error('[tgLinkAuto] Error:',e.message);
+    res.writeHead(500,{'Content-Type':'application/json',...cors});
+    res.end(JSON.stringify({ok:false,error:'Server error'}));
+  }
+}
+
+async function handleCheckMaxLink(req, res, cors) {
+  try {
+    const url = new URL(req.url, 'http://x');
+    const chatId = url.searchParams.get('chat_id');
+    if (!chatId) { res.writeHead(400, { 'Content-Type': 'application/json', ...cors }); return res.end(JSON.stringify({ linked: false, error: 'chat_id required' })); }
+    const [workerRes, clientRes] = await Promise.all([
+      sbFetch('workers', 'max_chat_id=eq.' + encodeURIComponent(chatId) + '&select=id&limit=1'),
+      sbFetch('clients', 'max_chat_id=eq.' + encodeURIComponent(chatId) + '&select=id&limit=1')
+    ]);
+    const workers = await workerRes.json();
+    const clients = await clientRes.json();
+    const linked = (Array.isArray(workers) && workers.length > 0) || (Array.isArray(clients) && clients.length > 0);
+    res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
+    res.end(JSON.stringify({ linked, role: (Array.isArray(workers) && workers.length > 0) ? 'worker' : (Array.isArray(clients) && clients.length > 0) ? 'client' : null }));
+  } catch (e) {
+    console.error('[checkMaxLink] Error:', e.message);
+    res.writeHead(500, { 'Content-Type': 'application/json', ...cors });
+    res.end(JSON.stringify({ linked: false, error: 'Server error' }));
+  }
+}
+
+async function handleMaxLink(req, res, cors) {
+  try {
+    const body = await readBody(req);
+    const data = JSON.parse(body);
+    const phone = data.phone;
+    if (!phone) { res.writeHead(400, { 'Content-Type': 'application/json', ...cors }); return res.end(JSON.stringify({ ok: false, error: 'phone required' })); }
+    const cleanPhone = phone.replace(/[^0-9]/g, '').replace(/^8/, '7');
+    const safePhone = cleanPhone.slice(-10);
+    const searchConfigs = [
+      { table: 'clients', phoneCol: 'contact', select: 'id,name,contact' },
+      { table: 'workers', phoneCol: 'phone', select: 'id,full_name' }
+    ];
+    let found = null;
+    for (const cfg of searchConfigs) {
+      const r = await sbFetch(cfg.table, cfg.phoneCol + '=ilike.%25' + safePhone + '%25&select=' + cfg.select + '&limit=1');
+      const rows = await r.json();
+      if (Array.isArray(rows) && rows.length) { found = { table: cfg.table, id: rows[0].id }; break; }
+    }
+    if (!found) {
+      res.writeHead(404, { 'Content-Type': 'application/json', ...cors });
+      return res.end(JSON.stringify({ ok: false, error: 'Number not found in system' }));
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json', ...cors });
+    res.end(JSON.stringify({ ok: true, message: 'Number found. Write to @DispatcherPRO1_bot to link.' }));
+  } catch (e) {
+    console.error('[maxLink] Error:', e.message);
+    res.writeHead(500, { 'Content-Type': 'application/json', ...cors });
+    res.end(JSON.stringify({ ok: false, error: 'Server error' }));
+  }
+}
 
 async function handleTgLogin(req, res, cors) {
   const ip = extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress);
@@ -395,7 +507,11 @@ function mountAuthRoutes(router, createRouter) {
   // These are used by the main router — no-op here, mounting is done in main routes.js
 }
 
-module.exports = {
+module.exports = {  handleCheckTgLink,
+  handleTgLinkAuto,
+  handleCheckMaxLink,
+  handleMaxLink,
+
   handleLogin,
   handleRegister,
   handleForgot,

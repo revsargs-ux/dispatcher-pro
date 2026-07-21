@@ -378,12 +378,12 @@ async function register(){
 }
 
 let _pwaInstallPrompt=null;
-window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstallPrompt=e;});
+window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstallPrompt=e;if(!localStorage.getItem('pwa_prompted')&&!isPwaInstalled()){const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='';const btn2=document.getElementById('pwa-install-btn-messenger');if(btn2)btn2.style.display='';}});
 
 function promptInstallPWA(){
   if(_pwaInstallPrompt){
     _pwaInstallPrompt.prompt();
-    _pwaInstallPrompt.userChoice.then(()=>{_pwaInstallPrompt=null;});
+    _pwaInstallPrompt.userChoice.then(()=>{_pwaInstallPrompt=null;hidePwaButton();});
   }
 }
 
@@ -400,6 +400,7 @@ function requestPushSubscription(){
 }
 
 async function showMain(){
+  hidePwaButton();
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
   document.getElementById('worker-name').textContent='👷 '+(worker?.full_name||'');
