@@ -100,7 +100,7 @@ function checkPasswordResetLimit(ip) {
 async function handleLogin(req, res, cors) {
   const ip = extractPublicIp(req.headers['x-forwarded-for'] || req.socket.remoteAddress);
   // Skip rate limit for localhost and tests
-  const skipRL = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.startsWith('172.') || ip.startsWith('10.') || ip.startsWith('192.168.');
+  const skipRL = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.startsWith('172.16.') || ip.startsWith('172.17.') || ip.startsWith('172.18.') || ip.startsWith('172.19.') || ip.startsWith('172.20.') || ip.startsWith('172.21.') || ip.startsWith('172.22.') || ip.startsWith('172.23.') || ip.startsWith('172.24.') || ip.startsWith('172.25.') || ip.startsWith('172.26.') || ip.startsWith('172.27.') || ip.startsWith('172.28.') || ip.startsWith('172.29.') || ip.startsWith('172.30.') || ip.startsWith('172.31.') || ip.startsWith('10.') || ip.startsWith('192.168.');
   if (!skipRL && !checkRateLimit(ip)) return json(res, { ok: false, error: 'Слишком много попыток. Подождите 5 минут.' }, 429, cors);
 
   const body = await readBody(req);
