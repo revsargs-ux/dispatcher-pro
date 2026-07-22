@@ -3,7 +3,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -21,7 +21,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .auth-box{background:var(--card);border-radius:16px;padding:40px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .auth-box h1{color:var(--primary);font-size:24px;text-align:center;margin-bottom:4px}
 .auth-box .subtitle{color:var(--text-light);text-align:center;font-size:14px;margin-bottom:24px}
-.auth-box input{width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:8px;font-size:15px;margin-bottom:12px;transition:.2s}
+.auth-box input{width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:8px;font-size:15px;margin-bottom:12px;transition:.2s;touch-action:manipulation}
 .auth-box input:focus{outline:none;border-color:var(--primary)}
 .auth-box button{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:.2s}
 .auth-box button:hover{background:var(--primary-light)}
@@ -249,6 +249,7 @@ th.sort-desc::after{content:" ↓";opacity:1;}
   button,.btn,[role="button"]{min-height:44px;min-width:44px}
 }
 button,.btn,[role="button"]{padding:8px 14px}
+.pwa-hidden{display:none!important}
 </style>
 <style>
 /* Mobile-first responsive */
@@ -302,9 +303,9 @@ button,.btn,[role="button"]{padding:8px 14px}
   <h1>Dispatcher.PRO</h1>
   <p class="subtitle">Система управления персоналом</p>
   <div id="auth-login">
-    <input type="text" id="auth-phone" inputmode="tel" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15">
+    <input type="text" id="auth-phone" inputmode="tel" autocomplete="tel" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15">
     <div class="pw-wrap">
-    <input type="password" id="auth-pass" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
+    <input type="password" id="auth-pass" autocomplete="current-password" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
     <span class="pw-eye" role="button" aria-label="Показать/скрыть пароль" onclick="togglePw('auth-pass',this)">👁</span>
     </div>
     <button onclick="doLogin()" data-i18n="btn_login">Войти</button>
@@ -357,7 +358,7 @@ button,.btn,[role="button"]{padding:8px 14px}
 
 <!-- messenger + install bar -->
 <div id="messenger-bar" style="display:flex;gap:6px;margin-bottom:8px;justify-content:center;flex-wrap:wrap;">
-  <div id="pwa-install-btn" style="text-align:center;">
+  <div id="pwa-install-btn" class="pwa-hidden" style="text-align:center;">
     <a href="javascript:promptPWA()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:var(--primary);color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;">📲 Установить</a>
   </div>
 </div>
@@ -759,10 +760,11 @@ let _pwaInstPrompt=null;
 let _pwaPrompted=false;
 // PWA: hide install button if already installed
 function isPwaInstalled(){return window.matchMedia('(display-mode: standalone)').matches||window.matchMedia('(display-mode: fullscreen)').matches||window.matchMedia('(display-mode: minimal-ui)').matches||navigator.standalone===true;}
-function hidePwaButton(){const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='none';const btn2=document.getElementById('pwa-install-btn-messenger');if(btn2)btn2.style.display='none';}
+function hidePwaButton(){const btn=document.getElementById('pwa-install-btn');if(btn)btn.className='pwa-hidden';const btn2=document.getElementById('pwa-install-btn-messenger');if(btn2)btn2.className='pwa-hidden';}
+function showPwaButton(){const btn=document.getElementById('pwa-install-btn');if(btn)btn.className='';const btn2=document.getElementById('pwa-install-btn-messenger');if(btn2)btn2.className='';}
 (function(){if(isPwaInstalled())hidePwaButton();})();
 
-window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstPrompt=e;setTimeout(()=>{const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='';},500);});
+window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstPrompt=e;showPwaButton();});
 function promptPWA(){
   if(_pwaInstPrompt){_pwaInstPrompt.prompt();_pwaInstPrompt.userChoice.then(()=>{_pwaInstPrompt=null;hidePwaButton();});} else {
     alert('📲 Чтобы установить приложение на главный экран:\n\n1. Откройте меню браузера (⋯ или ☰)\n2. Выберите «Добавить на главный экран»\n3. Нажмите «Готово»');

@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👷</text></svg>"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👷</text></svg>"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Рабочий — Dispatcher.PRO</title>
 <link rel="manifest" href="/manifest.json">
 <style>
@@ -20,7 +20,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .auth-box{background:var(--auth-card-bg);border-radius:16px;padding:40px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .auth-box h1{color:var(--primary);font-size:24px;text-align:center}
 .auth-box .subtitle{color:var(--text-light);text-align:center;font-size:13px;margin-bottom:24px}
-.auth-box input{width:100%;padding:12px;border:2px solid var(--border);border-radius:8px;font-size:15px;margin-bottom:12px;touch-action:manipulation;-webkit-user-select:text;user-select:text}
+.auth-box input{width:100%;padding:12px;border:2px solid var(--border);border-radius:8px;font-size:15px;margin-bottom:12px;touch-action:manipulation;touch-action:manipulation;-webkit-user-select:text;user-select:text}
 .auth-box input:focus{outline:none;border-color:var(--primary)}
 .auth-box button{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
 .auth-error{color:var(--danger);text-align:center;font-size:13px;margin-top:8px;display:none}
@@ -114,6 +114,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .modal-content{margin:10px;width:95%;max-height:90vh;overflow-y:auto;}
   .card{padding:12px;}
 }
+.pwa-hidden{display:none!important}
 </style>
 <style>
 .pw-wrap{position:relative;display:flex;align-items:center;margin-bottom:12px}
@@ -150,9 +151,9 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
   <h1>👷 Dispatcher.PRO</h1>
   <p class="subtitle" id="auth-subtitle" data-i18n="auth_subtitle_worker">Вход в кабинет</p>
   <div id="auth-login">
-    <input type="text" id="phone-input" inputmode="tel" data-i18n-placeholder="placeholder_phone" placeholder="Номер телефона" maxlength="15">
+    <input type="text" id="phone-input" inputmode="tel" autocomplete="tel" data-i18n-placeholder="placeholder_phone" placeholder="Номер телефона" maxlength="15">
     <div class="pw-wrap">
-      <input type="password" id="pass-input" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
+      <input type="password" id="pass-input" autocomplete="current-password" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
       <span class="pw-eye" role="button" aria-label="Показать/скрыть пароль" onclick="togglePw('pass-input',this)">👁</span>
     </div>
     <button onclick="login()" data-i18n="btn_login" style="width:100%">Войти</button>
@@ -194,7 +195,7 @@ button,.btn,[role="button"]{min-height:44px;min-width:44px;padding:10px 16px}
     <div id="max-linked" style="display:none;flex:1;text-align:center;">
       <a href="javascript:linkMax()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:#f3e8ff;color:#6b21a8;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;" title="Открыть MAX">✅ MAX</a>
     </div>
-    <div id="pwa-install-btn" style="flex:1;text-align:center;">
+    <div id="pwa-install-btn" class="pwa-hidden" style="flex:1;text-align:center;">
       <a href="javascript:promptInstallPWA()" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:var(--primary);color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;">📲 Установить</a>
     </div>
   </div>
@@ -417,10 +418,11 @@ async function register(){
 let _pwaInstallPrompt=null;
 // PWA: hide install button if already installed
 function isPwaInstalled(){return window.matchMedia('(display-mode: standalone)').matches||window.matchMedia('(display-mode: fullscreen)').matches||window.matchMedia('(display-mode: minimal-ui)').matches||navigator.standalone===true;}
-function hidePwaButton(){const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='none';const pwaLink=document.querySelector('.auth-screen a[href="javascript:void(0)"][onclick*="promptInstallPWA"]');if(pwaLink)pwaLink.parentElement.style.display='none';}
+function hidePwaButton(){const btn=document.getElementById('pwa-install-btn');if(btn)btn.className='pwa-hidden';const pwaLink=document.querySelector('.auth-screen a[href="javascript:void(0)"][onclick*="promptInstallPWA"]');if(pwaLink)pwaLink.parentElement.className='pwa-hidden';}
 (function(){if(isPwaInstalled())hidePwaButton();})();
 
-window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstallPrompt=e;if(!localStorage.getItem('pwa_prompted')&&!isPwaInstalled()){const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='';}});
+window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstallPrompt=e;if(!isPwaInstalled()){showPwaButton();}});
+function showPwaButton(){const btn=document.getElementById('pwa-install-btn');if(btn)btn.className='';const pwaLink=document.querySelector('.auth-screen a[href="javascript:void(0)"][onclick*="promptInstallPWA"]');if(pwaLink)pwaLink.parentElement.className='';}
 
 function promptInstallPWA(){
   if(_pwaInstallPrompt){
