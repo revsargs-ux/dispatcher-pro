@@ -357,20 +357,17 @@ async function api(t,m='GET',b=null,q='',_retry=false){
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',3000);}
 // PWA Install
 let _pwaInstallPrompt=null;
-let _pwaPrompted=false;
 // PWA: hide install button if already installed
 function isPwaInstalled(){return window.matchMedia('(display-mode: standalone)').matches||window.matchMedia('(display-mode: fullscreen)').matches||window.matchMedia('(display-mode: minimal-ui)').matches||navigator.standalone===true;}
 function hidePwaButton(){const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='none';const authLink=document.querySelector('.auth-screen a[onclick*="promptInstallPWA"]');if(authLink&&authLink.parentElement)authLink.parentElement.style.display='none';}
 (function(){if(isPwaInstalled())hidePwaButton();})();
 
-window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstallPrompt=e;if(!_pwaPrompted&&!localStorage.getItem('pwa_prompted')&&!isPwaInstalled()){_pwaPrompted=true;localStorage.setItem('pwa_prompted','1');setTimeout(promptInstallPWA,2000);}});
+window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstallPrompt=e;setTimeout(()=>{const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='';},500);});
 function promptInstallPWA(){
   if(_pwaInstallPrompt){_pwaInstallPrompt.prompt();_pwaInstallPrompt.userChoice.then(()=>{_pwaInstallPrompt=null;hidePwaButton();});} else {
     alert('📲 Чтобы установить приложение на главный экран:\n\n1. Откройте меню браузера (⋯ или ☰)\n2. Выберите «Добавить на главный экран»\n3. Нажмите «Готово»');
   }
 }
-// Fallback: если событие не пришло за 8с, кнопка всё равно покажет инструкцию
-setTimeout(()=>{if(!_pwaInstallPrompt&&!localStorage.getItem('pwa_prompted')){localStorage.setItem('pwa_prompted','1');}},8000);
 
 function btnLoading(btn,loading){if(loading){btn._origText=btn.textContent;btn.disabled=true;btn.textContent='⏳ '+btn._origText;}else{btn.disabled=false;btn.textContent=btn._origText;}}
 function norm(p){return(p||'').replace(/[\+\-\(\)\s]/g,'').replace(/^8/,'7');}

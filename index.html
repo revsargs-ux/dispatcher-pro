@@ -302,7 +302,7 @@ button,.btn,[role="button"]{padding:8px 14px}
   <h1>Dispatcher.PRO</h1>
   <p class="subtitle">Система управления персоналом</p>
   <div id="auth-login">
-    <input type="tel" id="auth-phone" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15">
+    <input type="text" id="auth-phone" inputmode="tel" data-i18n-placeholder="placeholder_phone" placeholder="Телефон" maxlength="15">
     <div class="pw-wrap">
     <input type="password" id="auth-pass" data-i18n-placeholder="placeholder_password" placeholder="Пароль">
     <span class="pw-eye" role="button" aria-label="Показать/скрыть пароль" onclick="togglePw('auth-pass',this)">👁</span>
@@ -762,13 +762,12 @@ function isPwaInstalled(){return window.matchMedia('(display-mode: standalone)')
 function hidePwaButton(){const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='none';const btn2=document.getElementById('pwa-install-btn-messenger');if(btn2)btn2.style.display='none';}
 (function(){if(isPwaInstalled())hidePwaButton();})();
 
-window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstPrompt=e;if(!_pwaPrompted&&!localStorage.getItem('pwa_prompted')&&!isPwaInstalled()){_pwaPrompted=true;localStorage.setItem('pwa_prompted','1');setTimeout(()=>promptPWA(),2000);}});
+window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();_pwaInstPrompt=e;setTimeout(()=>{const btn=document.getElementById('pwa-install-btn');if(btn)btn.style.display='';},500);});
 function promptPWA(){
   if(_pwaInstPrompt){_pwaInstPrompt.prompt();_pwaInstPrompt.userChoice.then(()=>{_pwaInstPrompt=null;hidePwaButton();});} else {
     alert('📲 Чтобы установить приложение на главный экран:\n\n1. Откройте меню браузера (⋯ или ☰)\n2. Выберите «Добавить на главный экран»\n3. Нажмите «Готово»');
   }
 }
-setTimeout(()=>{if(!_pwaInstPrompt&&!localStorage.getItem('pwa_prompted')&&!isPwaInstalled()){localStorage.setItem('pwa_prompted','1');}},8000);
 
 function norm(p){return(p||'').replace(/[\+\-\(\)\s]/g,'').replace(/^8/,'7');}
 function validatePhone(p){const d=(p||'').replace(/[^0-9]/g,'');return d.length===11;}

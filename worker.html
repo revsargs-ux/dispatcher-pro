@@ -449,12 +449,8 @@ async function showMain(){
   checkTelegramStatus();checkMaxStatus();
   await render();setInterval(render,30000);
   //   hidePwaButton();
-  Промпты после первого входа (только один раз)
-  if(!localStorage.getItem('pwa_prompted')){
-    localStorage.setItem('pwa_prompted','1');
-    setTimeout(promptInstallPWA,1000);
-    setTimeout(requestPushSubscription,2000);
-  }
+  // Промпты после первого входа (только один раз) — отключено
+  setTimeout(requestPushSubscription,2000);
 }
 
 // ===== Payments tab with date range =====
