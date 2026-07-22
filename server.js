@@ -241,7 +241,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     // Proxy: /app-index — отдаёт index.html (обход кэша PWA)
-    if (urlPath === '/app-index') {
+    if (urlPath === '/app-index' || urlPath === '/' || urlPath === '/index.html') {
       const appDir = config.appDir || __dirname;
       const idxPath = path.join(appDir, 'index.html');
       let html = fs.readFileSync(idxPath, 'utf8');

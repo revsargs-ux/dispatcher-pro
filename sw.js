@@ -1,81 +1,58 @@
 // Service Worker — Dispatcher.PRO
-// v31 — DISABLED: service worker was causing infinite reload. This file kept only to self-destruct.
-// All pages now register no SW. This SW will skipWait, delete caches, claim, then unregister itself.
+// v32 — CACHE-FREE: no static cache, no pre-cache on install.
+// Network-only for all HTML/API. Static assets cached only by browser (Cache-Control).
+// Push notifications still work.
 
-const CACHE_NAME = 'dispatcher-v31';
-const STATIC_ASSETS = [
-  '/',
-  '/sw.js',
-  '/manifest.json',
-  '/assets/icon-192.png',
-  '/assets/icon-512.png',
-  '/assets/badge-72.png'
-];
+const CACHE_NAME = 'dispatcher-v32';
 
-// === УСТАНОВКА ===
+// === INSTALL: skip waiting, do NOT cache anything ===
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn('[SW] Some assets failed to cache:', err);
-      });
-    })
-  );
   self.skipWaiting();
 });
 
-// === АКТИВАЦИЯ ===
+// === ACTIVATE: delete EVERYTHING, claim, unregister ===
 self.addEventListener('activate', (event) => {
-  // Skip old SW explicitly
-  self.skipWaiting();
   event.waitUntil(
     caches.keys().then((names) =>
-      Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)))
+      Promise.all(names.map((n) => caches.delete(n)))
     ).then(() => self.clients.claim())
-    .then(() => {
-      // Self-unregister — SW is disabled, just clean up
-      return self.registration.unregister();
-    })
-    .then(() => {
-      // Force-notify all clients to reset if stuck
-      return self.clients.matchAll();
-    }).then(clients => {
-      clients.forEach(c => c.postMessage({type: 'FORCE_RESET'}));
-    })
+    .then(() => self.registration.unregister())
   );
 });
 
-// === FETCH — единый respondWith ===
+// === FETCH: network-only for HTML/API, cache-first only for static assets ===
 self.addEventListener('fetch', (e) => {
-  // Skip non-GET requests — просто пускаем без кэша
-  if (e.request.method !== 'GET') {
+  const url = new URL(e.request.url);
+
+  // Push notifications / API calls — network only, no cache
+  if (url.pathname.startsWith('/api/') || url.pathname === '/auth/login') {
     e.respondWith(fetch(e.request).catch(() => new Response('Offline', { status: 503 })));
     return;
   }
 
-  // Network-first: всегда пробуем сеть, кэш — только fallback
+  // HTML pages — network only (no stale cache)
+  if (url.pathname.endsWith('.html') || url.pathname === '/' || !url.pathname.includes('.')) {
+    e.respondWith(fetch(e.request).catch(() => new Response('Offline', { status: 503 })));
+    return;
+  }
+
+  // Static assets (images, fonts, js) — cache-first for speed
   e.respondWith(
-    fetch(e.request)
-      .then((response) => {
+    caches.match(e.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(e.request).then((response) => {
         if (response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
         }
         return response;
-      })
-      .catch(() =>
-        caches.match(e.request).then((cached) => {
-          if (cached) return cached;
-          // Навигация без кэша → index.html
-          if (e.request.mode === 'navigate') return caches.match('/index.html');
-          return new Response('Offline', { status: 503 });
-        })
-      )
+      });
+    }).catch(() => new Response('Offline', { status: 503 }))
   );
 });
 
 // ============================================================
-// PUSH — получение push-уведомлений
+// PUSH — уведомления
 // ============================================================
 self.addEventListener('push', (event) => {
   let data = {
@@ -112,16 +89,11 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// ============================================================
-// NOTIFICATION CLICK
-// ============================================================
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   if (event.action === 'dismiss') return;
-
   const targetUrl = event.notification.data?.url || '/';
   const fullUrl = new URL(targetUrl, self.location.origin).href;
-
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((clients) => {
@@ -136,9 +108,6 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// ============================================================
-// PUSH SUBSCRIPTION CHANGE
-// ============================================================
 self.addEventListener('pushsubscriptionchange', (event) => {
   event.waitUntil(
     fetch('/api/push-subscription', {
@@ -150,16 +119,4 @@ self.addEventListener('pushsubscriptionchange', (event) => {
       }),
     }).catch((e) => console.error('[SW] Subscription update failed:', e))
   );
-});
-
-// ============================================================
-// MESSAGE HANDLER
-// ============================================================
-self.addEventListener('message', (event) => {
-  const msg = event.data;
-  if (msg.type === 'CHECK_VERSION') {
-    caches.delete(CACHE_NAME).then(() => {
-      clients.matchAll().then(cs => cs.forEach(c => c.postMessage({ type: 'VERSION_UPDATED' })));
-    });
-  }
 });
