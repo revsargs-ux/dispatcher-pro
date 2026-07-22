@@ -13,6 +13,7 @@ const { requireAuth } = require('./modules/auth');
 const { getCorsHeaders } = require('./modules/cors');
 const { sbHeaders } = require('./modules/db');
 const VERSION = '1.0.0';
+const APP_BUILD_ID = Date.now();
 const { startMaxPolling } = require('./modules/max-bot');
 
 const { recordRequest } = require('./modules/monitoring');
@@ -236,7 +237,7 @@ const server = http.createServer(async (req, res) => {
     // Version endpoint for cache bust
     if (urlPath === '/app-version') {
       res.writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-cache' });
-      res.end(String(Date.now()));
+      res.end(String(APP_BUILD_ID));
       return;
     }
     // Proxy: /app-index — отдаёт index.html (обход кэша PWA)
