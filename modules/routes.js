@@ -768,6 +768,7 @@ function createRouter() {
     if (urlPath === '/upload-receipt' && req.method === 'POST') { if (!auth()) return; return await paymentRoutes.handleUploadReceipt(req, res, cors); }
     if (urlPath.startsWith('/receipts/')) { if (!auth()) return; return paymentRoutes.handleReceipt(req, res, cors, urlPath); }
 
+
     // Static
     return handleStatic(req, res, urlPath);
   };
